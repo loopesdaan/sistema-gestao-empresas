@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.usuario import Usuario, PerfilUsuario
 from app.models.produto import Produto
+from app.models.notificacao import Notificacao
 from app.models.estoque import MovimentacaoEstoque, TipoMovimentacaoEstoque
 from app.schemas.estoque import MovimentacaoEstoqueCreate, MovimentacaoEstoqueResponse, ImportacaoExcelResponse
 from app.api.deps import get_current_user
@@ -54,9 +55,118 @@ def movimentar_estoque(
     )
     db.add(mov)
     db.add(produto)
+
+    # Notificação imediata para o Gerente
+    tipo_desc = {
+        TipoMovimentacaoEstoque.ENTRADA: "Entrada de Estoque",
+        TipoMovimentacaoEstoque.SAIDA: "Saída Manual",
+        TipoMovimentacaoEstoque.AJUSTE: "Ajuste de Balanço",
+        TipoMovimentacaoEstoque.VENDA: "Baixa de Venda",
+        TipoMovimentacaoEstoque.ESTORNO: "Estorno de Venda",
+        TipoMovimentacaoEstoque.OS: "Uso em OS"
+    }.get(mov_in.tipo, str(mov_in.tipo))
+
+    notif = Notificacao(
+        empresa_id=current_user.empresa_id,
+        titulo=f"Movimentação de Estoque: {produto.nome}",
+        mensagem=f"{current_user.nome} ({'Controlador de Estoque' if current_user.perfil == PerfilUsuario.ESTOQUISTA else 'Gerente'}) realizou {tipo_desc} de {qtd} un. Motivo: {mov_in.motivo or 'Ajuste manual'}. Saldo atual: {produto.estoque_atual} {produto.unidade}.",
+        tipo="ALERTA",
+        referencia_tipo="ESTOQUE",
+        referencia_id=produto.id
+    )
+    db.add(notif)
+
     db.commit()
     db.refresh(mov)
     return mov
+
+@router.get("/todas-movimentacoes")
+def todas_movimentacoes(
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Retorna histórico completo de movimentações de estoque para o Gerente e Controlador de Estoque"""
+    movs = db.query(MovimentacaoEstoque).filter(
+        MovimentacaoEstoque.empresa_id == current_user.empresa_id
+    ).order_by(MovimentacaoEstoque.created_at.desc()).limit(limit).all()
+
+    resultado = []
+    for m in movs:
+        resultado.append({
+            "id": m.id,
+            "produto_id": m.produto_id,
+            "produto_nome": m.produto.nome if m.produto else f"Produto #{m.produto_id}",
+            "categoria": m.produto.categoria if m.produto else "-",
+            "usuario_id": m.usuario_id,
+            "usuario_nome": m.usuario.nome if m.usuario else "Sistema",
+            "tipo": m.tipo.value if hasattr(m.tipo, "value") else str(m.tipo),
+            "quantidade": float(m.quantidade),
+            "motivo": m.motivo,
+            "created_at": m.created_at.isoformat() if m.created_at else None
+        })
+    return resultado
+
+@router.get("/dashboard-metricas")
+def dashboard_estoque_metricas(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Dashboard especializado de inteligência de estoque para o Controlador de Estoque e Gerente"""
+    produtos = db.query(Produto).filter(
+        Produto.empresa_id == current_user.empresa_id,
+        Produto.ativo == True
+    ).all()
+
+    total_itens = len(produtos)
+    quantidade_unidades = sum(float(p.estoque_atual or 0) for p in produtos)
+    valor_custo_total = sum(float(p.estoque_atual or 0) * float(p.preco_custo or 0) for p in produtos)
+    valor_venda_total = sum(float(p.estoque_atual or 0) * float(p.preco_venda or 0) for p in produtos)
+    lucro_projetado = max(0.0, valor_venda_total - valor_custo_total)
+    margem_media = ((lucro_projetado / valor_venda_total) * 100) if valor_venda_total > 0 else 0.0
+
+    itens_zerados = [p for p in produtos if float(p.estoque_atual or 0) <= 0]
+    itens_alerta = [p for p in produtos if 0 < float(p.estoque_atual or 0) <= float(p.estoque_minimo or 0)]
+
+    movs = db.query(MovimentacaoEstoque).filter(
+        MovimentacaoEstoque.empresa_id == current_user.empresa_id
+    ).order_by(MovimentacaoEstoque.created_at.desc()).limit(10).all()
+
+    return {
+        "total_itens_cadastrados": total_itens,
+        "quantidade_total_unidades": round(quantidade_unidades, 2),
+        "patrimonio_custo_total": round(valor_custo_total, 2),
+        "valor_potencial_venda": round(valor_venda_total, 2),
+        "lucro_bruto_projetado": round(lucro_projetado, 2),
+        "margem_media_percentual": round(margem_media, 1),
+        "qtd_itens_zerados": len(itens_zerados),
+        "qtd_itens_alerta": len(itens_alerta),
+        "produtos_criticos": [
+            {
+                "id": p.id,
+                "nome": p.nome,
+                "categoria": p.categoria,
+                "estoque_atual": float(p.estoque_atual),
+                "estoque_minimo": float(p.estoque_minimo),
+                "unidade": p.unidade,
+                "preco_venda": float(p.preco_venda),
+                "status": "ZERADO" if float(p.estoque_atual) <= 0 else "ALERTA"
+            }
+            for p in (itens_zerados + itens_alerta)[:15]
+        ],
+        "ultimas_movimentacoes": [
+            {
+                "id": m.id,
+                "produto_nome": m.produto.nome if m.produto else f"Item #{m.produto_id}",
+                "usuario_nome": m.usuario.nome if m.usuario else "Sistema",
+                "tipo": m.tipo.value if hasattr(m.tipo, "value") else str(m.tipo),
+                "quantidade": float(m.quantidade),
+                "motivo": m.motivo,
+                "created_at": m.created_at.isoformat() if m.created_at else None
+            }
+            for m in movs
+        ]
+    }
 
 @router.get("/historico/{produto_id}", response_model=List[MovimentacaoEstoqueResponse])
 def historico_produto(

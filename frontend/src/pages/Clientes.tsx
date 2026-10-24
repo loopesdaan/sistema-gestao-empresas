@@ -1,19 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../services/api';
 import { Cliente } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { 
   Users, Search, Plus, Phone, Mail, MapPin, DollarSign, 
-  AlertCircle, Edit, Car, Sparkles, CheckCircle2 
+  AlertCircle, Edit, Car, Sparkles, CheckCircle2,
+  TrendingDown, CreditCard, X
 } from 'lucide-react';
 
 export const Clientes: React.FC = () => {
-  const { perfilNegocio } = useEmpresa();
+  const { perfilNegocio, temaAtual } = useEmpresa();
   const ehAutomotivo = perfilNegocio === 'lava_rapido' || perfilNegocio === 'mecanica';
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState<'TODOS' | 'COM_DEBITO' | 'SEM_DEBITO'>('TODOS');
   const [modalCliente, setModalCliente] = useState<Partial<Cliente> | null>(null);
   const [buscandoCep, setBuscandoCep] = useState(false);
 
@@ -32,6 +34,21 @@ export const Clientes: React.FC = () => {
   useEffect(() => {
     carregarClientes();
   }, [busca]);
+
+  // Métricas do Dashboard de Clientes
+  const metricas = useMemo(() => {
+    const total = clientes.length;
+    const devedores = clientes.filter(c => Number(c.saldo_devedor || 0) > 0);
+    const totalDevedor = devedores.reduce((acc, c) => acc + Number(c.saldo_devedor || 0), 0);
+    const totalLimite = clientes.reduce((acc, c) => acc + Number(c.limite_credito || 0), 0);
+
+    return {
+      total,
+      qtdDevedores: devedores.length,
+      totalDevedor,
+      totalLimite,
+    };
+  }, [clientes]);
 
   const handleBuscarCep = async (cepInput: string) => {
     const clean = cepInput.replace(/\D/g, '');
@@ -55,7 +72,7 @@ export const Clientes: React.FC = () => {
 
   const handleSalvarCliente = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!modalCliente || !modalCliente.nome) return;
+    if (!modalCliente?.nome) return;
 
     try {
       if (modalCliente.id) {
@@ -74,6 +91,14 @@ export const Clientes: React.FC = () => {
     return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
+  const clientesFiltrados = useMemo(() => {
+    return clientes.filter(c => {
+      if (filtroStatus === 'COM_DEBITO') return Number(c.saldo_devedor || 0) > 0;
+      if (filtroStatus === 'SEM_DEBITO') return Number(c.saldo_devedor || 0) === 0;
+      return true;
+    });
+  }, [clientes, filtroStatus]);
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -87,8 +112,8 @@ export const Clientes: React.FC = () => {
           </div>
           <p className="text-xs text-slate-500 mt-1">
             {ehAutomotivo
-              ? 'Cadastro de clientes, veículos (placa, modelo, cor) e histórico de serviços realizados.'
-              : 'Cadastro de clientes, limite de crédito e acompanhamento financeiro.'}
+              ? 'Cadastro de clientes, veículos (placa, modelo, cor) e histórico de atendimentos.'
+              : 'Gestão da carteira de clientes, limite de crediário/fiado e acompanhamento de débitos em aberto.'}
           </p>
         </div>
 
@@ -107,16 +132,81 @@ export const Clientes: React.FC = () => {
             saldo_devedor: 0,
             ativo: true
           })}
-          className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors"
+          className={`flex items-center gap-2 bg-gradient-to-r ${temaAtual.bgGradiente} hover:opacity-95 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all`}
         >
           <Plus size={16} />
           <span>{ehAutomotivo ? 'Cadastrar Cliente / Veículo' : 'Novo Cliente'}</span>
         </button>
       </div>
 
-      {/* Busca */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
-        <div className="relative max-w-md">
+      {/* Dashboard Analítico de Clientes */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase block tracking-wider">
+              Total de Clientes
+            </span>
+            <span className="text-2xl font-black text-slate-800 mt-1 block">
+              {metricas.total}
+            </span>
+            <span className="text-[10px] text-slate-400">Cadastrados no sistema</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+            <Users size={20} />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase block tracking-wider">
+              Fiado / Em Aberto
+            </span>
+            <span className={`text-2xl font-black mt-1 block ${metricas.totalDevedor > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {formatMoney(metricas.totalDevedor)}
+            </span>
+            <span className="text-[10px] text-slate-400">
+              {metricas.qtdDevedores} cliente(s) com débito
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <TrendingDown size={20} />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase block tracking-wider">
+              Limite Concedido
+            </span>
+            <span className="text-2xl font-black text-slate-800 mt-1 block">
+              {formatMoney(metricas.totalLimite)}
+            </span>
+            <span className="text-[10px] text-slate-400">Teto total autorizado</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+            <CreditCard size={20} />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase block tracking-wider">
+              Em Dia / Sem Débito
+            </span>
+            <span className="text-2xl font-black text-emerald-600 mt-1 block">
+              {metricas.total - metricas.qtdDevedores}
+            </span>
+            <span className="text-[10px] text-slate-400">Clientes 100% regulares</span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <CheckCircle2 size={20} />
+          </div>
+        </div>
+      </div>
+
+      {/* Barra de Filtros e Busca */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="relative w-full sm:max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
             <Search size={16} />
           </div>
@@ -129,37 +219,74 @@ export const Clientes: React.FC = () => {
                 ? 'Buscar por nome, placa do veículo, modelo ou CPF...'
                 : 'Buscar cliente por nome, CPF/CNPJ ou telefone...'
             }
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none"
+            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none"
           />
+        </div>
+
+        {/* Filtro Rápido de Status */}
+        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setFiltroStatus('TODOS')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+              filtroStatus === 'TODOS'
+                ? 'bg-slate-900 text-white'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+            }`}
+          >
+            Todos ({metricas.total})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltroStatus('COM_DEBITO')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+              filtroStatus === 'COM_DEBITO'
+                ? 'bg-amber-600 text-white'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200'
+            }`}
+          >
+            Com Débito ({metricas.qtdDevedores})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltroStatus('SEM_DEBITO')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+              filtroStatus === 'SEM_DEBITO'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+            }`}
+          >
+            Em Dia ({metricas.total - metricas.qtdDevedores})
+          </button>
         </div>
       </div>
 
       {/* Lista de Clientes em Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {clientes.length === 0 ? (
+        {clientesFiltrados.length === 0 ? (
           <div className="col-span-full bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
-            Nenhum cliente encontrado.
+            Nenhum cliente encontrado com os filtros selecionados.
           </div>
         ) : (
-          clientes.map((c) => (
+          clientesFiltrados.map((c) => (
             <div key={c.id} className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:border-slate-300 transition-all flex flex-col justify-between">
               <div>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
                     <h3 className="font-bold text-slate-900 text-sm leading-tight">{c.nome}</h3>
-                    {c.cpf_cnpj && <span className="text-[11px] text-slate-400">{c.cpf_cnpj}</span>}
+                    {c.cpf_cnpj && <span className="text-[11px] text-slate-400 font-mono">{c.cpf_cnpj}</span>}
                   </div>
                   <button
                     onClick={() => setModalCliente(c)}
-                    className="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-slate-50"
+                    className="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-slate-50 transition-colors"
                     title="Editar cliente"
                   >
                     <Edit size={15} />
                   </button>
                 </div>
 
-                {/* Veículo em Destaque */}
-                {(c.placa_veiculo || c.modelo_veiculo) && (
+                {/* Veículo em Destaque (Apenas para Lava Rápido / Mecânica) */}
+                {ehAutomotivo && (c.placa_veiculo || c.modelo_veiculo) && (
                   <div className="mt-2 p-2.5 bg-sky-50/80 border border-sky-100 rounded-xl flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
                       <Car size={16} />
@@ -227,8 +354,8 @@ export const Clientes: React.FC = () => {
                     <span className="font-semibold text-slate-700">{formatMoney(c.limite_credito)}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Saldo Devedor (Crediário)</span>
-                    <span className={`font-bold ${c.saldo_devedor > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Saldo Devedor (Fiado)</span>
+                    <span className={`font-bold ${Number(c.saldo_devedor) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                       {formatMoney(c.saldo_devedor)}
                     </span>
                   </div>
@@ -239,16 +366,38 @@ export const Clientes: React.FC = () => {
         )}
       </div>
 
-      {/* Modal Criar / Editar Cliente */}
+      {/* Modal Criar / Editar Cliente com Fechamento ao Clicar Fora */}
       {modalCliente && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="font-bold text-slate-800 text-lg mb-1">
-              {modalCliente.id ? 'Editar Cliente' : 'Novo Cliente'}
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Preencha os dados cadastrais, endereço e veículo vinculado.
-            </p>
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalCliente(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-2">
+                <div className={`p-2 rounded-xl bg-gradient-to-r ${temaAtual.bgGradiente} text-white shadow-xs`}>
+                  {ehAutomotivo ? <Car size={18} /> : <Users size={18} />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-base leading-tight">
+                    {modalCliente.id ? 'Editar Cadastro de Cliente' : 'Novo Cadastro de Cliente'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {ehAutomotivo ? 'Dados do cliente e do veículo' : 'Dados cadastrais, endereço e limite de crediário'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalCliente(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
             <form onSubmit={handleSalvarCliente} className="space-y-3.5 text-xs">
               <div>
@@ -258,8 +407,8 @@ export const Clientes: React.FC = () => {
                   required
                   value={modalCliente.nome || ''}
                   onChange={(e) => setModalCliente({ ...modalCliente, nome: e.target.value })}
-                  placeholder="Ex: Carlos Silva"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                  placeholder="Ex: Carlos Silva ou Distribuidora ABC"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
                 />
               </div>
 
@@ -271,7 +420,7 @@ export const Clientes: React.FC = () => {
                     value={modalCliente.cpf_cnpj || ''}
                     onChange={(e) => setModalCliente({ ...modalCliente, cpf_cnpj: e.target.value })}
                     placeholder="000.000.000-00"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -281,49 +430,8 @@ export const Clientes: React.FC = () => {
                     value={modalCliente.telefone || ''}
                     onChange={(e) => setModalCliente({ ...modalCliente, telefone: e.target.value })}
                     placeholder="(11) 99999-9999"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
                   />
-                </div>
-              </div>
-
-              {/* Informações do Veículo */}
-              <div className="p-3 bg-sky-50/60 rounded-xl border border-sky-100 space-y-2.5">
-                <div className="flex items-center gap-1.5 font-bold text-sky-900 text-xs">
-                  <Car size={15} />
-                  <span>Dados do Veículo (Lava Rápido / Mecânica)</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Placa</label>
-                    <input
-                      type="text"
-                      value={modalCliente.placa_veiculo || ''}
-                      onChange={(e) => setModalCliente({ ...modalCliente, placa_veiculo: e.target.value.toUpperCase() })}
-                      placeholder="ABC-1234"
-                      className="w-full px-2.5 py-1.5 uppercase font-mono font-bold border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Modelo / Marca</label>
-                    <input
-                      type="text"
-                      value={modalCliente.modelo_veiculo || ''}
-                      onChange={(e) => setModalCliente({ ...modalCliente, modelo_veiculo: e.target.value })}
-                      placeholder="Ex: Fiat Argo 1.3"
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Cor</label>
-                    <input
-                      type="text"
-                      value={modalCliente.cor_veiculo || ''}
-                      onChange={(e) => setModalCliente({ ...modalCliente, cor_veiculo: e.target.value })}
-                      placeholder="Ex: Prata"
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none"
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -334,54 +442,94 @@ export const Clientes: React.FC = () => {
                   value={modalCliente.email || ''}
                   onChange={(e) => setModalCliente({ ...modalCliente, email: e.target.value })}
                   placeholder="cliente@email.com"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
                 />
               </div>
 
-              {/* Endereço com CEP Automático */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-1/3">
-                    <label className="block font-semibold text-slate-700 mb-1">CEP</label>
-                    <input
-                      type="text"
-                      value={modalCliente.cep || ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setModalCliente({ ...modalCliente, cep: val });
-                        if (val.replace(/\D/g, '').length === 8) {
-                          handleBuscarCep(val);
-                        }
-                      }}
-                      placeholder="00000-000"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="w-2/3 pt-5">
+              {/* Endereço com Busca Automática por CEP */}
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-slate-700 text-[11px]">CEP</label>
                     <button
                       type="button"
                       disabled={buscandoCep}
                       onClick={() => modalCliente.cep && handleBuscarCep(modalCliente.cep)}
-                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors disabled:opacity-50"
+                      className="text-[10px] text-sky-600 font-bold hover:underline"
                     >
-                      <Sparkles size={14} className="text-sky-600" />
-                      <span>{buscandoCep ? 'Buscando...' : 'Buscar Endereço pelo CEP'}</span>
+                      {buscandoCep ? 'Buscando...' : 'Buscar'}
                     </button>
                   </div>
+                  <input
+                    type="text"
+                    value={modalCliente.cep || ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setModalCliente({ ...modalCliente, cep: v });
+                      if (v.replace(/\D/g, '').length === 8) {
+                        handleBuscarCep(v);
+                      }
+                    }}
+                    placeholder="00000-000"
+                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                  />
                 </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Endereço Completo</label>
+                <div className="col-span-2">
+                  <label className="block font-semibold text-slate-700 text-[11px] mb-1">Endereço Completo</label>
                   <input
                     type="text"
                     value={modalCliente.endereco || ''}
                     onChange={(e) => setModalCliente({ ...modalCliente, endereco: e.target.value })}
-                    placeholder="Rua, número, complemento, bairro, cidade"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                    placeholder="Rua, Número, Bairro, Cidade"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
                   />
                 </div>
               </div>
 
+              {/* Informações do Veículo: Exibido APENAS para segmentos automotivos (Lava Rápido / Mecânica) */}
+              {ehAutomotivo && (
+                <div className="p-3.5 bg-sky-50/60 rounded-2xl border border-sky-100 space-y-2.5">
+                  <div className="flex items-center gap-1.5 font-bold text-sky-900 text-xs">
+                    <Car size={15} />
+                    <span>Dados do Veículo (Mecânica / Lava Rápido)</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">Placa</label>
+                      <input
+                        type="text"
+                        value={modalCliente.placa_veiculo || ''}
+                        onChange={(e) => setModalCliente({ ...modalCliente, placa_veiculo: e.target.value.toUpperCase() })}
+                        placeholder="ABC-1234"
+                        className="w-full px-2.5 py-1.5 uppercase font-mono font-bold border border-slate-300 rounded-xl text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">Modelo / Marca</label>
+                      <input
+                        type="text"
+                        value={modalCliente.modelo_veiculo || ''}
+                        onChange={(e) => setModalCliente({ ...modalCliente, modelo_veiculo: e.target.value })}
+                        placeholder="Ex: Fiat Argo 1.3"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-xl text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">Cor</label>
+                      <input
+                        type="text"
+                        value={modalCliente.cor_veiculo || ''}
+                        onChange={(e) => setModalCliente({ ...modalCliente, cor_veiculo: e.target.value })}
+                        placeholder="Ex: Prata"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-xl text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Informações Financeiras: Limite de Crédito e Saldo Devedor */}
               {!ehAutomotivo && (
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div>
@@ -391,17 +539,17 @@ export const Clientes: React.FC = () => {
                       step="0.01"
                       value={modalCliente.limite_credito || 0}
                       onChange={(e) => setModalCliente({ ...modalCliente, limite_credito: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-semibold focus:ring-1 focus:ring-sky-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Saldo Devedor Atual (R$)</label>
+                    <label className="block font-semibold text-slate-700 mb-1">Saldo Devedor Atual (Fiado)</label>
                     <input
                       type="number"
                       step="0.01"
                       value={modalCliente.saldo_devedor || 0}
                       onChange={(e) => setModalCliente({ ...modalCliente, saldo_devedor: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-bold text-amber-700 focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-bold text-amber-700 focus:ring-1 focus:ring-sky-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -411,13 +559,13 @@ export const Clientes: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setModalCliente(null)}
-                  className="flex-1 py-2 border border-slate-300 text-slate-700 rounded-xl font-semibold text-sm"
+                  className="flex-1 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-semibold text-xs transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-semibold text-sm shadow-xs"
+                  className={`flex-1 py-2.5 bg-gradient-to-r ${temaAtual.bgGradiente} text-white rounded-xl font-bold text-xs shadow-xs transition-all`}
                 >
                   Salvar Cliente
                 </button>
@@ -429,4 +577,3 @@ export const Clientes: React.FC = () => {
     </div>
   );
 };
-

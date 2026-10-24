@@ -170,8 +170,14 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
   const totalTroco = (vendaAtiva.pagamentos || []).reduce((acc, p) => acc + (p.troco || 0), 0);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+    <div 
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-3xl max-w-lg w-full shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Top Header do Modal */}
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
@@ -236,6 +242,7 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
                 <img
                   src={empresa.logo_url.startsWith('http') ? empresa.logo_url : `http://localhost:8000${empresa.logo_url}`}
                   alt="Logo"
+                  onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                   className="w-12 h-12 mx-auto rounded-lg object-cover mb-2 border border-slate-200"
                 />
               )}

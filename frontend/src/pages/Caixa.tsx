@@ -818,10 +818,16 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
         </>
       )}
 
-      {/* Modal de Inspeção de Caixa (Admin) */}
+      {/* Modal de Inspeção de Caixa (Admin) com Fechamento ao Clicar Fora */}
       {resumoInspecionado && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setResumoInspecionado(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-50 px-2 py-0.5 rounded">
@@ -893,10 +899,16 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
         </div>
       )}
 
-      {/* Modal Abertura */}
+      {/* Modal Abertura com Fechamento ao Clicar Fora */}
       {modalAbertura && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalAbertura(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="font-bold text-slate-800 text-lg mb-2">Abrir Meu Caixa</h3>
             <p className="text-xs text-slate-500 mb-4">Informe o valor inicial do caixa (fundo de troco).</p>
             <form onSubmit={handleAbrir} className="space-y-4">
@@ -931,10 +943,16 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
         </div>
       )}
 
-      {/* Modal Movimentação (Sangria / Suprimento) */}
+      {/* Modal Movimentação (Sangria / Suprimento) com Fechamento ao Clicar Fora */}
       {modalMov && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalMov(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="font-bold text-slate-800 text-lg mb-1">
               {modalMov === 'SANGRIA' ? 'Retirada de Caixa (Sangria)' : 'Entrada de Dinheiro (Suprimento)'}
             </h3>
@@ -987,10 +1005,16 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
         </div>
       )}
 
-      {/* Modal Fechamento */}
+      {/* Modal Fechamento com Fechamento ao Clicar Fora */}
       {modalFechamento && resumo && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalFechamento(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="font-bold text-slate-800 text-lg mb-1">Fechamento do Meu Caixa</h3>
             <p className="text-xs text-slate-500 mb-4">
               Conte o dinheiro físico no caixa e informe o valor apurado.
@@ -1082,10 +1106,16 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
         </div>
       )}
 
-      {/* MODAL: SOLICITAR TICKET DE CAIXA (SUPRIMENTO / SANGRIA / SANGRIA CEGA) */}
+      {/* MODAL: SOLICITAR TICKET DE CAIXA COM FECHAMENTO AO CLICAR FORA */}
       {modalTicket.aberto && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalTicket(prev => ({ ...prev, aberto: false }))}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Send className="text-sky-600" size={20} />

@@ -170,6 +170,7 @@ const AppContent: React.FC = () => {
         setIsOpen={setSidebarOpen}
         onLogout={handleLogout}
         userName={usuario.nome}
+        userPerfil={usuario.perfil}
         isAdmin={isAdmin}
         onOpenOnboarding={() => setShowOnboarding(true)}
       />
@@ -180,6 +181,7 @@ const AppContent: React.FC = () => {
           onMenuToggle={() => setSidebarOpen(true)}
           activeTitle={getPageTitle()}
           onOpenPDV={() => setActiveTab('pdv')}
+          onOpenPonto={() => setActiveTab('ponto')}
           caixaAberto={caixaAberto}
           caixaAtual={caixaAtual}
           userName={usuario.nome}

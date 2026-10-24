@@ -8,6 +8,7 @@ interface NavbarProps {
   onMenuToggle: () => void;
   activeTitle: string;
   onOpenPDV: () => void;
+  onOpenPonto?: () => void;
   caixaAberto: boolean;
   caixaAtual?: Caixa | null;
   userName?: string;
@@ -44,6 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onMenuToggle,
   activeTitle,
   onOpenPDV,
+  onOpenPonto,
   caixaAberto,
   caixaAtual,
   userName = 'Administrador'
@@ -112,6 +114,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             'Caixa Fechado'
           )}
         </div>
+
+        {/* Botão Atalho Bater Ponto CLT */}
+        {onOpenPonto && (
+          <button
+            onClick={onOpenPonto}
+            title="Registrar ponto eletrônico ou consultar espelho de ponto CLT"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 rounded-xl text-xs font-semibold shadow-xs transition-colors"
+          >
+            <Clock size={15} className="text-amber-600 animate-pulse" />
+            <span className="hidden sm:inline">Bater Ponto</span>
+          </button>
+        )}
 
         {/* Botão Atalho PDV */}
         <button

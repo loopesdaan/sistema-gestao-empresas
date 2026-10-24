@@ -163,6 +163,7 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
                 <img
                   src={empresa.logo_url.startsWith('http') ? empresa.logo_url : `http://localhost:8000${empresa.logo_url}`}
                   alt="Logotipo da Empresa"
+                  onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                   className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-600 bg-white shadow-md"
                 />
               ) : (

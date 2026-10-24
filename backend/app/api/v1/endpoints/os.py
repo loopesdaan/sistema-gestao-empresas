@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.usuario import Usuario
+from app.models.usuario import Usuario, PerfilUsuario
 from app.models.cliente import Cliente
 from app.models.produto import Produto
 from app.models.caixa import Caixa, StatusCaixa
@@ -86,6 +86,12 @@ def criar_os(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
+    if current_user.perfil == PerfilUsuario.ESTOQUISTA:
+        raise HTTPException(
+            status_code=403,
+            detail="Operação não permitida. O Controlador de Estoque não possui autorização para abrir Ordens de Serviço."
+        )
+
     cliente = db.query(Cliente).filter(
         Cliente.id == dados.cliente_id,
         Cliente.empresa_id == current_user.empresa_id
@@ -239,6 +245,12 @@ def faturar_os(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
+    if current_user.perfil == PerfilUsuario.ESTOQUISTA:
+        raise HTTPException(
+            status_code=403,
+            detail="Operação não permitida. O Controlador de Estoque não realiza faturamento de Ordens de Serviço."
+        )
+
     # 1. Busca a OS
     os = db.query(OrdemServico).filter(
         OrdemServico.id == os_id,

@@ -12,6 +12,7 @@ interface SidebarProps {
   setIsOpen: (open: boolean) => void;
   onLogout: () => void;
   userName?: string;
+  userPerfil?: string;
   empresaNome?: string;
   isAdmin?: boolean;
   onOpenOnboarding?: () => void;
@@ -24,6 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsOpen,
   onLogout,
   userName = 'Administrador',
+  userPerfil = 'ADMIN',
   empresaNome = 'Gestão PME',
   isAdmin = false,
   onOpenOnboarding
@@ -31,27 +33,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { modulosAtivos, temaAtual, empresa } = useEmpresa();
   const nomeExibicao = empresa.nome_fantasia || empresaNome;
 
+  const isEstoquista = userPerfil === 'ESTOQUISTA';
+  const isOperador = userPerfil === 'OPERADOR_CAIXA';
+
   // Mapeamento de itens do menu para chaves de módulo com termos do segmento
   const allMenuItems = [
     { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'relatorios', sempreAdmin: true },
     { id: 'pdv', label: temaAtual.terminologia.pdv || 'PDV (Frente de Caixa)', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
     { id: 'caixa', label: 'Controle de Caixa', icon: Wallet, modulo: 'caixa' },
-    { id: 'ponto', label: 'Ponto Eletrônico CLT', icon: Clock, modulo: 'ponto' },
+    { id: 'ponto', label: 'Ponto Eletrônico CLT', icon: Clock, sempreVisivel: true, modulo: 'ponto' },
     { id: 'produtos', label: temaAtual.terminologia.itens || 'Produtos & Estoque', icon: Package, modulo: 'produtos' },
     { id: 'clientes', label: temaAtual.terminologia.cliente || 'Clientes & Crédito', icon: Users, modulo: 'clientes' },
     { id: 'os', label: temaAtual.terminologia.servicos || 'Ordens de Serviço', icon: Wrench, modulo: 'os' },
-    { id: 'relatorios', label: 'Relatórios de Vendas', icon: BarChart3, adminOnly: true, modulo: 'relatorios' },
+    { id: 'relatorios', label: 'Relatórios de Vendas', icon: BarChart3, modulo: 'relatorios' },
     { id: 'usuarios', label: 'Equipe & Usuários', icon: Shield, adminOnly: true, modulo: 'usuarios' },
     { id: 'empresa', label: 'Dados da Empresa', icon: Settings, modulo: 'empresa' },
   ];
 
-  // Filtra por: permissão de admin E módulo ativo no contexto da empresa
+  // Filtra por permissão de perfil (Gerente, Operador de Caixa, Controlador de Estoque)
   const menuItems = allMenuItems.filter(item => {
-    // Verifica permissão de admin
-    if (item.adminOnly && !isAdmin) return false;
-    // Dashboard sempre visível para admins
-    if (item.sempreAdmin && isAdmin) return true;
-    // Verifica se o módulo está ativo
+    // Ponto Eletrônico sempre visível para todos os funcionários
+    if (item.id === 'ponto') return true;
+
+    // Controlador de Estoque: trabalha exclusivamente com Estoque, Ponto e Dados da Empresa
+    if (isEstoquista) {
+      return item.id === 'produtos' || item.id === 'ponto' || item.id === 'empresa';
+    }
+
+    // Operador de Caixa: opera PDV, Caixa, OS, Clientes, Relatório das próprias vendas e Ponto
+    if (isOperador) {
+      if (item.id === 'dashboard' || item.id === 'usuarios') return false;
+      return modulosAtivos.includes(item.modulo);
+    }
+
+    // Gerente (Admin): acesso completo a todos os módulos do sistema
+    if (isAdmin) {
+      return true;
+    }
+
     return modulosAtivos.includes(item.modulo);
   });
 
@@ -77,6 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <img
                 src={empresa.logo_url.startsWith('http') ? empresa.logo_url : `http://localhost:8000${empresa.logo_url}`}
                 alt={nomeExibicao}
+                onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                 className="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow-md shrink-0 bg-white"
               />
             ) : (
@@ -159,7 +179,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="truncate">
                 <p className="text-xs font-medium text-white truncate">{userName}</p>
                 <p className="text-[11px] text-sky-400 font-medium">
-                  {isAdmin ? 'Administrador' : 'Operador'}
+                  {userPerfil === 'ADMIN' || isAdmin
+                    ? 'Gerente Geral'
+                    : userPerfil === 'ESTOQUISTA'
+                      ? 'Controlador de Estoque'
+                      : 'Operador de Caixa'}
                 </p>
               </div>
             </div>

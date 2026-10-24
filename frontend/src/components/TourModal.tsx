@@ -137,8 +137,14 @@ export const TourModal: React.FC<TourModalProps> = ({ isOpen, onClose, onNavigat
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]">
+    <div 
+      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Top Header do Tour */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">

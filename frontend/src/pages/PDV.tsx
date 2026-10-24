@@ -805,10 +805,16 @@ export const PDV: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal de Pagamento / Checkout */}
+      {/* Modal de Pagamento / Checkout com Fechamento ao Clicar Fora */}
       {modalPagamentoAberto && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalPagamentoAberto(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-4 border-b border-slate-200">
               <h3 className="font-bold text-slate-800 text-lg">Recebimento da Venda</h3>
               <button 
@@ -1080,11 +1086,17 @@ export const PDV: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de Sucesso da Venda */}
+      {/* Modal de Sucesso da Venda com Fechamento ao Clicar Fora */}
       {sucessoVenda && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setSucessoVenda(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 size={36} />
             </div>
             <h3 className="text-xl font-bold text-slate-800">Venda Concluída!</h3>
@@ -1092,7 +1104,7 @@ export const PDV: React.FC = () => {
               Venda #{sucessoVenda.id} gravada com sucesso no caixa.
             </p>
 
-            <div className="my-5 p-3.5 bg-slate-50 rounded-xl border border-slate-100 text-left text-xs space-y-1">
+            <div className="my-5 p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-left text-xs space-y-1">
               <div className="flex justify-between">
                 <span className="text-slate-500">Valor Total:</span>
                 <span className="font-bold text-slate-800">{formatMoney(sucessoVenda.valor_liquido)}</span>
@@ -1135,10 +1147,16 @@ export const PDV: React.FC = () => {
         venda={sucessoVenda}
       />
 
-      {/* Modal Selecionar OS para Cobrança no PDV */}
+      {/* Modal Selecionar OS para Cobrança no PDV com Fechamento ao Clicar Fora */}
       {modalImportarOSAberto && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalImportarOSAberto(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col border border-slate-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Wrench className="text-sky-600" size={20} />

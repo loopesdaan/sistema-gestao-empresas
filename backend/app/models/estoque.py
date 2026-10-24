@@ -24,4 +24,5 @@ class MovimentacaoEstoque(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     produto = relationship("Produto", back_populates="movimentacoes")
+    usuario = relationship("Usuario")
 

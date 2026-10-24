@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { Usuario, PerfilUsuario } from '../types';
-import { UserCheck, Shield, Plus, Edit, Lock, CheckCircle2, AlertCircle, Camera, Upload } from 'lucide-react';
+import { UserCheck, Shield, Plus, Edit, Lock, CheckCircle2, AlertCircle, Camera, Upload, X } from 'lucide-react';
 
 export const Usuarios: React.FC = () => {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -69,11 +69,11 @@ export const Usuarios: React.FC = () => {
   };
 
   const perfilLabels: Record<PerfilUsuario, { label: string; badge: string }> = {
-    ADMIN: { label: 'Administrador (Acesso Total)', badge: 'bg-purple-100 text-purple-800 border-purple-200' },
-    OPERADOR_CAIXA: { label: 'Operador de Caixa / PDV', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-    VENDEDOR: { label: 'Vendedor', badge: 'bg-sky-100 text-sky-800 border-sky-200' },
-    TECNICO: { label: 'Técnico / Serviços', badge: 'bg-amber-100 text-amber-800 border-amber-200' },
-    ESTOQUISTA: { label: 'Estoquista', badge: 'bg-orange-100 text-orange-800 border-orange-200' }
+    ADMIN: { label: 'Gerente Geral (Acesso Total)', badge: 'bg-purple-100 text-purple-800 border-purple-200' },
+    OPERADOR_CAIXA: { label: 'Operador de Caixa (PDV & OS)', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+    VENDEDOR: { label: 'Vendedor Comercial', badge: 'bg-sky-100 text-sky-800 border-sky-200' },
+    TECNICO: { label: 'Técnico de Serviços', badge: 'bg-amber-100 text-amber-800 border-amber-200' },
+    ESTOQUISTA: { label: 'Controlador de Estoque', badge: 'bg-amber-100 text-amber-800 border-amber-200' }
   };
 
   if (loading) {
@@ -138,6 +138,7 @@ export const Usuarios: React.FC = () => {
                         <img
                           src={u.foto_url.startsWith('http') ? u.foto_url : `http://localhost:8000${u.foto_url}`}
                           alt={u.nome}
+                          onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                           className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-2xs"
                         />
                       ) : (
@@ -185,13 +186,28 @@ export const Usuarios: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal Criar / Editar Usuário */}
+      {/* Modal Criar / Editar Usuário com Fechamento ao Clicar Fora */}
       {modalUsuario && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-            <h3 className="font-bold text-slate-800 text-lg mb-1">
-              {modalUsuario.id ? 'Editar Acesso do Usuário' : 'Cadastrar Novo Usuário'}
-            </h3>
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalUsuario(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+              <h3 className="font-bold text-slate-800 text-base leading-tight">
+                {modalUsuario.id ? 'Editar Acesso do Usuário' : 'Cadastrar Novo Usuário'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setModalUsuario(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl"
+              >
+                <X size={18} />
+              </button>
+            </div>
             <p className="text-xs text-slate-500 mb-4">
               Defina as credenciais e o nível de acesso do colaborador.
             </p>
@@ -204,6 +220,7 @@ export const Usuarios: React.FC = () => {
                     <img
                       src={modalUsuario.foto_url.startsWith('http') ? modalUsuario.foto_url : `http://localhost:8000${modalUsuario.foto_url}`}
                       alt="Foto"
+                      onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                       className="w-14 h-14 rounded-full object-cover border border-slate-300 shadow-2xs"
                     />
                   ) : (
@@ -271,13 +288,13 @@ export const Usuarios: React.FC = () => {
                 <select
                   value={modalUsuario.perfil}
                   onChange={(e) => setModalUsuario({ ...modalUsuario, perfil: e.target.value as PerfilUsuario })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-medium bg-white"
                 >
-                  <option value="OPERADOR_CAIXA">Operador de Caixa (Vendas no PDV, Abertura/Fechamento de Caixa)</option>
-                  <option value="VENDEDOR">Vendedor (Vendas e Clientes)</option>
-                  <option value="TECNICO">Técnico (Ordens de Serviço e Peças)</option>
-                  <option value="ESTOQUISTA">Estoquista (Gestão de Produtos e Estoque)</option>
-                  <option value="ADMIN">Administrador (Acesso Total, Relatórios e Usuários)</option>
+                  <option value="ADMIN">Gerente Geral (Acesso Total, Relatórios e Equipe)</option>
+                  <option value="OPERADOR_CAIXA">Operador de Caixa (Vendas no PDV, Controle de Caixa & OS)</option>
+                  <option value="ESTOQUISTA">Controlador de Estoque (Inventário, Ajustes e Balanço Físico)</option>
+                  <option value="VENDEDOR">Vendedor Comercial (Balcão e Clientes)</option>
+                  <option value="TECNICO">Técnico de Serviços (Ordens de Serviço e Peças)</option>
                 </select>
               </div>
 

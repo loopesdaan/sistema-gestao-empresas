@@ -112,6 +112,14 @@ export const apiService = {
     const res = await api.post('/estoque/movimentar', dados);
     return res.data;
   },
+  getTodasMovimentacoesEstoque: async (limit: number = 100) => {
+    const res = await api.get(`/estoque/todas-movimentacoes?limit=${limit}`);
+    return res.data;
+  },
+  getDashboardEstoqueMetricas: async () => {
+    const res = await api.get('/estoque/dashboard-metricas');
+    return res.data;
+  },
   importarPlanilha: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

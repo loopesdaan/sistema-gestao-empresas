@@ -338,11 +338,26 @@ export const OS: React.FC = () => {
         )}
       </div>
 
-      {/* Modal Nova OS */}
+      {/* Modal Nova OS com Fechamento ao Clicar Fora */}
       {modalNovaOS && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl">
-            <h3 className="font-bold text-slate-800 text-lg mb-4">Nova Ordem de Serviço</h3>
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalNovaOS(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <h3 className="font-bold text-slate-800 text-base leading-tight">Nova Ordem de Serviço</h3>
+              <button
+                type="button"
+                onClick={() => setModalNovaOS(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
             <form onSubmit={handleCriarOS} className="space-y-3.5 text-xs">
               <div>
@@ -426,10 +441,16 @@ export const OS: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Detalhes da OS */}
+      {/* Modal Detalhes da OS com Fechamento ao Clicar Fora */}
       {modalDetalheOS && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalDetalheOS(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div>
                 <span className="text-xs font-bold text-slate-400">OS #{modalDetalheOS.id}</span>
@@ -511,10 +532,16 @@ export const OS: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Cobrança / Recebimento da OS */}
+      {/* Modal Cobrança / Recebimento da OS com Fechamento ao Clicar Fora */}
       {modalCobrarOS && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalCobrarOS(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-slate-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <span className="text-xs font-bold text-sky-600 uppercase tracking-wider">
@@ -745,10 +772,16 @@ export const OS: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Recibo de Sucesso da OS */}
+      {/* Modal Recibo de Sucesso da OS com Fechamento ao Clicar Fora */}
       {sucessoFaturamento && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl text-center space-y-4">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setSucessoFaturamento(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl text-center space-y-4 border border-slate-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">
               <CheckCircle2 size={32} />
             </div>

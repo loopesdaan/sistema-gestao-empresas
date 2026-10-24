@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.usuario import Usuario
+from app.models.usuario import Usuario, PerfilUsuario
 from app.models.caixa import Caixa, StatusCaixa
 from app.models.cliente import Cliente
 from app.models.produto import Produto
@@ -63,7 +63,15 @@ def listar_vendas(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
+    # O Controlador de Estoque não acessa vendas
+    if current_user.perfil == PerfilUsuario.ESTOQUISTA:
+        return []
+
     query = db.query(Venda).filter(Venda.empresa_id == current_user.empresa_id)
+    # O Operador de Caixa tem acesso ao relatório das próprias vendas
+    if current_user.perfil == PerfilUsuario.OPERADOR_CAIXA:
+        query = query.filter(Venda.usuario_id == current_user.id)
+
     if status:
         query = query.filter(Venda.status == status)
     vendas = query.order_by(Venda.created_at.desc()).limit(limit).all()
@@ -89,6 +97,13 @@ def registrar_venda(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
+    # 0. Validação de perfil: Controlador de Estoque não realiza vendas
+    if current_user.perfil == PerfilUsuario.ESTOQUISTA:
+        raise HTTPException(
+            status_code=403,
+            detail="Operação não permitida. O perfil de Controlador de Estoque trabalha exclusivamente com a gestão do inventário e não realiza vendas no PDV."
+        )
+
     # 1. Valida se o caixa existe e está aberto
     caixa = db.query(Caixa).filter(
         Caixa.id == dados.caixa_id,

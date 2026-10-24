@@ -28,44 +28,59 @@ const FAQ_KNOWLEDGE_BASE: Array<{
   acao?: { label: string; tab: string };
 }> = [
   {
-    keywords: ['pix', 'mercado pago', 'qr code', 'pagamento pix', 'copia e cola'],
-    resposta: 'O módulo de PIX do sistema é integrado diretamente ao Mercado Pago. No momento da venda no PDV ou cobrança de OS, o sistema gera o QR Code dinâmico com valor exato. É possível também simular o pagamento em modo de desenvolvimento ou ler o QR Code diretamente com o aplicativo bancário.',
-    acao: { label: 'Ir para Frente de Caixa (PDV)', tab: 'pdv' }
+    keywords: ['cancelar venda', 'cancelar', 'estornar', 'estorno', 'cancelamento', 'devolver item'],
+    resposta: 'Para cancelar uma venda e estornar os produtos de volta ao estoque:\n1. Acesse o menu "Relatórios de Vendas";\n2. Localize a venda na tabela (você pode buscar pelo ID da venda ou nome do cliente);\n3. Na coluna de ações à direita, clique no botão vermelho "Cancelar";\n4. Confirme a operação.\n\nO sistema atualizará o status para "Cancelada" e devolverá automaticamente as quantidades vendidas de cada produto para o estoque físico.',
+    acao: { label: 'Ir para Relatórios de Vendas', tab: 'relatorios' }
   },
   {
-    keywords: ['caixa', 'abrir caixa', 'fechar caixa', 'sangria', 'suprimento', 'gaveta', 'quebra'],
-    resposta: 'No Controle de Caixa você pode registrar a Abertura com Fundo de Troco, solicitar Suprimentos ou Sangrias (inclusive Sangria Cega para o administrador recolher valores sem revelar o total em tela). O sistema audita automaticamente quebras de caixa (diferença entre o apurado pelas vendas e o dinheiro físico contado).',
-    acao: { label: 'Abrir Controle de Caixa', tab: 'caixa' }
-  },
-  {
-    keywords: ['ponto', 'clt', 'hora extra', 'horario', 'interjornada', 'artigo 66', 'artigo 59', '11 horas', '2 horas', 'trava'],
-    resposta: 'O módulo de Ponto Eletrônico opera em rigorosa conformidade com a CLT: exige 4 batidas (Entrada, Saída Almoço, Retorno Almoço, Saída Final), respeita o intervalo mínimo de 11 horas consecutivas de descanso (Art. 66 CLT) e limita horas extras a no máximo 2 horas diárias (Art. 59 CLT). Se o tempo expirar sem aprovação do ADM, o PDV trava de forma inteligente após a venda atual.',
+    keywords: ['bater ponto', 'ponto', 'onde bater', 'jornada', 'bater o ponto', 'ponto clt', 'almoco', 'entrada', 'saida'],
+    resposta: 'Para registrar seu ponto de trabalho:\n1. Clique no botão "Bater Ponto" localizado na barra superior (ao lado do status do Caixa) ou no menu lateral "Ponto Eletrônico CLT";\n2. Você encontrará os 4 registros da jornada:\n   • 1ª Batida: Entrada Inicial (Ex: 09:00)\n   • 2ª Batida: Saída para Almoço (Ex: 12:00)\n   • 3ª Batida: Retorno do Almoço (Ex: 13:00)\n   • 4ª Batida: Saída do Turno (Ex: 18:00)\n\nO sistema monitora a jornada em conformidade com a CLT: intervalo interjornada de 11h (Art. 66) e limite de 2 horas extras diárias (Art. 59), avisando o Gerente para liberação formal.',
     acao: { label: 'Acessar Ponto Eletrônico', tab: 'ponto' }
   },
   {
-    keywords: ['relatorio', 'relatorios', 'excel', 'pdf', 'csv', 'exportar', 'extracao'],
-    resposta: 'Você pode exportar relatórios completos de vendas em Excel (.csv separado por ponto e vírgula com UTF-8 BOM para abrir sem erros de acentuação), arquivo HTML estilizado e impressão direta em PDF. O Dashboard também pode ser exportado em formato HTML com todos os gráficos.',
-    acao: { label: 'Ver Relatórios de Vendas', tab: 'relatorios' }
+    keywords: ['comprovante', 'recibo', 'nota digital', 'pagina em branco', 'imprimir', 'cupom', 'termica'],
+    resposta: 'Todos os comprovantes do sistema (PDV, Ordens de Serviço, Relatórios de Vendas e Caixa) utilizam o Comprovante Digital Térmico:\n• O comprovante abre instantaneamente como um modal sobre a tela atual, sem abrir abas em branco;\n• Exibe itens, vendedor, cliente, formas de pagamento e troco;\n• O botão "Imprimir" dispara a impressão térmica de 80mm ou PDF em segundo plano;\n• Você pode fechar o comprovante clicando no "X" ou fora do modal.',
+    acao: { label: 'Ver Relatório de Vendas', tab: 'relatorios' }
   },
   {
-    keywords: ['ordem de servico', 'os', 'servico', 'veiculo', 'mecanica', 'peças', 'laudo'],
-    resposta: 'As Ordens de Serviço permitem registrar laudos técnicos, equipamentos ou veículos (placa, modelo, cor) e separar o valor de mão de obra de peças. É possível faturar uma OS diretamente na tela de OS ou importá-la direto para o carrinho do PDV para vender peças e serviços na mesma comanda.',
+    keywords: ['estoquista', 'controlador de estoque', 'dashboard de estoque', 'patrimonio', 'estoque critico', 'ajustar estoque'],
+    resposta: 'O perfil "Controlador de Estoque" trabalha exclusivamente com a gestão física do estoque (não realiza vendas no PDV nem gera OS):\n• Dashboard de Estoque: calcula o patrimônio a custo, projeção de venda bruta, lucro esperado e margem média;\n• Sugestão de Reposição: alerta produtos esgotados (zerados) ou abaixo do estoque mínimo com botão de entrada rápida;\n• Histórico de Movimentações: audita todas as entradas, saídas e balanços com operador e justificativa, notificando o Gerente em tempo real.',
+    acao: { label: 'Abrir Gestão de Estoque', tab: 'produtos' }
+  },
+  {
+    keywords: ['pix', 'mercado pago', 'qr code', 'pagamento pix', 'copia e cola', 'chave pix'],
+    resposta: 'A cobrança via PIX é integrada diretamente ao Mercado Pago:\n• No checkout do PDV ou cobrança de OS, selecione "PIX Mercado Pago" e clique em "Gerar QR Code";\n• O QR Code é gerado vetorialmente em SVG na tela para leitura direta pelo aplicativo do banco;\n• É possível clicar em "Copiar Pix Copia e Cola" ou em "Simular Pagamento Pago (Dev)" para testes rápidos em ambiente de demonstração.',
+    acao: { label: 'Ir para Frente de Caixa (PDV)', tab: 'pdv' }
+  },
+  {
+    keywords: ['caixa', 'abrir caixa', 'fechar caixa', 'sangria', 'suprimento', 'sangria cega', 'quebra'],
+    resposta: 'No módulo de Controle de Caixa:\n• Abertura: informe o fundo de troco inicial;\n• Suprimento e Sangria: solicite entradas ou retiradas com justificativa;\n• Sangria Cega: o Gerente pode exigir a retirada sem que o operador veja o saldo total em tela;\n• Fechamento: o operador conta o dinheiro da gaveta e digita o valor. O sistema audita quebras ou sobras de caixa;\n• Comprovantes: permite navegar pelo histórico de cada venda realizada no turno.',
+    acao: { label: 'Abrir Controle de Caixa', tab: 'caixa' }
+  },
+  {
+    keywords: ['ordem de servico', 'os', 'servico', 'mecanica', 'placa', 'pecas', 'veiculo', 'laudo'],
+    resposta: 'Nas Ordens de Serviço (OS):\n• O Operador de Caixa e o Gerente podem cadastrar ordens informando cliente, veículo/equipamento, defeito relatado e laudo técnico;\n• O sistema separa o total de mão de obra de peças aplicadas;\n• Cobrança flexível: você pode faturar a OS diretamente na tela de OS ou importá-la para o PDV para cobrar produtos e serviços no mesmo comprovante.',
     acao: { label: 'Ir para Ordens de Serviço', tab: 'os' }
   },
   {
-    keywords: ['estoque', 'produto', 'produtos', 'decimal', 'inteiro', 'quantidade'],
-    resposta: 'O cadastro de produtos permite definir preços de custo, venda, código de barras e estoque mínimo com alerta visual. Para itens unitários, a quantidade foi travada para valores inteiros e consistentes, impedindo fracionamentos incorretos.',
-    acao: { label: 'Gestão de Estoque', tab: 'produtos' }
-  },
-  {
-    keywords: ['cliente', 'clientes', 'credito', 'crediario', 'a prazo', 'limite'],
-    resposta: 'No cadastro de clientes você acompanha histórico de compras, limite de crédito e saldo devedor. Pagamentos a prazo geram cobranças automáticas e notificações persistentes que só desaparecem quando o débito for regularizado.',
+    keywords: ['cliente', 'clientes', 'credito', 'crediario', 'fiado', 'saldo devedor', 'placa veiculo'],
+    resposta: 'No módulo de Clientes & Crédito:\n• Dashboard no topo exibe o total de clientes, valor de fiado em aberto e clientes em atraso;\n• Para Adega e varejo, campos de veículos ficam ocultos para agilizar o cadastro;\n• Para Lava Rápido e Mecânica, a seção de placa e modelo do veículo fica ativa em destaque;\n• Vendas a prazo lançam o débito diretamente na ficha do cliente.',
     acao: { label: 'Clientes & Crédito', tab: 'clientes' }
   },
   {
-    keywords: ['segmento', 'personalizar', 'cor', 'onboarding', 'mudar cor', 'adega', 'lava rapido'],
-    resposta: 'O sistema se adapta a 6 ramos comerciais: Mecânica, Lava Rápido, Adegas, Material de Construção, Lojas de Roupas e Personalizado. Cada um possui terminologia sob medida, catálogo modelo e paletas de cores (Safira, Ciano, Esmeralda, Âmbar, Púrpura, Rubi, etc.) que personalizam botões, menus e indicadores.',
+    keywords: ['relatorio', 'relatorios', 'excel', 'pdf', 'csv', 'exportar', 'html', 'extracao'],
+    resposta: 'Os relatórios de vendas contam com múltiplas formas de extração:\n• Planilha Excel (.csv com formatação brasileira e separador por ponto e vírgula);\n• Relatório Web (.html estilizado);\n• Documento PDF para salvar ou imprimir sem abrir abas em branco;\n• O Operador de Caixa consulta o relatório das vendas dele, enquanto o Gerente tem acesso a todas as vendas da empresa.',
+    acao: { label: 'Ver Relatórios de Vendas', tab: 'relatorios' }
+  },
+  {
+    keywords: ['segmento', 'adega', 'lava rapido', 'mecanica', 'personalizar', 'cor', 'mudar cor', 'onboarding'],
+    resposta: 'O sistema suporta 6 segmentos comerciais:\n1. Adega & Bebidas\n2. Lava Rápido & Estética\n3. Mecânica & Auto Peças\n4. Material de Construção\n5. Loja de Roupas & Varejo\n6. Comércio Geral / Personalizado\n\nCada segmento carrega seu catálogo modelo coerente, termos apropriados, ícone no navegador e paletas temáticas (Safira, Âmbar, Ciano, Esmeralda, Vinho Púrpura, Rubi). Você pode trocar em "Dados da Empresa".',
     acao: { label: 'Configurar Empresa & Visual', tab: 'empresa' }
+  },
+  {
+    keywords: ['perfis', 'usuarios', 'gerente', 'operador', 'cargos', 'permissoes'],
+    resposta: 'Os cargos no sistema são:\n• Gerente Geral (antigo ADM): controle total de vendas, estoque, relatórios, auditoria de caixa e equipe;\n• Operador de Caixa: opera o PDV, caixa, abertura de Ordens de Serviço e consulta suas próprias vendas;\n• Controlador de Estoque: dedicado ao inventário, balanço, dashboard de estoque e histórico de movimentações (sem acesso a vendas).',
+    acao: { label: 'Gestão da Equipe', tab: 'usuarios' }
   }
 ];
 
@@ -91,12 +106,20 @@ export const ChatbotIA: React.FC<ChatbotIAProps> = ({ onNavigateTab, onOpenTour 
     }
   }, [mensagens, aberto]);
 
+  const normalizar = (txt: string) => {
+    return txt
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  };
+
   const processarPergunta = (pergunta: string) => {
-    const q = pergunta.toLowerCase().trim();
+    const q = normalizar(pergunta);
     
-    // Procura na base de conhecimento
+    // Procura na base de conhecimento normalizada
     for (const item of FAQ_KNOWLEDGE_BASE) {
-      if (item.keywords.some(k => q.includes(k))) {
+      if (item.keywords.some(k => q.includes(normalizar(k)))) {
         return {
           resposta: item.resposta,
           acao: item.acao
@@ -106,7 +129,7 @@ export const ChatbotIA: React.FC<ChatbotIAProps> = ({ onNavigateTab, onOpenTour 
 
     // Resposta padrão inteligente
     return {
-      resposta: `Entendi sua dúvida sobre "${pergunta}". Este sistema conta com módulos integrados de PDV, Ordens de Serviço, Estoque, Ponto Eletrônico CLT e Controle de Caixa com Auditoria. Caso queira, posso te guiar por qualquer uma dessas áreas!`,
+      resposta: `Entendi sua dúvida sobre "${pergunta}". Este sistema conta com módulos integrados de PDV, Ordens de Serviço, Estoque com Dashboard, Ponto Eletrônico CLT e Controle de Caixa com Auditoria. Caso queira, posso te guiar por qualquer uma dessas áreas!`,
       acao: { label: 'Fazer Tour do Sistema', tab: 'tour' }
     };
   };
@@ -195,10 +218,12 @@ export const ChatbotIA: React.FC<ChatbotIAProps> = ({ onNavigateTab, onOpenTour 
           {/* Sugestões Rápidas */}
           <div className="p-2.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto text-[10px]">
             {[
+              'Como cancelar uma venda?',
+              'Onde bater o ponto?',
+              'Dashboard de Estoque',
               'Como abrir caixa?',
-              'Regras Ponto CLT',
-              'Exportar em Excel',
-              'PIX Mercado Pago'
+              'PIX Mercado Pago',
+              'Exportar em Excel'
             ].map((sugestao, idx) => (
               <button
                 key={idx}
