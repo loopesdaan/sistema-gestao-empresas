@@ -284,3 +284,4 @@ export const ChatbotIA: React.FC<ChatbotIAProps> = ({ onNavigateTab, onOpenTour 
     </div>
   );
 };
+

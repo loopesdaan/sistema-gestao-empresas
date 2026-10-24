@@ -31,3 +31,4 @@ class Notificacao(Base):
 
     empresa = relationship("Empresa")
     usuario = relationship("Usuario")
+

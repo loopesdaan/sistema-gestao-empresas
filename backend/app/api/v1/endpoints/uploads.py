@@ -48,3 +48,4 @@ async def upload_imagem(
         "filename": filename,
         "tipo": tipo
     }
+

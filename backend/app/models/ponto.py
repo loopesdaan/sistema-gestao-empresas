@@ -59,3 +59,4 @@ class ConfiguracaoPonto(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     usuario = relationship("Usuario")
+

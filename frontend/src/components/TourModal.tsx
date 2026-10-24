@@ -292,3 +292,4 @@ export const TourModal: React.FC<TourModalProps> = ({ isOpen, onClose, onNavigat
     </div>
   );
 };
+

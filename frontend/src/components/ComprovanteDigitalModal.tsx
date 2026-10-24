@@ -283,3 +283,4 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
     </div>
   );
 };
+

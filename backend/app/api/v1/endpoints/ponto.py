@@ -281,3 +281,4 @@ def aprovar_hora_extra(
         "mensagem": f"{dados.minutos_aprovados} minutos de hora extra autorizados pelo Administrador. Sistema desbloqueado com sucesso.",
         "horas_extras_aprovadas": registro.horas_extras_aprovadas
     }
+
