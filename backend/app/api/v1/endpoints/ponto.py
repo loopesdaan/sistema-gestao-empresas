@@ -27,6 +27,10 @@ class BatidaPontoResponse(BaseModel):
     minutos_trabalhados: int = 0
     horas_extras_aprovadas: int = 0
 
+class BaterPontoRequest(BaseModel):
+    tipo_batida: Optional[str] = None
+    hora_personalizada: Optional[str] = None
+
 class ConfiguracaoPontoSchema(BaseModel):
     horario_entrada: str = "09:00"
     horario_saida_almoco: str = "12:00"
@@ -45,14 +49,24 @@ class AprovarHoraExtraSchema(BaseModel):
     minutos_aprovados: int
     desbloquear_pdv: bool = True
 
-@router.post("/bater", response_model=BatidaPontoResponse)
+@router.post("/bater")
 def registrar_batida(
+    dados: Optional[BaterPontoRequest] = None,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Registra uma das 4 batidas diárias de ponto regulamentadas pela CLT"""
+    """Registra uma das 4 batidas diárias de ponto regulamentadas pela CLT a qualquer hora"""
     hoje_str = date.today().isoformat()
     agora = datetime.now(timezone.utc)
+
+    # Suporte a horário personalizado para testes do ADM
+    if dados and dados.hora_personalizada:
+        try:
+            partes = dados.hora_personalizada.split(":")
+            h, m = int(partes[0]), int(partes[1])
+            agora = agora.replace(hour=h, minute=m, second=0, microsecond=0)
+        except Exception:
+            pass
     
     registro = db.query(RegistroPonto).filter(
         RegistroPonto.usuario_id == current_user.id,
@@ -64,28 +78,6 @@ def registrar_batida(
 
     if not registro:
         # 1ª Batida: Entrada
-        # Validação de Interjornada de 11h (Art. 66 CLT) em relação ao último turno
-        ontem_str = (date.today() - timedelta(days=1)).isoformat()
-        registro_anterior = db.query(RegistroPonto).filter(
-            RegistroPonto.usuario_id == current_user.id,
-            RegistroPonto.data == ontem_str
-        ).first()
-
-        if registro_anterior and registro_anterior.saida_2:
-            descanso = (agora - registro_anterior.saida_2.replace(tzinfo=timezone.utc)).total_seconds() / 3600.0
-            if descanso < 11.0:
-                # Alerta de violação de interjornada CLT
-                notif = Notificacao(
-                    empresa_id=current_user.empresa_id,
-                    usuario_id=None,
-                    titulo="⚠️ Alerta CLT: Descanso Interjornada Inferior a 11h",
-                    mensagem=f"O funcionário {current_user.nome} iniciou jornada após apenas {descanso:.1f}h de descanso (mínimo legal: 11h consecutivas).",
-                    tipo="PONTO_CLT",
-                    referencia_tipo="PONTO",
-                    referencia_id=None
-                )
-                db.add(notif)
-
         registro = RegistroPonto(
             empresa_id=current_user.empresa_id,
             usuario_id=current_user.id,
@@ -103,9 +95,8 @@ def registrar_batida(
         # 2ª Batida: Saída para Almoço
         registro.saida_almoco = agora
         registro.status_jornada = StatusJornada.INTERVALO_ALMOCO
-        # Calcula primeiro período
         delta = (agora - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
-        registro.minutos_trabalhados = int(delta)
+        registro.minutos_trabalhados = max(0, int(delta))
         tipo_batida = "SAIDA_ALMOCO"
         mensagem = f"Saída para almoço registrada às {agora.strftime('%H:%M')}."
 
@@ -121,17 +112,28 @@ def registrar_batida(
         registro.saida_2 = agora
         registro.status_jornada = StatusJornada.FINALIZADA
         
-        # Calcula total trabalhado nos dois períodos
         p1 = (registro.saida_almoco.replace(tzinfo=timezone.utc) - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
         p2 = (agora - registro.retorno_almoco.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
-        total_min = int(p1 + p2)
+        total_min = max(0, int(p1 + p2))
         registro.minutos_trabalhados = total_min
         registro.saldo_minutos = total_min - registro.minutos_previstos
         tipo_batida = "SAIDA_FINAL"
         mensagem = f"Jornada finalizada às {agora.strftime('%H:%M')}. Total trabalhado: {total_min // 60}h {total_min % 60}m."
 
     else:
-        raise HTTPException(status_code=400, detail="Todas as 4 batidas de ponto de hoje já foram realizadas.")
+        # Se for admin testando, reseta automaticamente para reiniciar ciclo de teste
+        if current_user.perfil == PerfilUsuario.ADMIN:
+            registro.saida_almoco = None
+            registro.retorno_almoco = None
+            registro.saida_2 = None
+            registro.entrada_1 = agora
+            registro.status_jornada = StatusJornada.TRABALHANDO
+            registro.minutos_trabalhados = 0
+            registro.saldo_minutos = 0
+            tipo_batida = "ENTRADA"
+            mensagem = f"Ciclo de teste reiniciado! Nova entrada registrada às {agora.strftime('%H:%M')}."
+        else:
+            raise HTTPException(status_code=400, detail="Todas as 4 batidas de ponto de hoje já foram realizadas.")
 
     db.commit()
     db.refresh(registro)
@@ -157,7 +159,7 @@ def obter_status_hoje(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Retorna o status em tempo real da jornada do funcionário hoje"""
+    """Retorna o status e os cálculos dinâmicos da jornada de trabalho de hoje"""
     hoje_str = date.today().isoformat()
     registro = db.query(RegistroPonto).filter(
         RegistroPonto.usuario_id == current_user.id,
@@ -166,47 +168,119 @@ def obter_status_hoje(
 
     is_admin = current_user.perfil == PerfilUsuario.ADMIN
 
-    if not registro:
-        return {
-            "possui_ponto_hoje": False,
-            "status_jornada": "ISENTO_GESTÃO" if is_admin else "NAO_INICIADA",
-            "bloqueado_clt": False,
-            "isento_ponto": is_admin,
-            "pode_testar": True,
-            "minutos_trabalhados": 0,
-            "limite_restante_minutos": 480, # 8h
-            "jornada_estourada": False
-        }
+    # Busca horário sugerido de referência cadastrado para o perfil/usuário
+    config = db.query(ConfiguracaoPonto).filter(
+        ConfiguracaoPonto.empresa_id == current_user.empresa_id,
+        (ConfiguracaoPonto.usuario_id == current_user.id) | (ConfiguracaoPonto.perfil == current_user.perfil.value)
+    ).first()
+
+    horario_sugerido = {
+        "entrada": config.horario_entrada if config else "08:00",
+        "saida_almoco": config.horario_saida_almoco if config else "12:00",
+        "retorno_almoco": config.horario_retorno_almoco if config else "13:00",
+        "saida_final": config.horario_saida if config else "17:00",
+        "carga_minutos": config.carga_horaria_diaria_minutos if config else 480
+    }
+
+    # Previsões dinâmicas calculadas a partir da batida real de entrada
+    previsoes = {
+        "saida_almoco": horario_sugerido["saida_almoco"],
+        "retorno_almoco": horario_sugerido["retorno_almoco"],
+        "saida_final": horario_sugerido["saida_final"]
+    }
 
     agora = datetime.now(timezone.utc)
-    minutos_atuais = registro.minutos_trabalhados
+    minutos_atuais = registro.minutos_trabalhados if registro else 0
 
-    if registro.status_jornada == StatusJornada.TRABALHANDO:
-        if registro.retorno_almoco:
-            p1 = (registro.saida_almoco.replace(tzinfo=timezone.utc) - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
-            p2 = (agora - registro.retorno_almoco.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
-            minutos_atuais = int(p1 + p2)
-        elif registro.entrada_1:
-            minutos_atuais = int((agora - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0)
+    if registro and registro.entrada_1:
+        # Se bateu entrada (a hora que for!), almoço previsto após 4 horas
+        almoco_prev = registro.entrada_1 + timedelta(hours=4)
+        previsoes["saida_almoco"] = almoco_prev.strftime("%H:%M")
+        
+        if registro.saida_almoco:
+            # Retorno após mínimo de 1 hora CLT
+            retorno_prev = registro.saida_almoco + timedelta(hours=1)
+            previsoes["retorno_almoco"] = retorno_prev.strftime("%H:%M")
+            
+            if registro.retorno_almoco:
+                p1_min = (registro.saida_almoco.replace(tzinfo=timezone.utc) - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
+                restante_min = max(0, 480 - p1_min)
+                saida_prev = registro.retorno_almoco + timedelta(minutes=restante_min)
+                previsoes["saida_final"] = saida_prev.strftime("%H:%M")
+                
+                if registro.status_jornada == StatusJornada.TRABALHANDO:
+                    p2_min = (agora - registro.retorno_almoco.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
+                    minutos_atuais = int(p1_min + p2_min)
+            else:
+                previsoes["saida_final"] = (registro.entrada_1 + timedelta(hours=9)).strftime("%H:%M")
+        else:
+            previsoes["retorno_almoco"] = (registro.entrada_1 + timedelta(hours=5)).strftime("%H:%M")
+            previsoes["saida_final"] = (registro.entrada_1 + timedelta(hours=9)).strftime("%H:%M")
+            if registro.status_jornada == StatusJornada.TRABALHANDO:
+                minutos_atuais = int((agora - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0)
 
-    # Limite CLT: 480 minutos (8h) + horas extras aprovadas (máx 120 min)
-    limite_maximo = 480 + registro.horas_extras_aprovadas
-    jornada_estourada = minutos_atuais >= limite_maximo and registro.status_jornada == StatusJornada.TRABALHANDO
+    # Determina próxima ação
+    if not registro or not registro.entrada_1:
+        proxima_acao = "ENTRADA"
+        mensagem_status = "Aguardando 1ª batida (Entrada)."
+    elif not registro.saida_almoco:
+        proxima_acao = "SAIDA_ALMOCO"
+        mensagem_status = f"Trabalhando. Almoço sugerido às {previsoes['saida_almoco']}."
+    elif not registro.retorno_almoco:
+        proxima_acao = "RETORNO_ALMOCO"
+        mensagem_status = f"Em intervalo de almoço. Retorno sugerido às {previsoes['retorno_almoco']} (mín. 1h CLT)."
+    elif not registro.saida_2:
+        proxima_acao = "SAIDA_FINAL"
+        mensagem_status = f"Segundo turno ativo. Previsão de saída às {previsoes['saida_final']}."
+    else:
+        proxima_acao = "FINALIZADO"
+        mensagem_status = "Jornada de hoje 100% concluída."
+
+    limite_maximo = 480 + (registro.horas_extras_aprovadas if registro else 0)
+    jornada_estourada = minutos_atuais >= limite_maximo and registro and registro.status_jornada == StatusJornada.TRABALHANDO
+
+    ponto_hoje_obj = None
+    if registro:
+        ponto_hoje_obj = {
+            "id": registro.id,
+            "data": registro.data,
+            "entrada_1": registro.entrada_1.isoformat() if registro.entrada_1 else None,
+            "saida_almoco": registro.saida_almoco.isoformat() if registro.saida_almoco else None,
+            "saida_1": registro.saida_almoco.isoformat() if registro.saida_almoco else None,
+            "retorno_almoco": registro.retorno_almoco.isoformat() if registro.retorno_almoco else None,
+            "entrada_2": registro.retorno_almoco.isoformat() if registro.retorno_almoco else None,
+            "saida_2": registro.saida_2.isoformat() if registro.saida_2 else None,
+            "total_minutos_trabalhados": minutos_atuais,
+            "minutos_trabalhados": minutos_atuais,
+            "saldo_minutos": registro.saldo_minutos,
+            "horas_extras_aprovadas": registro.horas_extras_aprovadas,
+            "minutos_hora_extra_autorizada": registro.horas_extras_aprovadas,
+            "status_jornada": registro.status_jornada,
+            "bloqueado_clt": False if is_admin else (registro.bloqueado_clt or jornada_estourada)
+        }
 
     return {
-        "possui_ponto_hoje": True,
-        "registro_id": registro.id,
-        "status_jornada": registro.status_jornada,
-        "bloqueado_clt": False if is_admin else (registro.bloqueado_clt or jornada_estourada),
+        "possui_ponto_hoje": bool(registro),
+        "registro_id": registro.id if registro else None,
+        "status_jornada": registro.status_jornada if registro else "NAO_INICIADA",
+        "bloqueado_clt": False if is_admin else (registro.bloqueado_clt or jornada_estourada) if registro else False,
         "isento_ponto": is_admin,
         "pode_testar": True,
-        "entrada_1": registro.entrada_1,
-        "saida_almoco": registro.saida_almoco,
-        "retorno_almoco": registro.retorno_almoco,
-        "saida_2": registro.saida_2,
+        "proxima_acao": proxima_acao,
+        "mensagem_status": mensagem_status,
+        "horario_sugerido": horario_sugerido,
+        "previsao_calculada": previsoes,
+        "ponto_hoje": ponto_hoje_obj,
+        "entrada_1": registro.entrada_1 if registro else None,
+        "saida_almoco": registro.saida_almoco if registro else None,
+        "saida_1": registro.saida_almoco if registro else None,
+        "retorno_almoco": registro.retorno_almoco if registro else None,
+        "entrada_2": registro.retorno_almoco if registro else None,
+        "saida_2": registro.saida_2 if registro else None,
         "minutos_trabalhados": minutos_atuais,
-        "minutos_previstos": registro.minutos_previstos,
-        "horas_extras_aprovadas": registro.horas_extras_aprovadas,
+        "minutos_previstos": registro.minutos_previstos if registro else 480,
+        "horas_extras_aprovadas": registro.horas_extras_aprovadas if registro else 0,
+        "hora_extra_autorizada": registro.horas_extras_aprovadas if registro else 0,
         "limite_restante_minutos": max(0, limite_maximo - minutos_atuais),
         "jornada_estourada": False if is_admin else jornada_estourada
     }
@@ -495,4 +569,52 @@ def resetar_ponto_teste(
         db.delete(registro)
         db.commit()
     return {"ok": True, "mensagem": "Batidas de teste de hoje resetadas com sucesso para novas validações."}
+
+@router.post("/simular-dia-completo")
+def simular_dia_completo(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Simula um dia inteiro de trabalho (8h) com as 4 batidas para validação instantânea pelo ADM"""
+    if current_user.perfil != PerfilUsuario.ADMIN:
+        raise HTTPException(status_code=403, detail="Apenas administradores podem simular jornadas.")
+
+    hoje_str = date.today().isoformat()
+    
+    # Remove registro de hoje se existir
+    existente = db.query(RegistroPonto).filter(
+        RegistroPonto.usuario_id == current_user.id,
+        RegistroPonto.data == hoje_str
+    ).first()
+    if existente:
+        db.delete(existente)
+        db.commit()
+
+    base = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    e1 = base.replace(hour=8, minute=30)
+    s1 = base.replace(hour=12, minute=30)
+    r1 = base.replace(hour=13, minute=30)
+    s2 = base.replace(hour=17, minute=30)
+
+    reg = RegistroPonto(
+        empresa_id=current_user.empresa_id,
+        usuario_id=current_user.id,
+        data=hoje_str,
+        entrada_1=e1,
+        saida_almoco=s1,
+        retorno_almoco=r1,
+        saida_2=s2,
+        minutos_trabalhados=480, # 8h exatas
+        minutos_previstos=480,
+        saldo_minutos=0,
+        horas_extras_aprovadas=0,
+        status_jornada=StatusJornada.FINALIZADA,
+        bloqueado_clt=False,
+        observacoes="Simulação de jornada completa de 8h pelo Administrador."
+    )
+    db.add(reg)
+    db.commit()
+    db.refresh(reg)
+
+    return {"ok": True, "mensagem": "Dia de trabalho completo (8h) simulado com sucesso!"}
 

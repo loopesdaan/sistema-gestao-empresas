@@ -208,11 +208,16 @@ export interface RegistroPonto {
   usuario_nome?: string;
   data: string;
   entrada_1?: string;
+  saida_almoco?: string;
   saida_1?: string;
+  retorno_almoco?: string;
   entrada_2?: string;
   saida_2?: string;
-  total_minutos_trabalhados: number;
-  minutos_hora_extra_autorizada: number;
+  total_minutos_trabalhados?: number;
+  minutos_trabalhados?: number;
+  saldo_minutos?: number;
+  minutos_hora_extra_autorizada?: number;
+  horas_extras_aprovadas?: number;
   bloqueado_clt: boolean;
   motivo_bloqueio?: string;
   aprovado_por_id?: number;
@@ -220,15 +225,41 @@ export interface RegistroPonto {
 }
 
 export interface StatusJornada {
-  tem_registro: boolean;
+  possui_ponto_hoje?: boolean;
+  tem_registro?: boolean;
+  registro_id?: number;
   ponto_hoje?: RegistroPonto;
-  proxima_acao: 'ENTRADA' | 'SAIDA_ALMOCO' | 'RETORNO_ALMOCO' | 'SAIDA_FINAL' | 'FINALIZADO';
-  minutos_trabalhados: number;
-  minutos_restantes_jornada_normal: number;
-  minutos_hora_extra: number;
-  hora_extra_autorizada: number;
-  bloqueado_clt: boolean;
-  mensagem_status: string;
+  proxima_acao?: string;
+  status_jornada?: string;
+  minutos_trabalhados?: number;
+  minutos_restantes_jornada_normal?: number;
+  minutos_previstos?: number;
+  limite_restante_minutos?: number;
+  minutos_hora_extra?: number;
+  hora_extra_autorizada?: number;
+  horas_extras_aprovadas?: number;
+  bloqueado_clt?: boolean;
+  isento_ponto?: boolean;
+  pode_testar?: boolean;
+  mensagem_status?: string;
+  entrada_1?: string;
+  saida_almoco?: string;
+  saida_1?: string;
+  retorno_almoco?: string;
+  entrada_2?: string;
+  saida_2?: string;
+  horario_sugerido?: {
+    entrada: string;
+    saida_almoco: string;
+    retorno_almoco: string;
+    saida_final: string;
+    carga_minutos?: number;
+  };
+  previsao_calculada?: {
+    saida_almoco: string;
+    retorno_almoco: string;
+    saida_final: string;
+  };
 }
 
 export interface ConfiguracaoPonto {

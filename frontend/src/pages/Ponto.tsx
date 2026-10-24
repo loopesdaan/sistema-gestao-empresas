@@ -167,21 +167,48 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
     }
   };
 
-  const handleBaterPonto = async (tipo: 'ENTRADA_1' | 'SAIDA_1' | 'ENTRADA_2' | 'SAIDA_2') => {
+  const [horaSimulada, setHoraSimulada] = useState<string>('');
+
+  const handleBaterPonto = async (tipo?: string) => {
     try {
       setCarregando(true);
-      const res = await apiService.baterPonto(tipo);
+      const res = await apiService.baterPonto({
+        tipo_batida: tipo,
+        hora_personalizada: horaSimulada.trim() || undefined
+      });
       addNotificacao({
         titulo: 'Ponto Registrado',
-        mensagem: res.message || 'Ponto registrado com sucesso sob conformidade CLT.',
+        mensagem: res.mensagem || 'Ponto registrado com sucesso sob conformidade CLT.',
         tipo: 'sucesso'
       });
+      setHoraSimulada('');
       await carregarStatusHoje();
     } catch (err: any) {
       addNotificacao({
         titulo: 'Erro ao Bater Ponto',
         mensagem: err.response?.data?.detail || 'Não foi possível registrar o ponto. Verifique o intervalo CLT.',
         tipo: 'aviso'
+      });
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const handleSimularDiaCompleto = async () => {
+    try {
+      setCarregando(true);
+      const res = await apiService.simularDiaCompleto();
+      addNotificacao({
+        tipo: 'sucesso',
+        titulo: 'Jornada Completa Simulada',
+        mensagem: res.mensagem || 'Simulado: Entrada 08:30, Almoço 12:30, Retorno 13:30, Saída 17:30 (8h completas).'
+      });
+      await carregarStatusHoje();
+    } catch (err: any) {
+      addNotificacao({
+        tipo: 'aviso',
+        titulo: 'Erro na Simulação',
+        mensagem: err.response?.data?.detail || 'Erro ao simular jornada.'
       });
     } finally {
       setCarregando(false);
@@ -213,18 +240,43 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
     }
   };
 
-  const pontoHoje = statusJornada?.ponto_hoje;
+  // Normalização de batidas para leitura instantânea e dinâmica
+  const regEntrada1 = statusJornada?.entrada_1 || statusJornada?.ponto_hoje?.entrada_1;
+  const regSaidaAlmoco = statusJornada?.saida_almoco || statusJornada?.ponto_hoje?.saida_almoco || statusJornada?.saida_1 || statusJornada?.ponto_hoje?.saida_1;
+  const regRetornoAlmoco = statusJornada?.retorno_almoco || statusJornada?.ponto_hoje?.retorno_almoco || statusJornada?.entrada_2 || statusJornada?.ponto_hoje?.entrada_2;
+  const regSaida2 = statusJornada?.saida_2 || statusJornada?.ponto_hoje?.saida_2;
 
-  const formatHora = (isoStr?: string) => {
+  const proximaAcao = statusJornada?.proxima_acao || (
+    !regEntrada1 ? 'ENTRADA' :
+    !regSaidaAlmoco ? 'SAIDA_ALMOCO' :
+    !regRetornoAlmoco ? 'RETORNO_ALMOCO' :
+    !regSaida2 ? 'SAIDA_FINAL' : 'FINALIZADO'
+  );
+
+  const horarioSugerido = statusJornada?.horario_sugerido || {
+    entrada: '08:00',
+    saida_almoco: '12:00',
+    retorno_almoco: '13:00',
+    saida_final: '17:00'
+  };
+
+  const previsaoCalculada = statusJornada?.previsao_calculada || {
+    saida_almoco: horarioSugerido.saida_almoco,
+    retorno_almoco: horarioSugerido.retorno_almoco,
+    saida_final: horarioSugerido.saida_final
+  };
+
+  const formatHora = (isoStr?: string | null) => {
     if (!isoStr) return '--:--';
     try {
+      if (typeof isoStr === 'string' && isoStr.length === 5 && isoStr.includes(':')) return isoStr;
       return new Date(isoStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     } catch {
       return '--:--';
     }
   };
 
-  const formatMinutos = (mins: number) => {
+  const formatMinutos = (mins: number = 0) => {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
     return `${h}h ${m.toString().padStart(2, '0')}m`;
@@ -316,35 +368,78 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
       {/* ABA 1: REGISTRAR PONTO HOJE */}
       {abaAtiva === 'bater' && (
         <div className="space-y-6">
-          {/* Banner de Isenção do Administrador (Art. 62 CLT) e Modo Teste */}
+          {/* Banner de Isenção do Administrador (Art. 62 CLT) e Modo Teste Total */}
           {isAdmin && (
-            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0">
-                  👑
+            <div className="p-5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200/90 rounded-2xl space-y-3.5 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0">
+                    👑
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-amber-950 flex items-center gap-1.5 flex-wrap">
+                      <span>Gerente Geral / Administrador</span>
+                      <span className="text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full font-bold">
+                        Isento Art. 62 CLT
+                      </span>
+                      <span className="text-[10px] bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full font-bold">
+                        Pode bater ponto a qualquer hora
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
+                      Você pode bater ponto em qualquer horário, simular um dia inteiro de 8h com 1 clique ou testar horários manuais.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-xs text-amber-950 flex items-center gap-1.5">
-                    <span>Você está operando como Gerente Geral / Administrador</span>
-                    <span className="text-[10px] bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded-full font-bold">
-                      Art. 62 CLT (Isento)
-                    </span>
-                  </h4>
-                  <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
-                    Seu perfil não é obrigado a bater ponto e nunca sofre bloqueio de PDV ou Caixa. Use as batidas abaixo para <strong>testar e validar</strong> o fluxo da sua equipe.
-                  </p>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSimularDiaCompleto}
+                    disabled={carregando}
+                    className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
+                  >
+                    <Sparkles size={14} />
+                    <span>⚡ Simular Dia Completo (8h)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetarTeste}
+                    disabled={carregando}
+                    className="px-3 py-2 bg-white hover:bg-amber-100/60 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all"
+                  >
+                    <RotateCcw size={14} className={carregando ? 'animate-spin' : ''} />
+                    <span>Resetar Teste</span>
+                  </button>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleResetarTeste}
-                disabled={carregando}
-                className="px-3.5 py-2 bg-white hover:bg-amber-100/60 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all shrink-0"
-              >
-                <RotateCcw size={14} className={carregando ? 'animate-spin' : ''} />
-                <span>Resetar Batidas de Teste</span>
-              </button>
+              {/* Barra de Teste com Horário Customizado */}
+              <div className="pt-2 border-t border-amber-200/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-amber-900 font-semibold text-[11px] flex items-center gap-1">
+                  <Clock size={13} className="text-amber-600" />
+                  <span>Deseja testar com um horário específico?</span>
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={horaSimulada}
+                    onChange={(e) => setHoraSimulada(e.target.value)}
+                    placeholder="HH:MM"
+                    className="px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-mono font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={carregando || !horaSimulada}
+                    onClick={() => handleBaterPonto()}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-all shadow-2xs"
+                  >
+                    Bater neste Horário
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -402,13 +497,42 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
             </div>
           </div>
 
+          {/* Painel Dinâmico de Projeção Horária Inteligente */}
+          {regEntrada1 && (
+            <div className="p-4 bg-sky-50/80 border border-sky-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-sky-950">
+              <div className="flex items-center gap-2.5">
+                <Sparkles size={18} className="text-sky-600 shrink-0" />
+                <div>
+                  <span className="font-bold block">
+                    Cálculo Dinâmico CLT em Tempo Real (Entrada às {formatHora(regEntrada1)})
+                  </span>
+                  <span className="text-[11px] text-sky-800">
+                    O sistema recalcula automaticamente a previsão de almoço e saída útil para completar as 8 horas normais de trabalho.
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] font-bold">
+                <span className="bg-white px-2.5 py-1 rounded-lg border border-sky-200 shadow-2xs">
+                  🍽️ Almoço Previsto: {previsaoCalculada.saida_almoco}
+                </span>
+                <span className="bg-white px-2.5 py-1 rounded-lg border border-sky-200 shadow-2xs">
+                  🏁 Saída p/ 8h: {previsaoCalculada.saida_final}
+                </span>
+                <span className="bg-sky-100 text-sky-700 px-2.5 py-1 rounded-lg">
+                  Ref. Sugerida: {horarioSugerido.entrada} → {horarioSugerido.saida_final}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* As 4 Batidas Oficiais da Jornada */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-800">Escala de Batidas de Hoje</h3>
                 <p className="text-xs text-slate-500">
-                  Registre as 4 etapas da jornada de trabalho. O sistema calcula automaticamente o tempo útil e alerta sobre o intervalo.
+                  Registre as 4 etapas da jornada. Você pode bater a qualquer momento: o sistema ajusta as previsões seguintes dinamicamente.
                 </p>
               </div>
               <button
@@ -424,129 +548,152 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* 1. Entrada Manhã */}
               <div className={`p-5 rounded-2xl border text-center transition-all ${
-                pontoHoje?.entrada_1 
+                regEntrada1 
                   ? 'bg-emerald-50/50 border-emerald-200' 
-                  : statusJornada?.proxima_acao === 'ENTRADA'
+                  : proximaAcao === 'ENTRADA'
                     ? 'border-sky-500 ring-2 ring-sky-100 bg-sky-50/30'
-                    : 'bg-slate-50 border-slate-200 opacity-60'
+                    : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
                   <span>1. ENTRADA</span>
-                  <LogIn size={16} className="text-slate-400" />
+                  <LogIn size={16} className={regEntrada1 ? 'text-emerald-600' : 'text-slate-400'} />
                 </div>
                 <div className="text-2xl font-black font-mono text-slate-800 my-2">
-                  {formatHora(pontoHoje?.entrada_1)}
+                  {formatHora(regEntrada1)}
                 </div>
-                <p className="text-[11px] text-slate-400 mb-4">Horário sugerido: 09:00</p>
+                <p className="text-[11px] text-slate-500 mb-4 truncate" title={`Sugerido: ${horarioSugerido.entrada}`}>
+                  {regEntrada1 ? `✓ Entrada registrada` : `Sugerido: ${horarioSugerido.entrada}`}
+                </p>
                 
                 <button
-                  disabled={carregando || !!pontoHoje?.entrada_1}
+                  disabled={carregando || (!!regEntrada1 && !isAdmin)}
                   onClick={() => handleBaterPonto('ENTRADA_1')}
                   className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    pontoHoje?.entrada_1
-                      ? 'bg-emerald-600 text-white cursor-default'
-                      : statusJornada?.proxima_acao === 'ENTRADA'
-                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white hover:opacity-95`
-                        : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                    regEntrada1
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      : proximaAcao === 'ENTRADA'
+                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white hover:opacity-95 shadow-md`
+                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                   }`}
                 >
-                  {pontoHoje?.entrada_1 ? '✓ Registrado' : 'Bater Entrada'}
+                  {regEntrada1 ? (isAdmin ? '✓ Registrado (Testar Novamente)' : '✓ Entrada Confirmada') : 'Bater Entrada (Agora)'}
                 </button>
               </div>
 
               {/* 2. Saída Almoço */}
               <div className={`p-5 rounded-2xl border text-center transition-all ${
-                pontoHoje?.saida_1 
+                regSaidaAlmoco 
                   ? 'bg-emerald-50/50 border-emerald-200' 
-                  : statusJornada?.proxima_acao === 'SAIDA_ALMOCO'
+                  : proximaAcao === 'SAIDA_ALMOCO'
                     ? 'border-sky-500 ring-2 ring-sky-100 bg-sky-50/30'
-                    : 'bg-slate-50 border-slate-200 opacity-60'
+                    : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
                   <span>2. SAÍDA ALMOÇO</span>
-                  <Coffee size={16} className="text-amber-500" />
+                  <Coffee size={16} className={regSaidaAlmoco ? 'text-emerald-600' : 'text-amber-500'} />
                 </div>
                 <div className="text-2xl font-black font-mono text-slate-800 my-2">
-                  {formatHora(pontoHoje?.saida_1)}
+                  {formatHora(regSaidaAlmoco)}
                 </div>
-                <p className="text-[11px] text-slate-400 mb-4">Horário sugerido: 12:00</p>
+                <p className="text-[11px] text-slate-500 mb-4 truncate" title={regSaidaAlmoco ? '✓ Almoço registrado' : regEntrada1 ? `Previsão: ${previsaoCalculada.saida_almoco}` : `Sugerido: ${horarioSugerido.saida_almoco}`}>
+                  {regSaidaAlmoco 
+                    ? `✓ Almoço registrado` 
+                    : regEntrada1 
+                      ? `⚡ Previsão (+4h): ${previsaoCalculada.saida_almoco}` 
+                      : `Sugerido: ${horarioSugerido.saida_almoco}`
+                  }
+                </p>
                 
                 <button
-                  disabled={carregando || !pontoHoje?.entrada_1 || !!pontoHoje?.saida_1}
-                  onClick={() => handleBaterPonto('SAIDA_1')}
+                  disabled={carregando || (!regEntrada1 && !isAdmin) || (!!regSaidaAlmoco && !isAdmin)}
+                  onClick={() => handleBaterPonto('SAIDA_ALMOCO')}
                   className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    pontoHoje?.saida_1
-                      ? 'bg-emerald-600 text-white cursor-default'
-                      : statusJornada?.proxima_acao === 'SAIDA_ALMOCO'
-                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white hover:opacity-95`
-                        : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                    regSaidaAlmoco
+                      ? 'bg-emerald-600 text-white'
+                      : proximaAcao === 'SAIDA_ALMOCO'
+                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white hover:opacity-95 shadow-md`
+                        : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
                   }`}
                 >
-                  {pontoHoje?.saida_1 ? '✓ Registrado' : 'Saída Almoço'}
+                  {regSaidaAlmoco ? '✓ Almoço Registrado' : 'Saída Almoço (Agora)'}
                 </button>
               </div>
 
               {/* 3. Retorno Almoço */}
               <div className={`p-5 rounded-2xl border text-center transition-all ${
-                pontoHoje?.entrada_2 
+                regRetornoAlmoco 
                   ? 'bg-emerald-50/50 border-emerald-200' 
-                  : statusJornada?.proxima_acao === 'RETORNO_ALMOCO'
+                  : proximaAcao === 'RETORNO_ALMOCO'
                     ? 'border-sky-500 ring-2 ring-sky-100 bg-sky-50/30'
-                    : 'bg-slate-50 border-slate-200 opacity-60'
+                    : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
                   <span>3. RETORNO ALMOÇO</span>
-                  <LogIn size={16} className="text-sky-500" />
+                  <LogIn size={16} className={regRetornoAlmoco ? 'text-emerald-600' : 'text-sky-500'} />
                 </div>
                 <div className="text-2xl font-black font-mono text-slate-800 my-2">
-                  {formatHora(pontoHoje?.entrada_2)}
+                  {formatHora(regRetornoAlmoco)}
                 </div>
-                <p className="text-[11px] text-slate-400 mb-4">Horário sugerido: 13:00</p>
+                <p className="text-[11px] text-slate-500 mb-4 truncate" title={regRetornoAlmoco ? '✓ Retorno registrado' : regSaidaAlmoco ? `Retorno CLT (mín. 1h): ${previsaoCalculada.retorno_almoco}` : `Sugerido: ${horarioSugerido.retorno_almoco}`}>
+                  {regRetornoAlmoco 
+                    ? `✓ Retorno registrado` 
+                    : regSaidaAlmoco 
+                      ? `⚡ Mín. 1h CLT: ${previsaoCalculada.retorno_almoco}` 
+                      : `Sugerido: ${horarioSugerido.retorno_almoco}`
+                  }
+                </p>
                 
                 <button
-                  disabled={carregando || !pontoHoje?.saida_1 || !!pontoHoje?.entrada_2}
-                  onClick={() => handleBaterPonto('ENTRADA_2')}
+                  disabled={carregando || (!regSaidaAlmoco && !isAdmin) || (!!regRetornoAlmoco && !isAdmin)}
+                  onClick={() => handleBaterPonto('RETORNO_ALMOCO')}
                   className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    pontoHoje?.entrada_2
-                      ? 'bg-emerald-600 text-white cursor-default'
-                      : statusJornada?.proxima_acao === 'RETORNO_ALMOCO'
-                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white hover:opacity-95`
-                        : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                    regRetornoAlmoco
+                      ? 'bg-emerald-600 text-white'
+                      : proximaAcao === 'RETORNO_ALMOCO'
+                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white hover:opacity-95 shadow-md`
+                        : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
                   }`}
                 >
-                  {pontoHoje?.entrada_2 ? '✓ Registrado' : 'Retorno Almoço'}
+                  {regRetornoAlmoco ? '✓ Retorno Confirmado' : 'Retorno Almoço (Agora)'}
                 </button>
               </div>
 
               {/* 4. Saída Final */}
               <div className={`p-5 rounded-2xl border text-center transition-all ${
-                pontoHoje?.saida_2 
+                regSaida2 
                   ? 'bg-emerald-50/50 border-emerald-200' 
-                  : statusJornada?.proxima_acao === 'SAIDA_FINAL'
+                  : proximaAcao === 'SAIDA_FINAL'
                     ? 'border-sky-500 ring-2 ring-sky-100 bg-sky-50/30'
-                    : 'bg-slate-50 border-slate-200 opacity-60'
+                    : 'bg-slate-50 border-slate-200'
               }`}>
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
                   <span>4. SAÍDA FINAL</span>
-                  <LogOut size={16} className="text-rose-500" />
+                  <LogOut size={16} className={regSaida2 ? 'text-emerald-600' : 'text-rose-500'} />
                 </div>
                 <div className="text-2xl font-black font-mono text-slate-800 my-2">
-                  {formatHora(pontoHoje?.saida_2)}
+                  {formatHora(regSaida2)}
                 </div>
-                <p className="text-[11px] text-slate-400 mb-4">Horário sugerido: 18:00</p>
+                <p className="text-[11px] text-slate-500 mb-4 truncate" title={regSaida2 ? '✓ Jornada concluída' : `Previsão p/ 8h: ${previsaoCalculada.saida_final}`}>
+                  {regSaida2 
+                    ? `✓ Jornada concluída` 
+                    : regRetornoAlmoco 
+                      ? `⚡ Fechar 8h: ${previsaoCalculada.saida_final}` 
+                      : `Sugerido: ${horarioSugerido.saida_final}`
+                  }
+                </p>
                 
                 <button
-                  disabled={carregando || !pontoHoje?.entrada_2 || !!pontoHoje?.saida_2}
-                  onClick={() => handleBaterPonto('SAIDA_2')}
+                  disabled={carregando || (!regRetornoAlmoco && !isAdmin) || (!!regSaida2 && !isAdmin)}
+                  onClick={() => handleBaterPonto('SAIDA_FINAL')}
                   className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    pontoHoje?.saida_2
-                      ? 'bg-emerald-600 text-white cursor-default'
-                      : statusJornada?.proxima_acao === 'SAIDA_FINAL'
-                        ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                        : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                    regSaida2
+                      ? 'bg-emerald-600 text-white'
+                      : proximaAcao === 'SAIDA_FINAL'
+                        ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
+                        : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
                   }`}
                 >
-                  {pontoHoje?.saida_2 ? '✓ Finalizado' : 'Bater Saída'}
+                  {regSaida2 ? '✓ Jornada Finalizada' : 'Saída Final (Agora)'}
                 </button>
               </div>
             </div>
@@ -606,7 +753,7 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
                         {formatMinutos(reg.total_minutos_trabalhados || 0)}
                       </td>
                       <td className="p-3.5 font-bold text-amber-600">
-                        {reg.minutos_hora_extra_autorizada > 0 ? formatMinutos(reg.minutos_hora_extra_autorizada) : '-'}
+                        {(reg.minutos_hora_extra_autorizada || 0) > 0 ? formatMinutos(reg.minutos_hora_extra_autorizada || 0) : '-'}
                       </td>
                       <td className="p-3.5">
                         {reg.bloqueado_clt ? (
@@ -688,7 +835,7 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
                         {formatMinutos(item.total_minutos_trabalhados || 0)}
                       </td>
                       <td className="p-3.5 font-bold text-amber-600">
-                        {item.minutos_hora_extra_autorizada > 0 ? formatMinutos(item.minutos_hora_extra_autorizada) : '0m'}
+                        {(item.minutos_hora_extra_autorizada || 0) > 0 ? formatMinutos(item.minutos_hora_extra_autorizada || 0) : '0m'}
                       </td>
                       <td className="p-3.5">
                         {item.bloqueado_clt ? (

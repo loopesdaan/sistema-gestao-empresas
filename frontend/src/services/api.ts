@@ -321,8 +321,9 @@ export const apiService = {
   },
 
   // Ponto Eletrônico CLT
-  baterPonto: async (tipo_batida: 'ENTRADA_1' | 'SAIDA_1' | 'ENTRADA_2' | 'SAIDA_2') => {
-    const { data } = await api.post('/ponto/bater', { tipo_batida });
+  baterPonto: async (payload?: { tipo_batida?: string; hora_personalizada?: string } | string) => {
+    const dados = typeof payload === 'string' ? { tipo_batida: payload } : (payload || {});
+    const { data } = await api.post('/ponto/bater', dados);
     return data;
   },
   getStatusPontoHoje: async () => {
@@ -352,6 +353,10 @@ export const apiService = {
   },
   resetarPontoTeste: async () => {
     const { data } = await api.post('/ponto/resetar-teste');
+    return data;
+  },
+  simularDiaCompleto: async () => {
+    const { data } = await api.post('/ponto/simular-dia-completo');
     return data;
   },
 
