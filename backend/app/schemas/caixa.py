@@ -58,4 +58,5 @@ class ResumoCaixaResponse(BaseModel):
     total_sangrias: Decimal
     saldo_esperado_dinheiro: Decimal
     diferenca: Optional[Decimal] = None
+    quantidade_vendas: Optional[int] = 0
 

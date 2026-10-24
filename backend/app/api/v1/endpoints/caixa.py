@@ -84,7 +84,8 @@ def calcular_resumo_caixa(caixa: Caixa, db: Session) -> ResumoCaixaResponse:
         total_suprimentos=total_suprimentos,
         total_sangrias=total_sangrias,
         saldo_esperado_dinheiro=saldo_esperado,
-        diferenca=diferenca
+        diferenca=diferenca,
+        quantidade_vendas=len(vendas)
     )
 
 @router.get("/atual", response_model=Optional[CaixaResponse])
@@ -400,9 +401,15 @@ def monitor_tempo_real(
         saldo_dinheiro = resumo.saldo_esperado_dinheiro
         alerta_limite = saldo_dinheiro >= limite
 
-        duracao_segundos = (agora - c.data_abertura.replace(tzinfo=timezone.utc)).total_seconds()
+        if c.data_abertura.tzinfo is not None:
+            duracao_segundos = max(0, (agora - c.data_abertura).total_seconds())
+        else:
+            duracao_segundos = max(0, (agora - c.data_abertura.replace(tzinfo=timezone.utc)).total_seconds())
+
         horas = int(duracao_segundos // 3600)
         minutos = int((duracao_segundos % 3600) // 60)
+
+        total_vendas = getattr(resumo, "quantidade_vendas", 0) or len(c.vendas or [])
 
         operando.append({
             "caixa_id": c.id,
@@ -413,7 +420,7 @@ def monitor_tempo_real(
             "saldo_dinheiro": float(saldo_dinheiro),
             "limite_gaveta": float(limite),
             "alerta_limite_excedido": alerta_limite,
-            "total_vendas": resumo.quantidade_vendas
+            "total_vendas": total_vendas
         })
 
     return {
