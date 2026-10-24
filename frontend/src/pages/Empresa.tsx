@@ -13,7 +13,7 @@ interface EmpresaProps {
 }
 
 export const Empresa: React.FC<EmpresaProps> = ({ isAdmin = false, onOpenOnboarding }) => {
-  const { corSelecionada, setCorSelecionada, setPerfilNegocio } = useEmpresa();
+  const { corSelecionada, setCorSelecionada, setPerfilNegocio, carregarDadosEmpresa } = useEmpresa();
   const [empresa, setEmpresa] = useState<Partial<EmpresaType>>({});
   const [loading, setLoading] = useState(true);
   const [modoEdicao, setModoEdicao] = useState(false);
@@ -92,6 +92,7 @@ export const Empresa: React.FC<EmpresaProps> = ({ isAdmin = false, onOpenOnboard
       if (atualizado.perfil_negocio) {
         setPerfilNegocio(atualizado.perfil_negocio);
       }
+      await carregarDadosEmpresa();
       setModoEdicao(false);
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Erro ao atualizar dados da empresa');
@@ -107,6 +108,8 @@ export const Empresa: React.FC<EmpresaProps> = ({ isAdmin = false, onOpenOnboard
     setAplicandoPreset(true);
     try {
       const res = await apiService.aplicarPresetSegmento(empresa.perfil_negocio || 'personalizado');
+      await carregarDadosEmpresa();
+      await carregarEmpresa();
       alert(`Catálogo modelo aplicado com sucesso! ${res.produtos_cadastrados || 0} produtos e serviços e ${res.clientes_cadastrados || 0} clientes adicionados.`);
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Erro ao carregar dados modelo.');
@@ -397,20 +400,52 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
 
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <label className="block font-semibold text-slate-700 mb-1">Segmento / Ramo de Atividade</label>
+                <select
+                  value={empresa.perfil_negocio || 'personalizado'}
+                  onChange={(e) => {
+                    const novoSegmento = e.target.value;
+                    const titulos: Record<string, string> = {
+                      adega: 'Adega Premier & Distribuidora',
+                      lava_rapido: 'Lava Rápido Levi Express',
+                      mecanica: 'Auto Mecânica & Peças',
+                      material_construcao: 'Material de Construção Silva',
+                      loja_roupa: 'Boutique & Moda Elegance',
+                      personalizado: empresa.nome_fantasia || 'Minha Empresa Comercial'
+                    };
+                    const cores: Record<string, string> = {
+                      adega: 'purple',
+                      lava_rapido: 'cyan',
+                      mecanica: 'amber',
+                      material_construcao: 'orange',
+                      loja_roupa: 'rose',
+                      personalizado: 'sky'
+                    };
+                    setEmpresa({
+                      ...empresa,
+                      perfil_negocio: novoSegmento,
+                      nome_fantasia: titulos[novoSegmento] || empresa.nome_fantasia
+                    });
+                    if (cores[novoSegmento]) {
+                      setCorSelecionada(cores[novoSegmento]);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                >
+                  <option value="adega">🍷 Adega & Distribuidora</option>
+                  <option value="lava_rapido">🚗 Lava Rápido & Estética</option>
+                  <option value="mecanica">🔧 Mecânica & Auto Peças</option>
+                  <option value="material_construcao">🏗️ Material de Construção</option>
+                  <option value="loja_roupa">👕 Loja de Roupas & Varejo</option>
+                  <option value="personalizado">⚙️ Geral / Personalizado</option>
+                </select>
+              </div>
+              <div>
                 <label className="block font-semibold text-slate-700 mb-1">Nome Fantasia</label>
                 <input
                   type="text"
                   value={empresa.nome_fantasia || ''}
                   onChange={(e) => setEmpresa({ ...empresa, nome_fantasia: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">CNPJ</label>
-                <input
-                  type="text"
-                  value={empresa.cnpj || ''}
-                  onChange={(e) => setEmpresa({ ...empresa, cnpj: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
                 />
               </div>

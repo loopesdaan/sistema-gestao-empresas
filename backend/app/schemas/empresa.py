@@ -26,6 +26,9 @@ class EmpresaUpdate(BaseModel):
     cep: Optional[str] = None
     cor_primaria: Optional[str] = None
     logo_url: Optional[str] = None
+    perfil_negocio: Optional[str] = None
+    modulos_ativos: Optional[str] = None
+    onboarding_concluido: Optional[bool] = None
 
 class EmpresaResponse(EmpresaBase):
     id: int

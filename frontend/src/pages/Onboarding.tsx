@@ -17,6 +17,7 @@ const TIPOS_NEGOCIO = [
     id: 'mecanica',
     label: 'Mecânica & Auto Center',
     subtitulo: 'Oficina, revisão e autopeças',
+    nomeSugerido: 'Auto Mecânica & Peças',
     emoji: '🔧',
     icon: Wrench,
     corBadge: 'bg-amber-100 text-amber-800 border-amber-300',
@@ -27,6 +28,7 @@ const TIPOS_NEGOCIO = [
     id: 'lava_rapido',
     label: 'Lava Rápido & Estética',
     subtitulo: 'Ducha, polimento e higienização',
+    nomeSugerido: 'Lava Rápido Levi Express',
     emoji: '🚗',
     icon: Car,
     corBadge: 'bg-cyan-100 text-cyan-800 border-cyan-300',
@@ -37,6 +39,7 @@ const TIPOS_NEGOCIO = [
     id: 'adega',
     label: 'Adega & Bebidas',
     subtitulo: 'Distribuidora e conveniência',
+    nomeSugerido: 'Adega Premier & Distribuidora',
     emoji: '🍷',
     icon: Wine,
     corBadge: 'bg-purple-100 text-purple-800 border-purple-300',
@@ -47,6 +50,7 @@ const TIPOS_NEGOCIO = [
     id: 'material_construcao',
     label: 'Material de Construção',
     subtitulo: 'Cimento, ferragens e ferramentas',
+    nomeSugerido: 'Material de Construção Silva',
     emoji: '🏗️',
     icon: HardHat,
     corBadge: 'bg-orange-100 text-orange-800 border-orange-300',
@@ -57,6 +61,7 @@ const TIPOS_NEGOCIO = [
     id: 'loja_roupa',
     label: 'Loja de Roupas & Varejo',
     subtitulo: 'Moda, calçados e acessórios',
+    nomeSugerido: 'Boutique & Moda Elegance',
     emoji: '👕',
     icon: Shirt,
     corBadge: 'bg-pink-100 text-pink-800 border-pink-300',
@@ -67,6 +72,7 @@ const TIPOS_NEGOCIO = [
     id: 'personalizado',
     label: 'Personalizado / Geral',
     subtitulo: 'Comércio e serviços em geral',
+    nomeSugerido: 'Minha Empresa Comercial',
     emoji: '⚙️',
     icon: Settings,
     corBadge: 'bg-sky-100 text-sky-800 border-sky-300',
@@ -150,12 +156,14 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     }
   };
 
-  // Ao trocar de ramo, atualiza os módulos automaticamente pelo preset e cor sugerida
+  // Ao trocar de ramo, atualiza os módulos automaticamente pelo preset, cor sugerida e nome padrão
   const handleSelecionarRamo = (ramoId: string) => {
     setRamoSelecionado(ramoId);
     const preset = TIPOS_NEGOCIO.find(t => t.id === ramoId);
     if (preset) {
       setModulos(preset.presetModulos);
+      setNomeFantasia(preset.nomeSugerido);
+      setRazaoSocial(preset.nomeSugerido + ' LTDA');
     }
     const corSugerida: Record<string, string> = {
       mecanica: 'amber',

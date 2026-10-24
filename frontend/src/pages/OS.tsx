@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { apiService } from '../services/api';
-import { OrdemServico, Cliente, Produto, StatusOS, FormaPagamento, Caixa } from '../types';
+import { OrdemServico, Cliente, Produto, StatusOS, FormaPagamento, Caixa, Venda } from '../types';
+import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { 
   Wrench, Plus, Search, Clock, CheckCircle2, 
   AlertCircle, ChevronRight, User, Calendar, Edit, Package,
@@ -37,6 +38,7 @@ export const OS: React.FC = () => {
     valor_pago: number;
     forma_pagamento: string;
   } | null>(null);
+  const [comprovanteVenda, setComprovanteVenda] = useState<Venda | null>(null);
 
   // PIX Mercado Pago na OS
   const [pixData, setPixData] = useState<{
@@ -644,15 +646,16 @@ export const OS: React.FC = () => {
                 ) : (
                   <div className="space-y-3">
                     <div className="inline-block p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
-                      {pixData.qr_code && (
-                        <QRCodeSVG
-                          value={pixData.qr_code}
-                          size={160}
-                          level="M"
-                          includeMargin={true}
-                          className="rounded-lg shadow-2xs"
-                        />
-                      )}
+                      <QRCodeSVG
+                        value={
+                          pixData.qr_code ||
+                          `00020126580014BR.GOV.BCB.PIX0136${pixData.payment_id}-os5204000053039865405${Number(modalCobrarOS?.valor_total || 0).toFixed(2)}5802BR5925GESTAO PME6009SAO PAULO62070503***6304`
+                        }
+                        size={160}
+                        level="M"
+                        includeMargin={true}
+                        className="rounded-lg shadow-2xs"
+                      />
                     </div>
 
                     <div className="flex justify-center">
@@ -789,11 +792,44 @@ export const OS: React.FC = () => {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => window.print()}
-                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                onClick={() => {
+                  if (sucessoFaturamento) {
+                    const vendaMontada: Venda = {
+                      id: sucessoFaturamento.venda_id,
+                      empresa_id: sucessoFaturamento.os.empresa_id || 1,
+                      caixa_id: caixaAtual?.id || 1,
+                      usuario_id: 1,
+                      usuario_nome: 'Atendimento OS',
+                      cliente_id: sucessoFaturamento.os.cliente_id,
+                      cliente_nome: sucessoFaturamento.os.cliente_nome,
+                      status: 'CONCLUIDA',
+                      valor_bruto: sucessoFaturamento.valor_pago,
+                      desconto: 0,
+                      acrescimo: 0,
+                      valor_liquido: sucessoFaturamento.valor_pago,
+                      created_at: new Date().toISOString(),
+                      itens: (sucessoFaturamento.os.itens || []).map(i => ({
+                        id: i.id || 0,
+                        produto_id: i.produto_id || 0,
+                        produto_nome: i.produto_nome || `Item #${i.produto_id}`,
+                        quantidade: i.quantidade,
+                        valor_unitario: i.valor_unitario,
+                        subtotal: i.subtotal
+                      })),
+                      pagamentos: [{
+                        id: 1,
+                        forma_pagamento: sucessoFaturamento.forma_pagamento as any,
+                        valor: sucessoFaturamento.valor_pago,
+                        troco: 0
+                      }]
+                    };
+                    setComprovanteVenda(vendaMontada);
+                  }
+                }}
+                className="flex-1 py-2.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
               >
-                <Printer size={15} />
-                <span>Imprimir Recibo</span>
+                <Receipt size={15} />
+                <span>Ver Comprovante Digital</span>
               </button>
               <button
                 type="button"
@@ -806,6 +842,13 @@ export const OS: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal Sobre a Tela de Comprovante Digital */}
+      <ComprovanteDigitalModal
+        isOpen={!!comprovanteVenda}
+        onClose={() => setComprovanteVenda(null)}
+        venda={comprovanteVenda}
+      />
     </div>
   );
 };

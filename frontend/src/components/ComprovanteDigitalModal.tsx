@@ -41,7 +41,101 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
   const temProximo = indiceAtual < totalVendas - 1;
 
   const handleImprimir = () => {
-    window.print();
+    if (!vendaAtiva) return;
+    const existingIframe = document.getElementById('comprovante-print-iframe');
+    if (existingIframe) existingIframe.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'comprovante-print-iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) return;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Comprovante de Venda #${vendaAtiva.id}</title>
+        <style>
+          @page { size: 80mm auto; margin: 2mm; }
+          body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 11px;
+            line-height: 1.3;
+            color: #000;
+            margin: 0;
+            padding: 4px;
+            width: 74mm;
+          }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .bold { font-weight: bold; }
+          .divider { border-top: 1px dashed #000; margin: 5px 0; }
+          .row { display: flex; justify-content: space-between; }
+          .title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 2px; }
+          .item-row { margin-bottom: 3px; }
+        </style>
+      </head>
+      <body>
+        <div class="title">${empresa.nome_fantasia || empresa.razao_social || 'ESTABELECIMENTO'}</div>
+        <div class="text-center">${empresa.cnpj ? 'CNPJ: ' + empresa.cnpj : ''}</div>
+        <div class="text-center">${empresa.telefone ? 'TEL: ' + empresa.telefone : ''}</div>
+        <div class="divider"></div>
+        <div class="row"><span>DATA: ${new Date(vendaAtiva.created_at).toLocaleString('pt-BR')}</span></div>
+        <div class="row"><span>VENDA: #${vendaAtiva.id}</span><span>CAIXA: #${vendaAtiva.caixa_id}</span></div>
+        <div class="row"><span>OPERADOR: ${vendaAtiva.usuario_nome || 'Caixa'}</span></div>
+        <div class="row"><span>CLIENTE: ${vendaAtiva.cliente_nome || 'Consumidor Final'}</span></div>
+        <div class="divider"></div>
+        <div class="bold">ITENS:</div>
+        ${(vendaAtiva.itens || []).map(i => `
+          <div class="item-row">
+            <div class="row">
+              <span>${i.quantidade}x ${i.produto_nome || 'Item'}</span>
+              <span class="bold">R$ ${Number(i.subtotal || 0).toFixed(2)}</span>
+            </div>
+            <div style="font-size: 9px; color: #555;">(R$ ${Number(i.valor_unitario || 0).toFixed(2)} un)</div>
+          </div>
+        `).join('')}
+        <div class="divider"></div>
+        <div class="row"><span>SUBTOTAL:</span><span>R$ ${Number(vendaAtiva.valor_bruto || 0).toFixed(2)}</span></div>
+        ${Number(vendaAtiva.desconto || 0) > 0 ? `<div class="row"><span>DESCONTO:</span><span>- R$ ${Number(vendaAtiva.desconto).toFixed(2)}</span></div>` : ''}
+        ${Number(vendaAtiva.acrescimo || 0) > 0 ? `<div class="row"><span>ACRÉSCIMO:</span><span>+ R$ ${Number(vendaAtiva.acrescimo).toFixed(2)}</span></div>` : ''}
+        <div class="divider"></div>
+        <div class="row bold" style="font-size: 12px;"><span>TOTAL:</span><span>R$ ${Number(vendaAtiva.valor_liquido || 0).toFixed(2)}</span></div>
+        <div class="divider"></div>
+        <div class="bold">PAGAMENTO:</div>
+        ${(vendaAtiva.pagamentos || []).map(p => `
+          <div class="row">
+            <span>${p.forma_pagamento.replace('_', ' ')}:</span>
+            <span>R$ ${Number(p.valor).toFixed(2)}</span>
+          </div>
+        `).join('')}
+        ${totalTroco > 0 ? `<div class="row bold"><span>TROCO:</span><span>R$ ${totalTroco.toFixed(2)}</span></div>` : ''}
+        <div class="divider"></div>
+        <div class="text-center" style="margin-top: 6px;">OBRIGADO PELA PREFERÊNCIA!</div>
+        <div class="text-center" style="font-size: 9px;">Documento auxiliar sem valor fiscal</div>
+      </body>
+      </html>
+    `;
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    iframe.contentWindow?.focus();
+    setTimeout(() => {
+      iframe.contentWindow?.print();
+      setTimeout(() => iframe.remove(), 2500);
+    }, 250);
   };
 
   const copiarTextoComprovante = () => {

@@ -139,7 +139,9 @@ async def salvar_onboarding(
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
     import json
-    empresa = db.query(Empresa).first()
+    empresa = db.query(Empresa).filter(Empresa.id == current_user.empresa_id).first()
+    if not empresa:
+        empresa = db.query(Empresa).first()
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
@@ -157,7 +159,7 @@ async def salvar_onboarding(
         empresa.cep = data["cep"]
     if "cor_primaria" in data:
         empresa.cor_primaria = data["cor_primaria"]
-    if "perfil_negocio" in data:
+    if "perfil_negocio" in data and data["perfil_negocio"]:
         empresa.perfil_negocio = data["perfil_negocio"]
     if "modulos_ativos" in data:
         empresa.modulos_ativos = json.dumps(data["modulos_ativos"])
@@ -182,7 +184,33 @@ def aplicar_preset_segmento(
     if not perfil or perfil not in PRESETS_DEMO:
         raise HTTPException(status_code=400, detail="Segmento não suportado para predefinição de dados.")
     
+    empresa = db.query(Empresa).filter(Empresa.id == current_user.empresa_id).first()
+    if not empresa:
+        empresa = db.query(Empresa).first()
+
+    nomes_segmentos = {
+        "mecanica": ("Auto Mecânica & Peças", "amber"),
+        "lava_rapido": ("Lava Rápido Levi Express", "cyan"),
+        "adega": ("Adega Premier & Distribuidora", "purple"),
+        "material_construcao": ("Material de Construção Silva", "orange"),
+        "loja_roupa": ("Boutique & Moda Elegance", "rose"),
+    }
+
+    if empresa:
+        empresa.perfil_negocio = perfil
+        if perfil in nomes_segmentos:
+            nome_sugerido, cor_sugerida = nomes_segmentos[perfil]
+            empresa.nome_fantasia = nome_sugerido
+            if not empresa.cor_primaria:
+                empresa.cor_primaria = cor_sugerida
+        db.commit()
+
     aplicar_preset_no_banco(current_user.empresa_id, perfil, db)
-    return {"ok": True, "mensagem": f"Catálogo e clientes de exemplo para '{perfil}' carregados com sucesso."}
+    return {
+        "ok": True,
+        "mensagem": f"Catálogo e clientes de exemplo para '{perfil}' carregados com sucesso.",
+        "perfil_negocio": perfil,
+        "nome_fantasia": empresa.nome_fantasia if empresa else None
+    }
 
 

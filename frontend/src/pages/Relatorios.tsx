@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../services/api';
 import { Venda, FormaPagamento } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
+import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { 
   BarChart3, Search, Ban, CheckCircle, Calendar, 
   ArrowRight, User, DollarSign, ShoppingCart, TrendingUp, 
@@ -16,6 +17,8 @@ export const Relatorios: React.FC = () => {
   const [filtroVendedor, setFiltroVendedor] = useState<string>('TODOS');
   const [filtroStatus, setFiltroStatus] = useState<string>('TODOS');
   const [vendaDetalhe, setVendaDetalhe] = useState<Venda | null>(null);
+  const [comprovanteModalAberto, setComprovanteModalAberto] = useState(false);
+  const [indiceVendaComprovante, setIndiceVendaComprovante] = useState(0);
   const [menuExportarAberto, setMenuExportarAberto] = useState(false);
 
   const carregarVendas = async () => {
@@ -279,18 +282,35 @@ export const Relatorios: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  // 3. Exportação em PDF (Janela de impressão nativa para Salvar como PDF)
+  // 3. Exportação em PDF sem abrir página em branco (utiliza iframe isolado para acionar impressão nativa direta)
   const exportarPDF = () => {
     const conteudo = gerarConteudoHTML();
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(conteudo);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 350);
-    }
+    const existingIframe = document.getElementById('relatorio-print-iframe');
+    if (existingIframe) existingIframe.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'relatorio-print-iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) return;
+
+    doc.open();
+    doc.write(conteudo);
+    doc.close();
+
+    iframe.contentWindow?.focus();
+    setTimeout(() => {
+      iframe.contentWindow?.print();
+      setTimeout(() => iframe.remove(), 2500);
+    }, 300);
   };
 
   // 4. Exportar Todos Juntos (Excel + PDF + HTML)
@@ -525,11 +545,16 @@ export const Relatorios: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-right space-x-1">
                       <button
-                        onClick={() => setVendaDetalhe(v)}
-                        title="Ver detalhes da venda"
-                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-semibold transition-colors"
+                        onClick={() => {
+                          setVendaDetalhe(v);
+                          setIndiceVendaComprovante(vendasFiltradas.findIndex(vf => vf.id === v.id));
+                          setComprovanteModalAberto(true);
+                        }}
+                        title="Visualizar comprovante digital da venda"
+                        className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded text-[10px] font-semibold transition-colors inline-flex items-center gap-1"
                       >
-                        Ver Detalhes
+                        <Receipt size={11} />
+                        <span>Comprovante</span>
                       </button>
                       {v.status === 'CONCLUIDA' && (
                         <button
@@ -657,6 +682,14 @@ export const Relatorios: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Modal Unificado de Comprovante Digital com Impressão Térmica Direta */}
+      <ComprovanteDigitalModal
+        isOpen={comprovanteModalAberto}
+        onClose={() => setComprovanteModalAberto(false)}
+        venda={vendaDetalhe}
+        listaVendas={vendasFiltradas}
+        indiceInicial={indiceVendaComprovante}
+      />
     </div>
   );
 };
