@@ -392,6 +392,10 @@ export const apiService = {
     const { data } = await api.put(`/notificacoes/${id}/resolver`);
     return data;
   },
+  resolverTodasNotificacoes: async () => {
+    const { data } = await api.put('/notificacoes/resolver-todas');
+    return data;
+  },
 };
 
 

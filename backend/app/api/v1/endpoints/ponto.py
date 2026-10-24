@@ -55,7 +55,7 @@ def registrar_batida(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Registra uma das 4 batidas diárias de ponto regulamentadas pela CLT a qualquer hora"""
+    """Registra uma das 4 batidas diárias de ponto regulamentadas pela CLT a qualquer hora com validação estrita da etapa"""
     hoje_str = date.today().isoformat()
     agora = datetime.now(timezone.utc)
 
@@ -73,26 +73,73 @@ def registrar_batida(
         RegistroPonto.data == hoje_str
     ).first()
 
+    tipo_solicitado = (dados.tipo_batida or "").upper().strip() if dados else ""
+
+    # Determina o tipo alvo
+    if tipo_solicitado in ["ENTRADA_1", "ENTRADA"]:
+        tipo_alvo = "ENTRADA"
+    elif tipo_solicitado in ["SAIDA_1", "SAIDA_ALMOCO", "ALMOCO"]:
+        tipo_alvo = "SAIDA_ALMOCO"
+    elif tipo_solicitado in ["ENTRADA_2", "RETORNO_ALMOCO", "VOLTA_ALMOCO"]:
+        tipo_alvo = "RETORNO_ALMOCO"
+    elif tipo_solicitado in ["SAIDA_2", "SAIDA_FINAL", "FINAL"]:
+        tipo_alvo = "SAIDA_FINAL"
+    else:
+        # Próxima etapa estrita automática
+        if not registro or not registro.entrada_1:
+            tipo_alvo = "ENTRADA"
+        elif not registro.saida_almoco:
+            tipo_alvo = "SAIDA_ALMOCO"
+        elif not registro.retorno_almoco:
+            tipo_alvo = "RETORNO_ALMOCO"
+        elif not registro.saida_2:
+            tipo_alvo = "SAIDA_FINAL"
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Todas as 4 batidas de hoje já foram realizadas. O expediente está concluído."
+            )
+
     tipo_batida = ""
     mensagem = ""
 
-    if not registro:
-        # 1ª Batida: Entrada
-        registro = RegistroPonto(
-            empresa_id=current_user.empresa_id,
-            usuario_id=current_user.id,
-            data=hoje_str,
-            entrada_1=agora,
-            status_jornada=StatusJornada.TRABALHANDO,
-            minutos_trabalhados=0,
-            saldo_minutos=0
-        )
-        db.add(registro)
+    if tipo_alvo == "ENTRADA":
+        if registro and registro.entrada_1:
+            raise HTTPException(
+                status_code=400,
+                detail=f"A entrada de hoje já foi registrada às {registro.entrada_1.strftime('%H:%M')}."
+            )
+
+        if not registro:
+            registro = RegistroPonto(
+                empresa_id=current_user.empresa_id,
+                usuario_id=current_user.id,
+                data=hoje_str,
+                entrada_1=agora,
+                status_jornada=StatusJornada.TRABALHANDO,
+                minutos_trabalhados=0,
+                saldo_minutos=0
+            )
+            db.add(registro)
+        else:
+            registro.entrada_1 = agora
+            registro.status_jornada = StatusJornada.TRABALHANDO
+
         tipo_batida = "ENTRADA"
         mensagem = f"Entrada registrada com sucesso às {agora.strftime('%H:%M')}."
 
-    elif registro.entrada_1 and not registro.saida_almoco:
-        # 2ª Batida: Saída para Almoço
+    elif tipo_alvo == "SAIDA_ALMOCO":
+        if not registro or not registro.entrada_1:
+            raise HTTPException(
+                status_code=400,
+                detail="Você precisa registrar a entrada antes de registrar a saída para almoço."
+            )
+        if registro.saida_almoco:
+            raise HTTPException(
+                status_code=400,
+                detail=f"A saída para almoço já foi registrada às {registro.saida_almoco.strftime('%H:%M')}."
+            )
+
         registro.saida_almoco = agora
         registro.status_jornada = StatusJornada.INTERVALO_ALMOCO
         delta = (agora - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
@@ -100,15 +147,35 @@ def registrar_batida(
         tipo_batida = "SAIDA_ALMOCO"
         mensagem = f"Saída para almoço registrada às {agora.strftime('%H:%M')}."
 
-    elif registro.saida_almoco and not registro.retorno_almoco:
-        # 3ª Batida: Retorno do Almoço
+    elif tipo_alvo == "RETORNO_ALMOCO":
+        if not registro or not registro.saida_almoco:
+            raise HTTPException(
+                status_code=400,
+                detail="Você precisa registrar a saída para almoço antes de registrar o retorno."
+            )
+        if registro.retorno_almoco:
+            raise HTTPException(
+                status_code=400,
+                detail=f"O retorno do almoço já foi registrado às {registro.retorno_almoco.strftime('%H:%M')}."
+            )
+
         registro.retorno_almoco = agora
         registro.status_jornada = StatusJornada.TRABALHANDO
         tipo_batida = "RETORNO_ALMOCO"
         mensagem = f"Retorno do almoço registrado às {agora.strftime('%H:%M')}."
 
-    elif registro.retorno_almoco and not registro.saida_2:
-        # 4ª Batida: Saída Final
+    elif tipo_alvo == "SAIDA_FINAL":
+        if not registro or not registro.retorno_almoco:
+            raise HTTPException(
+                status_code=400,
+                detail="Você precisa registrar o retorno do almoço antes de registrar a saída final."
+            )
+        if registro.saida_2:
+            raise HTTPException(
+                status_code=400,
+                detail=f"A saída final de hoje já foi registrada às {registro.saida_2.strftime('%H:%M')}."
+            )
+
         registro.saida_2 = agora
         registro.status_jornada = StatusJornada.FINALIZADA
         
@@ -119,21 +186,6 @@ def registrar_batida(
         registro.saldo_minutos = total_min - registro.minutos_previstos
         tipo_batida = "SAIDA_FINAL"
         mensagem = f"Jornada finalizada às {agora.strftime('%H:%M')}. Total trabalhado: {total_min // 60}h {total_min % 60}m."
-
-    else:
-        # Se for admin testando, reseta automaticamente para reiniciar ciclo de teste
-        if current_user.perfil == PerfilUsuario.ADMIN:
-            registro.saida_almoco = None
-            registro.retorno_almoco = None
-            registro.saida_2 = None
-            registro.entrada_1 = agora
-            registro.status_jornada = StatusJornada.TRABALHANDO
-            registro.minutos_trabalhados = 0
-            registro.saldo_minutos = 0
-            tipo_batida = "ENTRADA"
-            mensagem = f"Ciclo de teste reiniciado! Nova entrada registrada às {agora.strftime('%H:%M')}."
-        else:
-            raise HTTPException(status_code=400, detail="Todas as 4 batidas de ponto de hoje já foram realizadas.")
 
     db.commit()
     db.refresh(registro)

@@ -12,6 +12,7 @@ import { Relatorios } from './pages/Relatorios';
 import { Empresa } from './pages/Empresa';
 import { Usuarios } from './pages/Usuarios';
 import { Ponto } from './pages/Ponto';
+import { Notificacoes } from './pages/Notificacoes';
 import { Onboarding } from './pages/Onboarding';
 import { ChatbotIA } from './components/ChatbotIA';
 import { TourModal } from './components/TourModal';
@@ -125,6 +126,8 @@ const AppContent: React.FC = () => {
         return <PDV />;
       case 'caixa':
         return <Caixa isAdmin={isAdmin} />;
+      case 'notificacoes':
+        return <Notificacoes isAdmin={isAdmin} onNavigate={(tab) => setActiveTab(tab)} />;
       case 'ponto':
         return <Ponto isAdmin={isAdmin} />;
       case 'produtos':
@@ -149,6 +152,7 @@ const AppContent: React.FC = () => {
       dashboard: 'Dashboard Geral',
       pdv: 'Frente de Caixa (PDV)',
       caixa: 'Controle de Caixa',
+      notificacoes: 'Central de Notificações & Ações Rápidas',
       ponto: 'Ponto Eletrônico CLT',
       produtos: 'Produtos & Estoque',
       clientes: 'Clientes & Crédito',
@@ -182,6 +186,7 @@ const AppContent: React.FC = () => {
           activeTitle={getPageTitle()}
           onOpenPDV={() => setActiveTab('pdv')}
           onOpenPonto={() => setActiveTab('ponto')}
+          onOpenNotificacoes={() => setActiveTab('notificacoes')}
           caixaAberto={caixaAberto}
           caixaAtual={caixaAtual}
           userName={usuario.nome}

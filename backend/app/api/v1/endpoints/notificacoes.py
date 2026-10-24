@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.api.deps import get_current_user
-from app.models.usuario import Usuario
+from app.models.usuario import Usuario, PerfilUsuario
 from app.models.notificacao import Notificacao, StatusNotificacao
 
 router = APIRouter()
@@ -21,7 +21,7 @@ def listar_notificacoes(
     """
     query = db.query(Notificacao).filter(Notificacao.empresa_id == current_user.empresa_id)
     
-    if current_user.papel != "ADMIN":
+    if current_user.perfil != PerfilUsuario.ADMIN:
         query = query.filter((Notificacao.usuario_id == current_user.id) | (Notificacao.usuario_id == None))
         
     if status_filtro:
@@ -44,6 +44,32 @@ def listar_notificacoes(
         }
         for n in notificacoes
     ]
+
+@router.put("/resolver-todas")
+def resolver_todas_notificacoes(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Marca todas as notificações pendentes da empresa/usuário como RESOLVIDAS.
+    """
+    query = db.query(Notificacao).filter(
+        Notificacao.empresa_id == current_user.empresa_id,
+        Notificacao.status == StatusNotificacao.PENDENTE.value
+    )
+    if current_user.perfil != PerfilUsuario.ADMIN:
+        query = query.filter((Notificacao.usuario_id == current_user.id) | (Notificacao.usuario_id == None))
+        
+    agora = datetime.now(timezone.utc)
+    pendentes = query.all()
+    total = len(pendentes)
+    for notif in pendentes:
+        notif.status = StatusNotificacao.RESOLVIDA.value
+        notif.resolvido_em = agora
+        notif.resolvido_por_id = current_user.id
+        
+    db.commit()
+    return {"message": f"{total} notificações resolvidas com sucesso.", "total": total}
 
 @router.put("/{notificacao_id}/resolver")
 def resolver_notificacao(

@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   LayoutDashboard, ShoppingCart, Wallet, Package, Users, 
-  Wrench, BarChart3, Settings, LogOut, X, Shield, Sparkles, Clock 
+  Wrench, BarChart3, Settings, LogOut, X, Shield, Sparkles, Clock, Bell 
 } from 'lucide-react';
 import { useEmpresa } from '../contexts/EmpresaContext';
 
@@ -41,6 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'relatorios', sempreAdmin: true },
     { id: 'pdv', label: temaAtual.terminologia.pdv || 'PDV (Frente de Caixa)', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
     { id: 'caixa', label: 'Controle de Caixa', icon: Wallet, modulo: 'caixa' },
+    { id: 'notificacoes', label: 'Notificações & Ações', icon: Bell, sempreVisivel: true, modulo: 'notificacoes' },
     { id: 'ponto', label: 'Ponto Eletrônico CLT', icon: Clock, sempreVisivel: true, modulo: 'ponto' },
     { id: 'produtos', label: temaAtual.terminologia.itens || 'Produtos & Estoque', icon: Package, modulo: 'produtos' },
     { id: 'clientes', label: temaAtual.terminologia.cliente || 'Clientes & Crédito', icon: Users, modulo: 'clientes' },
@@ -52,12 +53,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Filtra por permissão de perfil (Gerente, Operador de Caixa, Controlador de Estoque)
   const menuItems = allMenuItems.filter(item => {
-    // Ponto Eletrônico sempre visível para todos os funcionários
-    if (item.id === 'ponto') return true;
+    // Ponto Eletrônico e Notificações sempre visíveis para todos os colaboradores
+    if (item.id === 'ponto' || item.id === 'notificacoes') return true;
 
-    // Controlador de Estoque: trabalha exclusivamente com Estoque, Ponto e Dados da Empresa
+    // Controlador de Estoque: trabalha exclusivamente com Estoque, Ponto, Notificações e Dados da Empresa
     if (isEstoquista) {
-      return item.id === 'produtos' || item.id === 'ponto' || item.id === 'empresa';
+      return item.id === 'produtos' || item.id === 'ponto' || item.id === 'notificacoes' || item.id === 'empresa';
     }
 
     // Operador de Caixa: opera PDV, Caixa, OS, Clientes, Relatório das próprias vendas e Ponto

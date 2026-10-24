@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Menu, Bell, ShoppingCart, User, CheckCheck, X, Clock } from 'lucide-react';
+import { Menu, Bell, ShoppingCart, User, CheckCheck, X, Clock, ArrowRight } from 'lucide-react';
 import { useNotificacoes, Notificacao } from '../contexts/NotificationContext';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { Caixa } from '../types';
@@ -9,6 +9,7 @@ interface NavbarProps {
   activeTitle: string;
   onOpenPDV: () => void;
   onOpenPonto?: () => void;
+  onOpenNotificacoes?: () => void;
   caixaAberto: boolean;
   caixaAtual?: Caixa | null;
   userName?: string;
@@ -46,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTitle,
   onOpenPDV,
   onOpenPonto,
+  onOpenNotificacoes,
   caixaAberto,
   caixaAtual,
   userName = 'Administrador'
@@ -214,13 +216,26 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
 
               {/* Rodapé do dropdown */}
-              {notificacoes.length > 10 && (
-                <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 text-center">
-                  <span className="text-xs text-slate-400">
+              <div className="p-2.5 border-t border-slate-100 bg-slate-50 flex flex-col gap-1.5 text-center">
+                {notificacoes.length > 10 && (
+                  <span className="text-[11px] text-slate-400">
                     Exibindo 10 de {notificacoes.length} notificações
                   </span>
-                </div>
-              )}
+                )}
+                {onOpenNotificacoes && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDropdownAberto(false);
+                      onOpenNotificacoes();
+                    }}
+                    className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs"
+                  >
+                    <span>Abrir Central de Ações Rápidas</span>
+                    <ArrowRight size={13} />
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

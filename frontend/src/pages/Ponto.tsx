@@ -526,175 +526,234 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
             </div>
           )}
 
-          {/* As 4 Batidas Oficiais da Jornada */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          {/* Painel Central de Ação Única - Bater Ponto Sem Confusão */}
+          <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
               <div>
-                <h3 className="text-base font-bold text-slate-800">Escala de Batidas de Hoje</h3>
-                <p className="text-xs text-slate-500">
-                  Registre as 4 etapas da jornada. Você pode bater a qualquer momento: o sistema ajusta as previsões seguintes dinamicamente.
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                    Etapa Atual da Jornada
+                  </span>
+                  {proximaAcao === 'FINALIZADO' ? (
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                      <CheckCircle2 size={12} /> Concluído
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 flex items-center gap-1">
+                      <Clock size={12} /> Em Aberto
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-lg font-black text-slate-800 mt-1">
+                  {proximaAcao === 'ENTRADA' && '1ª Batida: Entrada da Manhã'}
+                  {proximaAcao === 'SAIDA_ALMOCO' && '2ª Batida: Saída para Intervalo de Almoço'}
+                  {proximaAcao === 'RETORNO_ALMOCO' && '3ª Batida: Retorno do Almoço (Intrajornada)'}
+                  {proximaAcao === 'SAIDA_FINAL' && '4ª Batida: Saída Final do Expediente'}
+                  {proximaAcao === 'FINALIZADO' && 'Expediente Diário Concluído com Sucesso'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {proximaAcao === 'ENTRADA' && 'Você ainda não registrou o início do trabalho hoje. Clique abaixo para registrar.'}
+                  {proximaAcao === 'SAIDA_ALMOCO' && 'Primeiro período em andamento. Ao sair para sua pausa de refeição, registre o ponto.'}
+                  {proximaAcao === 'RETORNO_ALMOCO' && 'Você está no horário de almoço (Art. 71 CLT - mín. 1h). Ao voltar ao trabalho, registre o retorno.'}
+                  {proximaAcao === 'SAIDA_FINAL' && 'Segundo período em andamento. Ao terminar suas 8 horas diárias, registre o encerramento.'}
+                  {proximaAcao === 'FINALIZADO' && 'Todas as 4 batidas obrigatórias foram computadas. Seu ciclo de hoje está finalizado e protegido contra alterações.'}
                 </p>
               </div>
-              <button
-                onClick={carregarStatusHoje}
-                disabled={carregando}
-                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                title="Atualizar"
-              >
-                <RefreshCw size={18} className={carregando ? 'animate-spin' : ''} />
-              </button>
+
+              {/* Botão de Ação Primária Centralizado */}
+              <div className="shrink-0 flex items-center">
+                {proximaAcao === 'FINALIZADO' ? (
+                  <div className="w-full sm:w-auto px-6 py-3.5 bg-emerald-50 border-2 border-emerald-300 text-emerald-800 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xs cursor-default">
+                    <CheckCircle2 size={20} className="text-emerald-600" />
+                    <span>✓ Todas as 4 Batidas Concluídas</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={carregando}
+                    onClick={() => handleBaterPonto()}
+                    className={`w-full sm:w-auto px-8 py-4 rounded-2xl font-black text-sm text-white shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      proximaAcao === 'ENTRADA'
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500'
+                        : proximaAcao === 'SAIDA_ALMOCO'
+                          ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500'
+                          : proximaAcao === 'RETORNO_ALMOCO'
+                            ? 'bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500'
+                            : 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500'
+                    }`}
+                  >
+                    {carregando ? (
+                      <RefreshCw size={20} className="animate-spin" />
+                    ) : (
+                      <>
+                        {proximaAcao === 'ENTRADA' && <LogIn size={20} />}
+                        {proximaAcao === 'SAIDA_ALMOCO' && <Coffee size={20} />}
+                        {proximaAcao === 'RETORNO_ALMOCO' && <LogIn size={20} />}
+                        {proximaAcao === 'SAIDA_FINAL' && <LogOut size={20} />}
+                      </>
+                    )}
+                    <span>
+                      {proximaAcao === 'ENTRADA' && `Bater Entrada Agora (${horaAtual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})`}
+                      {proximaAcao === 'SAIDA_ALMOCO' && `Bater Saída Almoço Agora (${horaAtual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})`}
+                      {proximaAcao === 'RETORNO_ALMOCO' && `Bater Retorno Almoço Agora (${horaAtual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})`}
+                      {proximaAcao === 'SAIDA_FINAL' && `Bater Saída Final Agora (${horaAtual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})`}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* As 4 Etapas Visuais da Jornada */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
               {/* 1. Entrada Manhã */}
-              <div className={`p-5 rounded-2xl border text-center transition-all ${
+              <div className={`p-5 rounded-2xl border transition-all ${
                 regEntrada1 
-                  ? 'bg-emerald-50/50 border-emerald-200' 
+                  ? 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-200' 
                   : proximaAcao === 'ENTRADA'
-                    ? 'border-sky-500 ring-2 ring-sky-100 bg-sky-50/30'
-                    : 'bg-slate-50 border-slate-200'
+                    ? 'border-sky-500 ring-2 ring-sky-100 bg-sky-50/40'
+                    : 'bg-slate-50/60 border-slate-200 opacity-75'
               }`}>
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
-                  <span>1. ENTRADA</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-black">1</span>
+                    <span>ENTRADA</span>
+                  </span>
                   <LogIn size={16} className={regEntrada1 ? 'text-emerald-600' : 'text-slate-400'} />
                 </div>
                 <div className="text-2xl font-black font-mono text-slate-800 my-2">
                   {formatHora(regEntrada1)}
                 </div>
-                <p className="text-[11px] text-slate-500 mb-4 truncate" title={`Sugerido: ${horarioSugerido.entrada}`}>
-                  {regEntrada1 ? `✓ Entrada registrada` : `Sugerido: ${horarioSugerido.entrada}`}
-                </p>
-                
-                <button
-                  disabled={carregando || (!!regEntrada1 && !isAdmin)}
-                  onClick={() => handleBaterPonto('ENTRADA_1')}
-                  className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    regEntrada1
-                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                <div className="space-y-1">
+                  <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                    regEntrada1 
+                      ? 'bg-emerald-100 text-emerald-800' 
                       : proximaAcao === 'ENTRADA'
-                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white hover:opacity-95 shadow-md`
-                        : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                  }`}
-                >
-                  {regEntrada1 ? (isAdmin ? '✓ Registrado (Testar Novamente)' : '✓ Entrada Confirmada') : 'Bater Entrada (Agora)'}
-                </button>
+                        ? 'bg-sky-100 text-sky-800'
+                        : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {regEntrada1 ? '✓ Confirmado' : proximaAcao === 'ENTRADA' ? '⚡ Próxima Batida' : '⏳ Aguardando'}
+                  </span>
+                  <p className="text-[11px] text-slate-500 truncate" title={`Sugerido: ${horarioSugerido.entrada}`}>
+                    Ref: {horarioSugerido.entrada}
+                  </p>
+                </div>
               </div>
 
               {/* 2. Saída Almoço */}
-              <div className={`p-5 rounded-2xl border text-center transition-all ${
+              <div className={`p-5 rounded-2xl border transition-all ${
                 regSaidaAlmoco 
-                  ? 'bg-emerald-50/50 border-emerald-200' 
+                  ? 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-200' 
                   : proximaAcao === 'SAIDA_ALMOCO'
-                    ? 'border-sky-500 ring-2 ring-sky-100 bg-sky-50/30'
-                    : 'bg-slate-50 border-slate-200'
+                    ? 'border-amber-500 ring-2 ring-amber-100 bg-amber-50/40'
+                    : 'bg-slate-50/60 border-slate-200 opacity-75'
               }`}>
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
-                  <span>2. SAÍDA ALMOÇO</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-black">2</span>
+                    <span>SAÍDA ALMOÇO</span>
+                  </span>
                   <Coffee size={16} className={regSaidaAlmoco ? 'text-emerald-600' : 'text-amber-500'} />
                 </div>
                 <div className="text-2xl font-black font-mono text-slate-800 my-2">
                   {formatHora(regSaidaAlmoco)}
                 </div>
-                <p className="text-[11px] text-slate-500 mb-4 truncate" title={regSaidaAlmoco ? '✓ Almoço registrado' : regEntrada1 ? `Previsão: ${previsaoCalculada.saida_almoco}` : `Sugerido: ${horarioSugerido.saida_almoco}`}>
-                  {regSaidaAlmoco 
-                    ? `✓ Almoço registrado` 
-                    : regEntrada1 
-                      ? `⚡ Previsão (+4h): ${previsaoCalculada.saida_almoco}` 
-                      : `Sugerido: ${horarioSugerido.saida_almoco}`
-                  }
-                </p>
-                
-                <button
-                  disabled={carregando || (!regEntrada1 && !isAdmin) || (!!regSaidaAlmoco && !isAdmin)}
-                  onClick={() => handleBaterPonto('SAIDA_ALMOCO')}
-                  className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    regSaidaAlmoco
-                      ? 'bg-emerald-600 text-white'
+                <div className="space-y-1">
+                  <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                    regSaidaAlmoco 
+                      ? 'bg-emerald-100 text-emerald-800' 
                       : proximaAcao === 'SAIDA_ALMOCO'
-                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white hover:opacity-95 shadow-md`
-                        : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-                  }`}
-                >
-                  {regSaidaAlmoco ? '✓ Almoço Registrado' : 'Saída Almoço (Agora)'}
-                </button>
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {regSaidaAlmoco ? '✓ Confirmado' : proximaAcao === 'SAIDA_ALMOCO' ? '⚡ Próxima Batida' : '⏳ Aguardando'}
+                  </span>
+                  <p className="text-[11px] text-slate-500 truncate" title={regSaidaAlmoco ? 'Almoço registrado' : regEntrada1 ? `Previsão: ${previsaoCalculada.saida_almoco}` : `Sugerido: ${horarioSugerido.saida_almoco}`}>
+                    {regSaidaAlmoco 
+                      ? `Ref: ${horarioSugerido.saida_almoco}` 
+                      : regEntrada1 
+                        ? `⚡ Prev: ${previsaoCalculada.saida_almoco}` 
+                        : `Ref: ${horarioSugerido.saida_almoco}`
+                    }
+                  </p>
+                </div>
               </div>
 
               {/* 3. Retorno Almoço */}
-              <div className={`p-5 rounded-2xl border text-center transition-all ${
+              <div className={`p-5 rounded-2xl border transition-all ${
                 regRetornoAlmoco 
-                  ? 'bg-emerald-50/50 border-emerald-200' 
+                  ? 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-200' 
                   : proximaAcao === 'RETORNO_ALMOCO'
-                    ? 'border-sky-500 ring-2 ring-sky-100 bg-sky-50/30'
-                    : 'bg-slate-50 border-slate-200'
+                    ? 'border-sky-500 ring-2 ring-sky-100 bg-sky-50/40'
+                    : 'bg-slate-50/60 border-slate-200 opacity-75'
               }`}>
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
-                  <span>3. RETORNO ALMOÇO</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-black">3</span>
+                    <span>RETORNO ALMOÇO</span>
+                  </span>
                   <LogIn size={16} className={regRetornoAlmoco ? 'text-emerald-600' : 'text-sky-500'} />
                 </div>
                 <div className="text-2xl font-black font-mono text-slate-800 my-2">
                   {formatHora(regRetornoAlmoco)}
                 </div>
-                <p className="text-[11px] text-slate-500 mb-4 truncate" title={regRetornoAlmoco ? '✓ Retorno registrado' : regSaidaAlmoco ? `Retorno CLT (mín. 1h): ${previsaoCalculada.retorno_almoco}` : `Sugerido: ${horarioSugerido.retorno_almoco}`}>
-                  {regRetornoAlmoco 
-                    ? `✓ Retorno registrado` 
-                    : regSaidaAlmoco 
-                      ? `⚡ Mín. 1h CLT: ${previsaoCalculada.retorno_almoco}` 
-                      : `Sugerido: ${horarioSugerido.retorno_almoco}`
-                  }
-                </p>
-                
-                <button
-                  disabled={carregando || (!regSaidaAlmoco && !isAdmin) || (!!regRetornoAlmoco && !isAdmin)}
-                  onClick={() => handleBaterPonto('RETORNO_ALMOCO')}
-                  className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    regRetornoAlmoco
-                      ? 'bg-emerald-600 text-white'
+                <div className="space-y-1">
+                  <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                    regRetornoAlmoco 
+                      ? 'bg-emerald-100 text-emerald-800' 
                       : proximaAcao === 'RETORNO_ALMOCO'
-                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white hover:opacity-95 shadow-md`
-                        : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-                  }`}
-                >
-                  {regRetornoAlmoco ? '✓ Retorno Confirmado' : 'Retorno Almoço (Agora)'}
-                </button>
+                        ? 'bg-sky-100 text-sky-800'
+                        : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {regRetornoAlmoco ? '✓ Confirmado' : proximaAcao === 'RETORNO_ALMOCO' ? '⚡ Próxima Batida' : '⏳ Aguardando'}
+                  </span>
+                  <p className="text-[11px] text-slate-500 truncate" title={regRetornoAlmoco ? 'Retorno registrado' : regSaidaAlmoco ? `Mínimo 1h CLT: ${previsaoCalculada.retorno_almoco}` : `Sugerido: ${horarioSugerido.retorno_almoco}`}>
+                    {regRetornoAlmoco 
+                      ? `Ref: ${horarioSugerido.retorno_almoco}` 
+                      : regSaidaAlmoco 
+                        ? `⚡ Mín. 1h: ${previsaoCalculada.retorno_almoco}` 
+                        : `Ref: ${horarioSugerido.retorno_almoco}`
+                    }
+                  </p>
+                </div>
               </div>
 
               {/* 4. Saída Final */}
-              <div className={`p-5 rounded-2xl border text-center transition-all ${
+              <div className={`p-5 rounded-2xl border transition-all ${
                 regSaida2 
-                  ? 'bg-emerald-50/50 border-emerald-200' 
+                  ? 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-200' 
                   : proximaAcao === 'SAIDA_FINAL'
-                    ? 'border-sky-500 ring-2 ring-sky-100 bg-sky-50/30'
-                    : 'bg-slate-50 border-slate-200'
+                    ? 'border-rose-500 ring-2 ring-rose-100 bg-rose-50/40'
+                    : 'bg-slate-50/60 border-slate-200 opacity-75'
               }`}>
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
-                  <span>4. SAÍDA FINAL</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-black">4</span>
+                    <span>SAÍDA FINAL</span>
+                  </span>
                   <LogOut size={16} className={regSaida2 ? 'text-emerald-600' : 'text-rose-500'} />
                 </div>
                 <div className="text-2xl font-black font-mono text-slate-800 my-2">
                   {formatHora(regSaida2)}
                 </div>
-                <p className="text-[11px] text-slate-500 mb-4 truncate" title={regSaida2 ? '✓ Jornada concluída' : `Previsão p/ 8h: ${previsaoCalculada.saida_final}`}>
-                  {regSaida2 
-                    ? `✓ Jornada concluída` 
-                    : regRetornoAlmoco 
-                      ? `⚡ Fechar 8h: ${previsaoCalculada.saida_final}` 
-                      : `Sugerido: ${horarioSugerido.saida_final}`
-                  }
-                </p>
-                
-                <button
-                  disabled={carregando || (!regRetornoAlmoco && !isAdmin) || (!!regSaida2 && !isAdmin)}
-                  onClick={() => handleBaterPonto('SAIDA_FINAL')}
-                  className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                    regSaida2
-                      ? 'bg-emerald-600 text-white'
+                <div className="space-y-1">
+                  <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                    regSaida2 
+                      ? 'bg-emerald-100 text-emerald-800' 
                       : proximaAcao === 'SAIDA_FINAL'
-                        ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
-                        : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-                  }`}
-                >
-                  {regSaida2 ? '✓ Jornada Finalizada' : 'Saída Final (Agora)'}
-                </button>
+                        ? 'bg-rose-100 text-rose-800'
+                        : 'bg-slate-200 text-slate-600'
+                  }`}>
+                    {regSaida2 ? '✓ Jornada Concluída' : proximaAcao === 'SAIDA_FINAL' ? '⚡ Próxima Batida' : '⏳ Aguardando'}
+                  </span>
+                  <p className="text-[11px] text-slate-500 truncate" title={regSaida2 ? 'Jornada encerrada' : `Previsão p/ 8h: ${previsaoCalculada.saida_final}`}>
+                    {regSaida2 
+                      ? `Ref: ${horarioSugerido.saida_final}` 
+                      : regRetornoAlmoco 
+                        ? `⚡ Fechar 8h: ${previsaoCalculada.saida_final}` 
+                        : `Ref: ${horarioSugerido.saida_final}`
+                    }
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -703,7 +762,7 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
               <Shield size={20} className="text-sky-600 shrink-0 mt-0.5" />
               <div className="text-xs text-sky-900 leading-relaxed">
                 <span className="font-bold block">Proteção Trabalhista (Art. 66 da CLT):</span>
-                Entre o término de uma jornada diária e o início da seguinte é obrigatório o intervalo mínimo ininterrupto de <strong>11 (onze) horas</strong> consecutivas para descanso. O sistema trava automaticamente tentativas de início antes desse prazo legal.
+                Entre o término de uma jornada diária e o início da seguinte é obrigatório o intervalo mínimo ininterrupto de <strong>11 (onze) horas</strong> consecutivas para descanso. O sistema protege automaticamente contra jornadas abusivas.
               </div>
             </div>
           </div>
