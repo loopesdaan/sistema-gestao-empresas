@@ -86,12 +86,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Container */}
       <aside className={`
-        fixed top-0 bottom-0 left-0 z-50 w-64 bg-slate-900 bg-gradient-to-b ${temaAtual.sidebarGradiente} text-slate-200 flex flex-col transition-transform duration-300 ease-in-out border-r border-slate-800
+        fixed top-0 bottom-0 left-0 z-50 w-72 bg-slate-900 bg-gradient-to-b ${temaAtual.sidebarGradiente} text-slate-200 flex flex-col transition-transform duration-300 ease-in-out border-r border-slate-800
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Header da Sidebar com Tema do Segmento */}
-        <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-3 overflow-hidden">
+        <div className="p-4 border-b border-slate-800/80 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
             {empresa.logo_url ? (
               <img
                 src={empresa.logo_url.startsWith('http') ? empresa.logo_url : `http://localhost:8000${empresa.logo_url}`}
@@ -104,9 +104,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {temaAtual.emoji}
               </div>
             )}
-            <div className="overflow-hidden">
-              <h1 className="font-bold text-white text-sm leading-tight truncate">{nomeExibicao}</h1>
-              <span className={`text-[11px] font-semibold ${temaAtual.textoHighlight} block truncate`}>
+            <div className="overflow-hidden min-w-0 flex-1">
+              <h1 className="font-bold text-white text-sm leading-snug truncate" title={nomeExibicao}>{nomeExibicao}</h1>
+              <span className={`text-[11px] font-semibold ${temaAtual.textoHighlight} block truncate`} title={temaAtual.label}>
                 {temaAtual.label}
               </span>
             </div>
@@ -141,8 +141,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                 `}
               >
-                <Icon size={19} className={isActive ? 'text-white' : item.highlight ? 'opacity-90' : 'text-slate-400'} />
-                <span className="truncate">{item.label}</span>
+                <Icon size={19} className={`shrink-0 ${isActive ? 'text-white' : item.highlight ? 'opacity-90' : 'text-slate-400'}`} />
+                <span className="truncate whitespace-nowrap">{item.label}</span>
                 {item.highlight && !isActive && (
                   <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${temaAtual.accentBadge}`}>
                     Rápido

@@ -342,6 +342,18 @@ export const apiService = {
     const { data } = await api.post('/ponto/aprovar-hora-extra', { registro_id, minutos_aprovados, motivo });
     return data;
   },
+  getConfiguracoesPonto: async (): Promise<any[]> => {
+    const { data } = await api.get('/ponto/configuracoes');
+    return data;
+  },
+  salvarConfiguracaoPonto: async (dados: any) => {
+    const { data } = await api.post('/ponto/configuracoes', dados);
+    return data;
+  },
+  resetarPontoTeste: async () => {
+    const { data } = await api.post('/ponto/resetar-teste');
+    return data;
+  },
 
   // Caixa - Tickets & Monitor em Tempo Real
   solicitarTicketCaixa: async (caixaId: number, dados: { tipo: string; valor?: number; justificativa?: string }) => {

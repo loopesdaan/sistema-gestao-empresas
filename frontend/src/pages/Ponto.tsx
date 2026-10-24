@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Clock, Shield, CheckCircle2, AlertTriangle, Calendar, 
   User, Check, AlertCircle, ArrowRight, UserCheck, Coffee, 
-  LogIn, LogOut, Lock, Unlock, Sparkles, RefreshCw
+  LogIn, LogOut, Lock, Unlock, Sparkles, RefreshCw, Sliders,
+  Save, RotateCcw, Briefcase
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { RegistroPonto, StatusJornada } from '../types';
+import { RegistroPonto, StatusJornada, ConfiguracaoPonto } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useNotificacoes } from '../contexts/NotificationContext';
 
@@ -17,10 +18,27 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
   const { temaAtual } = useEmpresa();
   const { addNotificacao } = useNotificacoes();
 
-  const [abaAtiva, setAbaAtiva] = useState<'bater' | 'historico' | 'auditoria'>('bater');
+  const [abaAtiva, setAbaAtiva] = useState<'bater' | 'historico' | 'auditoria' | 'escalas'>('bater');
   const [statusJornada, setStatusJornada] = useState<StatusJornada | null>(null);
   const [historico, setHistorico] = useState<RegistroPonto[]>([]);
   const [equipePonto, setEquipePonto] = useState<RegistroPonto[]>([]);
+  const [configuracoes, setConfiguracoes] = useState<ConfiguracaoPonto[]>([]);
+  const [perfilAtivoEscala, setPerfilAtivoEscala] = useState<'OPERADOR_CAIXA' | 'ESTOQUISTA' | 'ADMIN'>('OPERADOR_CAIXA');
+  const [formEscala, setFormEscala] = useState<ConfiguracaoPonto>({
+    perfil: 'OPERADOR_CAIXA',
+    horario_entrada: '08:00',
+    horario_saida_almoco: '12:00',
+    horario_retorno_almoco: '13:00',
+    horario_saida: '17:00',
+    dias_trabalho: 'SEG,TER,QUA,QUI,SEX',
+    carga_horaria_diaria_minutos: 480,
+    tolerancia_minutos: 15,
+    interjornada_minima_horas: 11,
+    max_horas_extras_dia_minutos: 120,
+    isento_ponto: false,
+    ativo: true,
+  });
+  const [salvandoEscala, setSalvandoEscala] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [horaAtual, setHoraAtual] = useState(new Date());
 
@@ -75,11 +93,79 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
     }
   };
 
+  const carregarConfiguracoes = async () => {
+    try {
+      const res = await apiService.getConfiguracoesPonto();
+      setConfiguracoes(res);
+      const atual = res.find(c => c.perfil === perfilAtivoEscala);
+      if (atual) {
+        setFormEscala({ ...atual });
+      }
+    } catch (err) {
+      console.error('Erro ao buscar configurações de ponto:', err);
+    }
+  };
+
   useEffect(() => {
     carregarStatusHoje();
     if (abaAtiva === 'historico') carregarHistorico();
     if (abaAtiva === 'auditoria' && isAdmin) carregarAuditoriaEquipe();
+    if (abaAtiva === 'escalas' && isAdmin) carregarConfiguracoes();
   }, [abaAtiva]);
+
+  // Atualiza formEscala ao trocar de perfil na aba de escalas
+  useEffect(() => {
+    if (configuracoes.length > 0) {
+      const atual = configuracoes.find(c => c.perfil === perfilAtivoEscala);
+      if (atual) {
+        setFormEscala({ ...atual });
+      } else {
+        setFormEscala(prev => ({ ...prev, perfil: perfilAtivoEscala }));
+      }
+    }
+  }, [perfilAtivoEscala, configuracoes]);
+
+  const handleSalvarEscala = async () => {
+    try {
+      setSalvandoEscala(true);
+      const res = await apiService.salvarConfiguracaoPonto(formEscala);
+      addNotificacao({
+        tipo: 'sucesso',
+        titulo: 'Escala Salva com Sucesso',
+        mensagem: res.mensagem || `Horários de trabalho para ${formEscala.perfil} foram atualizados.`
+      });
+      await carregarConfiguracoes();
+    } catch (err: any) {
+      addNotificacao({
+        tipo: 'aviso',
+        titulo: 'Erro ao Salvar Escala',
+        mensagem: err.response?.data?.detail || 'Não foi possível salvar a escala de trabalho.'
+      });
+    } finally {
+      setSalvandoEscala(false);
+    }
+  };
+
+  const handleResetarTeste = async () => {
+    try {
+      setCarregando(true);
+      const res = await apiService.resetarPontoTeste();
+      addNotificacao({
+        tipo: 'sucesso',
+        titulo: 'Ponto Resetado (Modo Teste)',
+        mensagem: res.mensagem || 'Batidas de hoje resetadas para novas validações de ponto.'
+      });
+      await carregarStatusHoje();
+    } catch (err: any) {
+      addNotificacao({
+        tipo: 'aviso',
+        titulo: 'Erro ao Resetar',
+        mensagem: err.response?.data?.detail || 'Erro ao resetar ponto.'
+      });
+    } finally {
+      setCarregando(false);
+    }
+  };
 
   const handleBaterPonto = async (tipo: 'ENTRADA_1' | 'SAIDA_1' | 'ENTRADA_2' | 'SAIDA_2') => {
     try {
@@ -211,11 +297,57 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
             <span>Auditoria da Equipe (CLT)</span>
           </button>
         )}
+
+        {isAdmin && (
+          <button
+            onClick={() => setAbaAtiva('escalas')}
+            className={`px-5 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 ${
+              abaAtiva === 'escalas'
+                ? `bg-white border-t-2 ${temaAtual.borderHighlight} text-slate-900 shadow-xs border-x border-slate-200`
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Sliders size={15} />
+            <span>Horários & Escalas dos Perfis</span>
+          </button>
+        )}
       </div>
 
       {/* ABA 1: REGISTRAR PONTO HOJE */}
       {abaAtiva === 'bater' && (
         <div className="space-y-6">
+          {/* Banner de Isenção do Administrador (Art. 62 CLT) e Modo Teste */}
+          {isAdmin && (
+            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0">
+                  👑
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs text-amber-950 flex items-center gap-1.5">
+                    <span>Você está operando como Gerente Geral / Administrador</span>
+                    <span className="text-[10px] bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded-full font-bold">
+                      Art. 62 CLT (Isento)
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
+                    Seu perfil não é obrigado a bater ponto e nunca sofre bloqueio de PDV ou Caixa. Use as batidas abaixo para <strong>testar e validar</strong> o fluxo da sua equipe.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleResetarTeste}
+                disabled={carregando}
+                className="px-3.5 py-2 bg-white hover:bg-amber-100/60 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all shrink-0"
+              >
+                <RotateCcw size={14} className={carregando ? 'animate-spin' : ''} />
+                <span>Resetar Batidas de Teste</span>
+              </button>
+            </div>
+          )}
+
           {/* Card de Status da Jornada e Bloqueio CLT */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
@@ -588,6 +720,224 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ABA 4: CONFIGURAÇÃO DE HORÁRIOS & ESCALAS DOS PERFIS (ADMIN ONLY) */}
+      {abaAtiva === 'escalas' && isAdmin && (
+        <div className="space-y-6">
+          {/* Header da Aba */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <Sliders size={20} className={temaAtual.textoHighlight} />
+                <span>Configuração de Jornadas & Escalas por Perfil</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Defina os horários oficiais de entrada, almoço, saída e regras da CLT para cada cargo da sua empresa.
+              </p>
+            </div>
+
+            {/* Seletor de Perfil */}
+            <div className="flex bg-slate-100 p-1 rounded-xl gap-1 overflow-x-auto">
+              {[
+                { id: 'OPERADOR_CAIXA', label: 'Operador de Caixa', icon: UserCheck },
+                { id: 'ESTOQUISTA', label: 'Controlador de Estoque', icon: Briefcase },
+                { id: 'ADMIN', label: 'Gerente Geral (Adm)', icon: Shield },
+              ].map((p) => {
+                const Icon = p.icon;
+                const isSel = perfilAtivoEscala === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setPerfilAtivoEscala(p.id as any)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all shrink-0 ${
+                      isSel 
+                        ? 'bg-white text-slate-900 shadow-xs' 
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon size={14} />
+                    <span>{p.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Card do Formulário de Escala */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h4 className="font-bold text-slate-800 text-sm">
+                  Horário de Trabalho: {
+                    perfilAtivoEscala === 'OPERADOR_CAIXA' ? 'Operador de Caixa (Frente de Caixa)' :
+                    perfilAtivoEscala === 'ESTOQUISTA' ? 'Controlador de Estoque (Inventário)' :
+                    'Gerente Geral (Administrador)'
+                  }
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Estes horários serão usados como parâmetros padrão para o cálculo de batidas e horas extras.
+                </p>
+              </div>
+
+              {formEscala.isento_ponto && (
+                <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">
+                  ✓ Isento de Ponto (Art. 62 CLT)
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Horário Entrada */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <LogIn size={15} className="text-emerald-600" />
+                  <span>1. Horário de Entrada</span>
+                </label>
+                <input
+                  type="time"
+                  value={formEscala.horario_entrada}
+                  onChange={(e) => setFormEscala(prev => ({ ...prev, horario_entrada: e.target.value }))}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold font-mono focus:ring-2 focus:ring-sky-500"
+                />
+                <span className="text-[10px] text-slate-400 block">Início da jornada diária</span>
+              </div>
+
+              {/* Saída Almoço */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Coffee size={15} className="text-amber-600" />
+                  <span>2. Saída para Almoço</span>
+                </label>
+                <input
+                  type="time"
+                  value={formEscala.horario_saida_almoco}
+                  onChange={(e) => setFormEscala(prev => ({ ...prev, horario_saida_almoco: e.target.value }))}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold font-mono focus:ring-2 focus:ring-sky-500"
+                />
+                <span className="text-[10px] text-slate-400 block">Início do intervalo intrajornada</span>
+              </div>
+
+              {/* Retorno Almoço */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Coffee size={15} className="text-sky-600" />
+                  <span>3. Retorno do Almoço</span>
+                </label>
+                <input
+                  type="time"
+                  value={formEscala.horario_retorno_almoco}
+                  onChange={(e) => setFormEscala(prev => ({ ...prev, horario_retorno_almoco: e.target.value }))}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold font-mono focus:ring-2 focus:ring-sky-500"
+                />
+                <span className="text-[10px] text-slate-400 block">Término do intervalo (mín. 1 hora)</span>
+              </div>
+
+              {/* Saída Final */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <LogOut size={15} className="text-rose-600" />
+                  <span>4. Saída do Expediente</span>
+                </label>
+                <input
+                  type="time"
+                  value={formEscala.horario_saida}
+                  onChange={(e) => setFormEscala(prev => ({ ...prev, horario_saida: e.target.value }))}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold font-mono focus:ring-2 focus:ring-sky-500"
+                />
+                <span className="text-[10px] text-slate-400 block">Encerramento da jornada normal</span>
+              </div>
+            </div>
+
+            {/* Parâmetros Trabalhistas CLT */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Dias de Trabalho na Semana:
+                </label>
+                <input
+                  type="text"
+                  value={formEscala.dias_trabalho}
+                  onChange={(e) => setFormEscala(prev => ({ ...prev, dias_trabalho: e.target.value }))}
+                  placeholder="Ex: SEG,TER,QUA,QUI,SEX"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-sky-500"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Respeite o Art. 67 da CLT (repouso semanal de 24h consecutivas, preferencialmente aos domingos).
+                </p>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Tolerância de Ponto (Art. 58 § 1º CLT):
+                </label>
+                <select
+                  value={formEscala.tolerancia_minutos}
+                  onChange={(e) => setFormEscala(prev => ({ ...prev, tolerancia_minutos: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-sky-500"
+                >
+                  <option value={5}>5 minutos</option>
+                  <option value={10}>10 minutos</option>
+                  <option value={15}>15 minutos (Padrão)</option>
+                </select>
+                <p className="text-[11px] text-slate-500">
+                  Não são computadas nem descontadas variações até o limite legal de 10-15 minutos diários.
+                </p>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Limite Horas Extras / Dia (Art. 59 CLT):
+                </label>
+                <select
+                  value={formEscala.max_horas_extras_dia_minutos}
+                  onChange={(e) => setFormEscala(prev => ({ ...prev, max_horas_extras_dia_minutos: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-sky-500"
+                >
+                  <option value={60}>1 hora (60 min)</option>
+                  <option value={120}>2 horas (120 min - Máximo CLT)</option>
+                </select>
+                <p className="text-[11px] text-slate-500">
+                  O sistema bloqueia tentativas de horas extras acima do teto legal de 2 horas.
+                </p>
+              </div>
+            </div>
+
+            {/* Checkbox Isenção */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-800 block">
+                  Isenção Legal de Controle de Ponto (Art. 62 da CLT)
+                </span>
+                <p className="text-[11px] text-slate-500">
+                  Aplicável exclusivamente a cargos de gestão, gerentes com poderes diretivos e diretores.
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formEscala.isento_ponto}
+                  onChange={(e) => setFormEscala(prev => ({ ...prev, isento_ponto: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              </label>
+            </div>
+
+            {/* Botão de Salvar */}
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                disabled={salvandoEscala}
+                onClick={handleSalvarEscala}
+                className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r ${temaAtual.bgGradiente} shadow-md transition-all disabled:opacity-50`}
+              >
+                <Save size={16} />
+                <span>{salvandoEscala ? 'Salvando Escala...' : 'Salvar Escala do Perfil'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

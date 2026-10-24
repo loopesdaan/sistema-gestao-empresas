@@ -94,6 +94,9 @@ def obter_caixa_atual(
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
     """Busca o caixa aberto atualmente para o usuário logado"""
+    if current_user.perfil == PerfilUsuario.ESTOQUISTA:
+        return None
+
     caixa = db.query(Caixa).filter(
         Caixa.empresa_id == current_user.empresa_id,
         Caixa.usuario_id == current_user.id,
@@ -119,6 +122,12 @@ def abrir_caixa(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
+    if current_user.perfil == PerfilUsuario.ESTOQUISTA:
+        raise HTTPException(
+            status_code=403,
+            detail="O Controlador de Estoque trabalha exclusivamente com gestão de inventário e não opera caixas."
+        )
+
     # Verifica se já existe caixa aberto para esse operador
     caixa_aberto = db.query(Caixa).filter(
         Caixa.empresa_id == current_user.empresa_id,

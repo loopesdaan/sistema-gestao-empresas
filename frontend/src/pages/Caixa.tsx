@@ -214,6 +214,26 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
     );
   }
 
+  const usuarioSalvo = localStorage.getItem('gestao_user') || sessionStorage.getItem('gestao_user');
+  const usuarioLogado = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+  const isEstoquista = usuarioLogado?.perfil === 'ESTOQUISTA';
+
+  if (isEstoquista) {
+    return (
+      <div className="min-h-[450px] flex items-center justify-center p-6">
+        <div className="bg-white rounded-3xl max-w-md w-full p-8 text-center border border-slate-200 shadow-xl space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+            <Lock size={32} />
+          </div>
+          <h3 className="text-xl font-bold text-slate-800">Acesso Restrito ao Caixa</h3>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            O perfil <strong>Controlador de Estoque</strong> atua exclusivamente na gestão de mercadorias, movimentações e auditoria de inventário, não operando terminais de caixa.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Abas de Navegação do Caixa */}

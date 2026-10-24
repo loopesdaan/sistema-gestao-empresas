@@ -164,11 +164,15 @@ def obter_status_hoje(
         RegistroPonto.data == hoje_str
     ).first()
 
+    is_admin = current_user.perfil == PerfilUsuario.ADMIN
+
     if not registro:
         return {
             "possui_ponto_hoje": False,
-            "status_jornada": "NAO_INICIADA",
+            "status_jornada": "ISENTO_GESTÃO" if is_admin else "NAO_INICIADA",
             "bloqueado_clt": False,
+            "isento_ponto": is_admin,
+            "pode_testar": True,
             "minutos_trabalhados": 0,
             "limite_restante_minutos": 480, # 8h
             "jornada_estourada": False
@@ -193,7 +197,9 @@ def obter_status_hoje(
         "possui_ponto_hoje": True,
         "registro_id": registro.id,
         "status_jornada": registro.status_jornada,
-        "bloqueado_clt": registro.bloqueado_clt or jornada_estourada,
+        "bloqueado_clt": False if is_admin else (registro.bloqueado_clt or jornada_estourada),
+        "isento_ponto": is_admin,
+        "pode_testar": True,
         "entrada_1": registro.entrada_1,
         "saida_almoco": registro.saida_almoco,
         "retorno_almoco": registro.retorno_almoco,
@@ -202,7 +208,7 @@ def obter_status_hoje(
         "minutos_previstos": registro.minutos_previstos,
         "horas_extras_aprovadas": registro.horas_extras_aprovadas,
         "limite_restante_minutos": max(0, limite_maximo - minutos_atuais),
-        "jornada_estourada": jornada_estourada
+        "jornada_estourada": False if is_admin else jornada_estourada
     }
 
 @router.get("/meu-historico")
@@ -281,4 +287,212 @@ def aprovar_hora_extra(
         "mensagem": f"{dados.minutos_aprovados} minutos de hora extra autorizados pelo Administrador. Sistema desbloqueado com sucesso.",
         "horas_extras_aprovadas": registro.horas_extras_aprovadas
     }
+
+class ConfiguracaoPontoItem(BaseModel):
+    id: Optional[int] = None
+    empresa_id: Optional[int] = None
+    perfil: Optional[str] = None
+    usuario_id: Optional[int] = None
+    usuario_nome: Optional[str] = None
+    horario_entrada: str = "08:00"
+    horario_saida_almoco: str = "12:00"
+    horario_retorno_almoco: str = "13:00"
+    horario_saida: str = "17:00"
+    dias_trabalho: str = "SEG,TER,QUA,QUI,SEX"
+    carga_horaria_diaria_minutos: int = 480
+    tolerancia_minutos: int = 15
+    interjornada_minima_horas: int = 11
+    max_horas_extras_dia_minutos: int = 120
+    isento_ponto: bool = False
+    ativo: bool = True
+
+@router.get("/configuracoes")
+def listar_configuracoes_ponto(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Retorna as escalas e horários de trabalho configurados por perfil e colaborador"""
+    configs = db.query(ConfiguracaoPonto).filter(
+        ConfiguracaoPonto.empresa_id == current_user.empresa_id
+    ).all()
+
+    # Se ainda não existem configurações para a empresa, inicializa padrões por perfil
+    perfis_existentes = {c.perfil for c in configs if c.perfil}
+    padroes = [
+        {
+            "perfil": "ADMIN",
+            "horario_entrada": "09:00",
+            "horario_saida_almoco": "12:00",
+            "horario_retorno_almoco": "13:00",
+            "horario_saida": "18:00",
+            "dias_trabalho": "SEG,TER,QUA,QUI,SEX",
+            "carga_horaria_diaria_minutos": 480,
+            "tolerancia_minutos": 15,
+            "interjornada_minima_horas": 11,
+            "max_horas_extras_dia_minutos": 120,
+            "isento_ponto": True,
+            "ativo": True
+        },
+        {
+            "perfil": "OPERADOR_CAIXA",
+            "horario_entrada": "08:00",
+            "horario_saida_almoco": "12:00",
+            "horario_retorno_almoco": "13:00",
+            "horario_saida": "17:00",
+            "dias_trabalho": "SEG,TER,QUA,QUI,SEX",
+            "carga_horaria_diaria_minutos": 480,
+            "tolerancia_minutos": 15,
+            "interjornada_minima_horas": 11,
+            "max_horas_extras_dia_minutos": 120,
+            "isento_ponto": False,
+            "ativo": True
+        },
+        {
+            "perfil": "ESTOQUISTA",
+            "horario_entrada": "07:30",
+            "horario_saida_almoco": "11:30",
+            "horario_retorno_almoco": "12:30",
+            "horario_saida": "16:30",
+            "dias_trabalho": "SEG,TER,QUA,QUI,SEX",
+            "carga_horaria_diaria_minutos": 480,
+            "tolerancia_minutos": 15,
+            "interjornada_minima_horas": 11,
+            "max_horas_extras_dia_minutos": 120,
+            "isento_ponto": False,
+            "ativo": True
+        }
+    ]
+
+    for p in padroes:
+        if p["perfil"] not in perfis_existentes:
+            nova_cfg = ConfiguracaoPonto(
+                empresa_id=current_user.empresa_id,
+                perfil=p["perfil"],
+                horario_entrada=p["horario_entrada"],
+                horario_saida_almoco=p["horario_saida_almoco"],
+                horario_retorno_almoco=p["horario_retorno_almoco"],
+                horario_saida=p["horario_saida"],
+                dias_trabalho=p["dias_trabalho"],
+                carga_horaria_diaria_minutos=p["carga_horaria_diaria_minutos"],
+                tolerancia_minutos=p["tolerancia_minutos"],
+                interjornada_minima_horas=p["interjornada_minima_horas"],
+                max_horas_extras_dia_minutos=p["max_horas_extras_dia_minutos"],
+                isento_ponto=p["isento_ponto"],
+                ativo=True
+            )
+            db.add(nova_cfg)
+            db.commit()
+            configs.append(nova_cfg)
+
+    resultado = []
+    for c in configs:
+        resultado.append({
+            "id": c.id,
+            "empresa_id": c.empresa_id,
+            "perfil": c.perfil,
+            "usuario_id": c.usuario_id,
+            "usuario_nome": c.usuario.nome if c.usuario else None,
+            "horario_entrada": c.horario_entrada,
+            "horario_saida_almoco": c.horario_saida_almoco,
+            "horario_retorno_almoco": c.horario_retorno_almoco,
+            "horario_saida": c.horario_saida,
+            "dias_trabalho": c.dias_trabalho,
+            "carga_horaria_diaria_minutos": c.carga_horaria_diaria_minutos or 480,
+            "tolerancia_minutos": c.tolerancia_minutos or 15,
+            "interjornada_minima_horas": c.interjornada_minima_horas or 11,
+            "max_horas_extras_dia_minutos": c.max_horas_extras_dia_minutos or 120,
+            "isento_ponto": bool(c.isento_ponto),
+            "ativo": bool(c.ativo)
+        })
+    return resultado
+
+@router.post("/configuracoes")
+def salvar_configuracao_ponto(
+    dados: ConfiguracaoPontoItem,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Cria ou atualiza a escala de horários de trabalho de um perfil ou colaborador"""
+    if current_user.perfil != PerfilUsuario.ADMIN:
+        raise HTTPException(status_code=403, detail="Apenas administradores podem configurar jornadas e escalas de trabalho.")
+
+    config = None
+    if dados.id:
+        config = db.query(ConfiguracaoPonto).filter(
+            ConfiguracaoPonto.id == dados.id,
+            ConfiguracaoPonto.empresa_id == current_user.empresa_id
+        ).first()
+    elif dados.perfil:
+        config = db.query(ConfiguracaoPonto).filter(
+            ConfiguracaoPonto.perfil == dados.perfil,
+            ConfiguracaoPonto.empresa_id == current_user.empresa_id
+        ).first()
+    elif dados.usuario_id:
+        config = db.query(ConfiguracaoPonto).filter(
+            ConfiguracaoPonto.usuario_id == dados.usuario_id,
+            ConfiguracaoPonto.empresa_id == current_user.empresa_id
+        ).first()
+
+    if not config:
+        config = ConfiguracaoPonto(
+            empresa_id=current_user.empresa_id,
+            perfil=dados.perfil,
+            usuario_id=dados.usuario_id
+        )
+        db.add(config)
+
+    config.horario_entrada = dados.horario_entrada
+    config.horario_saida_almoco = dados.horario_saida_almoco
+    config.horario_retorno_almoco = dados.horario_retorno_almoco
+    config.horario_saida = dados.horario_saida
+    config.dias_trabalho = dados.dias_trabalho
+    config.carga_horaria_diaria_minutos = dados.carga_horaria_diaria_minutos
+    config.tolerancia_minutos = dados.tolerancia_minutos
+    config.interjornada_minima_horas = dados.interjornada_minima_horas
+    config.max_horas_extras_dia_minutos = dados.max_horas_extras_dia_minutos
+    config.isento_ponto = dados.isento_ponto
+    config.ativo = dados.ativo
+
+    db.commit()
+    db.refresh(config)
+
+    return {
+        "ok": True,
+        "mensagem": f"Escala de trabalho para {dados.perfil or 'colaborador'} atualizada com sucesso.",
+        "configuracao": {
+            "id": config.id,
+            "perfil": config.perfil,
+            "usuario_id": config.usuario_id,
+            "horario_entrada": config.horario_entrada,
+            "horario_saida_almoco": config.horario_saida_almoco,
+            "horario_retorno_almoco": config.horario_retorno_almoco,
+            "horario_saida": config.horario_saida,
+            "dias_trabalho": config.dias_trabalho,
+            "carga_horaria_diaria_minutos": config.carga_horaria_diaria_minutos,
+            "tolerancia_minutos": config.tolerancia_minutos,
+            "interjornada_minima_horas": config.interjornada_minima_horas,
+            "max_horas_extras_dia_minutos": config.max_horas_extras_dia_minutos,
+            "isento_ponto": config.isento_ponto,
+            "ativo": config.ativo
+        }
+    }
+
+@router.post("/resetar-teste")
+def resetar_ponto_teste(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Permite ao Administrador resetar as batidas de teste de hoje para poder validar novas regras"""
+    if current_user.perfil != PerfilUsuario.ADMIN:
+        raise HTTPException(status_code=403, detail="Apenas administradores podem resetar batidas em modo de teste.")
+    
+    hoje_str = date.today().isoformat()
+    registro = db.query(RegistroPonto).filter(
+        RegistroPonto.usuario_id == current_user.id,
+        RegistroPonto.data == hoje_str
+    ).first()
+    if registro:
+        db.delete(registro)
+        db.commit()
+    return {"ok": True, "mensagem": "Batidas de teste de hoje resetadas com sucesso para novas validações."}
 

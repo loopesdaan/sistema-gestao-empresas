@@ -43,7 +43,8 @@ class ConfiguracaoPonto(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    perfil = Column(String(50), nullable=True) # PerfilUsuario: ADMIN, OPERADOR_CAIXA, ESTOQUISTA
     
     horario_entrada = Column(String(5), default="09:00", nullable=False)
     horario_saida_almoco = Column(String(5), default="12:00", nullable=False)
@@ -51,8 +52,11 @@ class ConfiguracaoPonto(Base):
     horario_saida = Column(String(5), default="18:00", nullable=False)
     
     dias_trabalho = Column(String(50), default="SEG,TER,QUA,QUI,SEX", nullable=False)
+    carga_horaria_diaria_minutos = Column(Integer, default=480, nullable=False) # 8h
+    tolerancia_minutos = Column(Integer, default=15, nullable=False) # Tolerância CLT (Art. 58 § 1º)
     interjornada_minima_horas = Column(Integer, default=11, nullable=False) # Art. 66 CLT: 11 horas
     max_horas_extras_dia_minutos = Column(Integer, default=120, nullable=False) # Art. 59 CLT: max 2 horas
+    isento_ponto = Column(Boolean, default=False, nullable=False) # Art. 62 CLT: cargos de gestão/admin isentos
     ativo = Column(Boolean, default=True, nullable=False)
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

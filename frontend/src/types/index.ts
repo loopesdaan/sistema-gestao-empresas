@@ -232,15 +232,22 @@ export interface StatusJornada {
 }
 
 export interface ConfiguracaoPonto {
-  id: number;
-  empresa_id: number;
-  usuario_id: number;
+  id?: number;
+  empresa_id?: number;
+  perfil?: string;
+  usuario_id?: number;
   usuario_nome?: string;
-  hora_entrada_padrao: string;
-  hora_saida_padrao: string;
-  intervalo_minutos: number;
+  horario_entrada: string;
+  horario_saida_almoco: string;
+  horario_retorno_almoco: string;
+  horario_saida: string;
+  dias_trabalho: string;
+  carga_horaria_diaria_minutos: number;
   tolerancia_minutos: number;
-  bloqueio_automatico_pdv: boolean;
+  interjornada_minima_horas: number;
+  max_horas_extras_dia_minutos: number;
+  isento_ponto: boolean;
+  ativo: boolean;
 }
 
 // Notificações & Alertas

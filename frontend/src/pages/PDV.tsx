@@ -497,8 +497,12 @@ export const PDV: React.FC = () => {
     );
   }
 
-  // Trava Inteligente CLT: se estourou jornada e não está no meio de venda, bloqueia terminal
-  if (statusPonto?.bloqueado_clt && carrinho.length === 0) {
+  const usuarioSalvo = localStorage.getItem('gestao_user') || sessionStorage.getItem('gestao_user');
+  const usuarioLogado = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+  const isAdmin = usuarioLogado?.perfil === 'ADMIN';
+
+  // Trava Inteligente CLT: se estourou jornada e não está no meio de venda, bloqueia terminal (exceto Administrador/Gestor - Art. 62 CLT)
+  if (!isAdmin && statusPonto?.bloqueado_clt && carrinho.length === 0) {
     return (
       <div className="min-h-[500px] flex items-center justify-center p-6">
         <div className="bg-white rounded-3xl max-w-lg w-full p-8 text-center border-2 border-rose-200 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
