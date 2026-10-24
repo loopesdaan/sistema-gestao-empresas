@@ -1,0 +1,224 @@
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Menu, Bell, ShoppingCart, User, CheckCheck, X, Clock } from 'lucide-react';
+import { useNotificacoes, Notificacao } from '../contexts/NotificationContext';
+import { useEmpresa } from '../contexts/EmpresaContext';
+import { Caixa } from '../types';
+
+interface NavbarProps {
+  onMenuToggle: () => void;
+  activeTitle: string;
+  onOpenPDV: () => void;
+  caixaAberto: boolean;
+  caixaAtual?: Caixa | null;
+  userName?: string;
+}
+
+// Retorna classes de cor baseadas no tipo da notificação
+const corPorTipo = (tipo: Notificacao['tipo']): { borda: string; icone: string; fundo: string; texto: string } => {
+  switch (tipo) {
+    case 'erro':
+      return { borda: 'border-l-red-500', icone: '🔴', fundo: 'bg-red-50', texto: 'text-red-700' };
+    case 'aviso':
+      return { borda: 'border-l-yellow-500', icone: '🟡', fundo: 'bg-yellow-50', texto: 'text-yellow-700' };
+    case 'sucesso':
+      return { borda: 'border-l-emerald-500', icone: '🟢', fundo: 'bg-emerald-50', texto: 'text-emerald-700' };
+    case 'info':
+    default:
+      return { borda: 'border-l-sky-500', icone: '🔵', fundo: 'bg-sky-50', texto: 'text-sky-700' };
+  }
+};
+
+// Formata a data relativa da notificação (ex: "há 2 minutos")
+const formatarTempo = (data: Date): string => {
+  const agora = new Date();
+  const diffMs = agora.getTime() - new Date(data).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'agora mesmo';
+  if (diffMin < 60) return `há ${diffMin} min`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `há ${diffHr}h`;
+  return `há ${Math.floor(diffHr / 24)} dias`;
+};
+
+export const Navbar: React.FC<NavbarProps> = ({
+  onMenuToggle,
+  activeTitle,
+  onOpenPDV,
+  caixaAberto,
+  caixaAtual,
+  userName = 'Administrador'
+}) => {
+  const { notificacoes, naoLidas, marcarLida, marcarTodasLidas } = useNotificacoes();
+  const { temaAtual } = useEmpresa();
+  const [dropdownAberto, setDropdownAberto] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const tempoAbertoFormatado = useMemo(() => {
+    if (!caixaAtual?.data_abertura) return null;
+    try {
+      const data = new Date(caixaAtual.data_abertura);
+      const hora = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const minutosTotais = Math.max(0, Math.floor((Date.now() - data.getTime()) / 60000));
+      const horas = Math.floor(minutosTotais / 60);
+      const minutos = minutosTotais % 60;
+      return `${hora} (${horas > 0 ? `${horas}h ` : ''}${minutos}m)`;
+    } catch {
+      return null;
+    }
+  }, [caixaAtual]);
+
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickFora = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownAberto(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickFora);
+    return () => document.removeEventListener('mousedown', handleClickFora);
+  }, []);
+
+  // Últimas 10 notificações para exibir no dropdown
+  const ultimas10 = notificacoes.slice(0, 10);
+
+  return (
+    <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs h-16 flex items-center justify-between px-4 sm:px-6">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onMenuToggle}
+          className="lg:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
+          aria-label="Abrir Menu"
+        >
+          <Menu size={22} />
+        </button>
+        <h2 className="text-lg font-bold text-slate-800 tracking-tight capitalize">
+          {activeTitle}
+        </h2>
+      </div>
+
+      <div className="flex items-center gap-2 sm:gap-4">
+        {/* Badge do Caixa */}
+        <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+          caixaAberto 
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+            : 'bg-amber-50 text-amber-700 border border-amber-200'
+        }`}>
+          <span className={`w-2 h-2 rounded-full ${caixaAberto ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+          {caixaAberto ? (
+            <span>
+              Caixa Aberto {tempoAbertoFormatado && <span className="opacity-90 font-mono text-[11px] ml-1">às {tempoAbertoFormatado}</span>}
+            </span>
+          ) : (
+            'Caixa Fechado'
+          )}
+        </div>
+
+        {/* Botão Atalho PDV */}
+        <button
+          onClick={onOpenPDV}
+          className={`flex items-center gap-2 bg-gradient-to-r ${temaAtual.bgGradiente} hover:opacity-95 text-white px-3.5 py-1.5 rounded-xl text-sm font-semibold shadow-xs shadow-black/10 transition-all`}
+        >
+          <ShoppingCart size={16} />
+          <span className="hidden sm:inline">Frente de Caixa</span>
+        </button>
+
+        {/* Sino de Notificações */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setDropdownAberto(prev => !prev)}
+            className="relative p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+            aria-label="Notificações"
+          >
+            <Bell size={20} />
+            {naoLidas > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                {naoLidas > 99 ? '99+' : naoLidas}
+              </span>
+            )}
+          </button>
+
+          {/* Dropdown de Notificações */}
+          {dropdownAberto && (
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 overflow-hidden">
+              {/* Cabeçalho do dropdown */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
+                <div>
+                  <span className="font-bold text-slate-800 text-sm">Notificações</span>
+                  {naoLidas > 0 && (
+                    <span className="ml-2 bg-rose-100 text-rose-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                      {naoLidas} nova{naoLidas > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={marcarTodasLidas}
+                  className="flex items-center gap-1 text-xs text-sky-600 hover:text-sky-800 font-semibold transition-colors"
+                  title="Marcar todas como lidas"
+                >
+                  <CheckCheck size={14} />
+                  Marcar todas como lidas
+                </button>
+              </div>
+
+              {/* Lista de notificações */}
+              <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
+                {ultimas10.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                    <Bell size={32} className="mb-2 opacity-30" />
+                    <p className="text-xs font-medium">Nenhuma notificação</p>
+                  </div>
+                ) : (
+                  ultimas10.map(n => {
+                    const cores = corPorTipo(n.tipo);
+                    return (
+                      <div
+                        key={n.id}
+                        onClick={() => marcarLida(n.id)}
+                        className={`flex gap-3 px-4 py-3 border-l-4 ${cores.borda} cursor-pointer transition-colors ${
+                          n.lido ? 'bg-white opacity-60 hover:opacity-80' : `${cores.fundo} hover:brightness-95`
+                        }`}
+                      >
+                        <span className="text-base flex-shrink-0 mt-0.5">{cores.icone}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-bold ${n.lido ? 'text-slate-600' : cores.texto}`}>
+                            {n.titulo}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5 leading-snug line-clamp-2">
+                            {n.mensagem}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            {formatarTempo(n.created_at)}
+                          </p>
+                        </div>
+                        {!n.lido && (
+                          <span className="w-2 h-2 rounded-full bg-sky-500 flex-shrink-0 mt-1.5" />
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Rodapé do dropdown */}
+              {notificacoes.length > 10 && (
+                <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 text-center">
+                  <span className="text-xs text-slate-400">
+                    Exibindo 10 de {notificacoes.length} notificações
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Usuário info */}
+        <div className="flex items-center gap-2 pl-2 border-l border-slate-200 text-slate-700">
+          <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600">
+            <User size={16} />
+          </div>
+          <span className="hidden md:inline text-xs font-semibold">{userName}</span>
+        </div>
+      </div>
+    </header>
+  );
+};

@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gestao_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: gestao_user
+      POSTGRES_PASSWORD: gestao_password
+      POSTGRES_DB: gestao_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+    driver: local
+
