@@ -9,7 +9,7 @@ from sqlalchemy import func
 from app.core.database import get_db
 from app.models.usuario import Usuario, PerfilUsuario
 from app.models.caixa import Caixa, MovimentacaoCaixa, StatusCaixa, TipoMovimentacaoCaixa, SolicitacaoCaixa, TipoSolicitacaoCaixa, StatusSolicitacaoCaixa
-from app.models.notificacao import Notificacao
+from app.models.notificacao import Notificacao, StatusNotificacao
 from app.models.venda import Venda, PagamentoVenda, StatusVenda, FormaPagamento
 from app.schemas.caixa import (
     AberturaCaixa, FechamentoCaixa, MovimentacaoCaixaCreate,
@@ -277,6 +277,7 @@ def solicitar_ticket_caixa(
         status=StatusSolicitacaoCaixa.PENDENTE
     )
     db.add(ticket)
+    db.flush()
     
     # Cria notificação para os administradores
     notif = Notificacao(
@@ -285,8 +286,9 @@ def solicitar_ticket_caixa(
         titulo=f"Solicitação de {dados.tipo.value} (Caixa #{caixa.id})",
         mensagem=f"Operador {current_user.nome} solicitou {dados.tipo.value} {f'de R$ {dados.valor_solicitado}' if dados.valor_solicitado else ''}. Motivo: {dados.motivo or 'Não informado'}.",
         tipo="CAIXA_TICKET",
-        referencia_tipo="CAIXA",
-        referencia_id=caixa.id
+        referencia_tipo="TICKET_CAIXA",
+        referencia_id=ticket.id,
+        valor_pendente=dados.valor_solicitado
     )
     db.add(notif)
     db.commit()
@@ -339,16 +341,80 @@ def responder_ticket_caixa(
     if current_user.perfil != PerfilUsuario.ADMIN:
         raise HTTPException(status_code=403, detail="Apenas administradores podem responder tickets de caixa.")
 
+    agora = datetime.now(timezone.utc)
+
+    # 1. Tenta buscar pelo ID direto do ticket
     ticket = db.query(SolicitacaoCaixa).filter(
         SolicitacaoCaixa.id == ticket_id,
         SolicitacaoCaixa.empresa_id == current_user.empresa_id
     ).first()
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
-    if ticket.status != StatusSolicitacaoCaixa.PENDENTE:
-        raise HTTPException(status_code=400, detail="Esta solicitação já foi respondida.")
 
-    agora = datetime.now(timezone.utc)
+    # 2. Se não encontrou pelo ID do ticket, pode ser que o cliente passou o caixa_id (legado)
+    if not ticket:
+        ticket = db.query(SolicitacaoCaixa).filter(
+            SolicitacaoCaixa.caixa_id == ticket_id,
+            SolicitacaoCaixa.empresa_id == current_user.empresa_id,
+            SolicitacaoCaixa.status == StatusSolicitacaoCaixa.PENDENTE
+        ).order_by(SolicitacaoCaixa.created_at.desc()).first()
+
+    # 3. Se ainda assim não encontrou ticket pendente, mas a solicitação já foi respondida anteriormente:
+    if not ticket:
+        ticket_existente = db.query(SolicitacaoCaixa).filter(
+            (SolicitacaoCaixa.id == ticket_id) | (SolicitacaoCaixa.caixa_id == ticket_id),
+            SolicitacaoCaixa.empresa_id == current_user.empresa_id
+        ).order_by(SolicitacaoCaixa.created_at.desc()).first()
+
+        if ticket_existente:
+            # Também resolve as notificações pendentes órfãs para regularizar
+            notifs = db.query(Notificacao).filter(
+                Notificacao.empresa_id == current_user.empresa_id,
+                (
+                    (Notificacao.referencia_id == ticket_existente.id) |
+                    (Notificacao.referencia_id == ticket_existente.caixa_id) |
+                    (Notificacao.referencia_id == ticket_id)
+                ),
+                Notificacao.status == StatusNotificacao.PENDENTE.value
+            ).all()
+            for n in notifs:
+                n.status = StatusNotificacao.RESOLVIDA.value
+                n.resolvido_em = agora
+                n.resolvido_por_id = current_user.id
+            db.commit()
+
+            return {
+                "ok": True,
+                "mensagem": f"Solicitação já havia sido {ticket_existente.status.lower()}. Pendência regularizada.",
+                "ticket_id": ticket_existente.id,
+                "status": ticket_existente.status
+            }
+
+        raise HTTPException(status_code=404, detail="Solicitação não encontrada.")
+
+    # Se o ticket foi encontrado mas não está PENDENTE:
+    if ticket.status != StatusSolicitacaoCaixa.PENDENTE:
+        # Regulariza notificações pendentes
+        notifs = db.query(Notificacao).filter(
+            Notificacao.empresa_id == current_user.empresa_id,
+            (
+                (Notificacao.referencia_id == ticket.id) |
+                (Notificacao.referencia_id == ticket.caixa_id) |
+                (Notificacao.referencia_id == ticket_id)
+            ),
+            Notificacao.status == StatusNotificacao.PENDENTE.value
+        ).all()
+        for n in notifs:
+            n.status = StatusNotificacao.RESOLVIDA.value
+            n.resolvido_em = agora
+            n.resolvido_por_id = current_user.id
+        db.commit()
+
+        return {
+            "ok": True,
+            "mensagem": f"Solicitação já estava {ticket.status.lower()}. Notificação resolvida.",
+            "ticket_id": ticket.id,
+            "status": ticket.status
+        }
+
     ticket.respondido_em = agora
     ticket.respondido_por_id = current_user.id
 
@@ -369,6 +435,21 @@ def responder_ticket_caixa(
         db.add(mov)
     else:
         ticket.status = StatusSolicitacaoCaixa.REJEITADO
+
+    # Atualiza também todas as notificações associadas ao ticket ou caixa para RESOLVIDA
+    notifs = db.query(Notificacao).filter(
+        Notificacao.empresa_id == current_user.empresa_id,
+        (
+            (Notificacao.referencia_id == ticket.id) |
+            (Notificacao.referencia_id == ticket.caixa_id) |
+            (Notificacao.referencia_id == ticket_id)
+        ),
+        Notificacao.status == StatusNotificacao.PENDENTE.value
+    ).all()
+    for n in notifs:
+        n.status = StatusNotificacao.RESOLVIDA.value
+        n.resolvido_em = agora
+        n.resolvido_por_id = current_user.id
 
     db.commit()
     db.refresh(ticket)

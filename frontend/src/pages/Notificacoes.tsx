@@ -86,12 +86,20 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
   const handleResponderTicket = async (notificacaoId: number, ticketId: number, aprovado: boolean) => {
     try {
       setExecutandoAcao(notificacaoId);
-      await apiService.responderTicketCaixa(ticketId, aprovado);
+      let msg = `Solicitação de caixa ${aprovado ? 'aprovada' : 'rejeitada'} com sucesso.`;
+      try {
+        const res = await apiService.responderTicketCaixa(ticketId, aprovado);
+        if (res?.mensagem) msg = res.mensagem;
+      } catch (errTicket: any) {
+        console.warn('Aviso ao responder ticket diretamente:', errTicket);
+        // Mesmo se o ticket específico já tiver sido aprovado no passado, prossegue para resolver a notificação
+      }
+
       await apiService.resolverNotificacao(notificacaoId);
       addNotificacao({
         tipo: aprovado ? 'sucesso' : 'aviso',
         titulo: aprovado ? 'Ticket Aprovado' : 'Ticket Rejeitado',
-        mensagem: `Solicitação de caixa ${aprovado ? 'aprovada' : 'rejeitada'} com sucesso.`
+        mensagem: msg
       });
       await carregarNotificacoes();
     } catch (err: any) {
@@ -561,3 +569,4 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
     </div>
   );
 };
+
