@@ -85,6 +85,10 @@ export const apiService = {
     const res = await api.put(`/usuarios/${id}`, usuario);
     return res.data;
   },
+  excluirUsuario: async (id: number): Promise<{ ok: boolean; tipo: string; mensagem: string }> => {
+    const res = await api.delete(`/usuarios/${id}`);
+    return res.data;
+  },
 
   // Produtos
   listarProdutos: async (busca?: string, apenasEstoqueBaixo?: boolean): Promise<Produto[]> => {
@@ -142,6 +146,10 @@ export const apiService = {
   },
   atualizarCliente: async (id: number, cliente: Partial<Cliente>): Promise<Cliente> => {
     const res = await api.put(`/clientes/${id}`, cliente);
+    return res.data;
+  },
+  excluirCliente: async (id: number): Promise<{ ok: boolean; tipo: string; mensagem: string }> => {
+    const res = await api.delete(`/clientes/${id}`);
     return res.data;
   },
 

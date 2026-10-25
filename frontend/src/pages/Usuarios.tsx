@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { Usuario, PerfilUsuario } from '../types';
-import { UserCheck, Shield, Plus, Edit, Lock, CheckCircle2, AlertCircle, Camera, Upload, X } from 'lucide-react';
+import { UserCheck, Shield, Plus, Edit, Lock, CheckCircle2, AlertCircle, Camera, Upload, X, Trash2 } from 'lucide-react';
 
 export const Usuarios: React.FC = () => {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -26,6 +26,21 @@ export const Usuarios: React.FC = () => {
       console.error('Erro ao listar usuários:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExcluirUsuario = async (id: number, nome: string) => {
+    if (!window.confirm(`Deseja realmente excluir o colaborador "${nome}"?`)) return;
+
+    try {
+      const res = await apiService.excluirUsuario(id);
+      alert(res.mensagem || 'Usuário excluído com sucesso.');
+      if (modalUsuario?.id === id) {
+        setModalUsuario(null);
+      }
+      carregarUsuarios();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Erro ao excluir usuário.');
     }
   };
 
@@ -164,19 +179,29 @@ export const Usuarios: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => setModalUsuario({
-                          id: u.id,
-                          nome: u.nome,
-                          email: u.email,
-                          password: '',
-                          perfil: u.perfil,
-                          ativo: u.ativo
-                        })}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
-                      >
-                        Editar / Trocar Senha
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setModalUsuario({
+                            id: u.id,
+                            nome: u.nome,
+                            email: u.email,
+                            password: '',
+                            perfil: u.perfil,
+                            ativo: u.ativo
+                          })}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1"
+                        >
+                          <Edit size={13} />
+                          <span>Editar</span>
+                        </button>
+                        <button
+                          onClick={() => handleExcluirUsuario(u.id, u.nome)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-rose-50 transition-colors"
+                          title={`Excluir ${u.nome}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -313,17 +338,28 @@ export const Usuarios: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-3">
+              <div className="flex items-center gap-2 pt-3">
+                {modalUsuario.id && (
+                  <button
+                    type="button"
+                    onClick={() => handleExcluirUsuario(modalUsuario.id!, modalUsuario.nome)}
+                    className="py-2 px-3 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl font-semibold text-xs transition-colors flex items-center gap-1.5"
+                    title="Excluir este colaborador"
+                  >
+                    <Trash2 size={14} />
+                    <span>Excluir</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setModalUsuario(null)}
-                  className="flex-1 py-2 border border-slate-300 text-slate-700 rounded-xl font-semibold text-sm"
+                  className="flex-1 py-2 border border-slate-300 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-semibold text-sm shadow-xs"
+                  className="flex-1 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-semibold text-sm shadow-xs transition-colors"
                 >
                   Salvar
                 </button>

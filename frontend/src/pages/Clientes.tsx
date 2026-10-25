@@ -5,7 +5,7 @@ import { useEmpresa } from '../contexts/EmpresaContext';
 import { 
   Users, Search, Plus, Phone, Mail, MapPin, DollarSign, 
   AlertCircle, Edit, Car, Sparkles, CheckCircle2,
-  TrendingDown, CreditCard, X
+  TrendingDown, CreditCard, X, Trash2
 } from 'lucide-react';
 
 export const Clientes: React.FC = () => {
@@ -28,6 +28,21 @@ export const Clientes: React.FC = () => {
       console.error('Erro ao carregar clientes:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExcluirCliente = async (id: number, nome: string) => {
+    if (!window.confirm(`Deseja realmente excluir o cliente "${nome}"?`)) return;
+
+    try {
+      const res = await apiService.excluirCliente(id);
+      alert(res.mensagem || 'Cliente excluído com sucesso.');
+      if (modalCliente?.id === id) {
+        setModalCliente(null);
+      }
+      carregarClientes();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Erro ao excluir cliente.');
     }
   };
 
@@ -276,13 +291,22 @@ export const Clientes: React.FC = () => {
                     <h3 className="font-bold text-slate-900 text-sm leading-tight">{c.nome}</h3>
                     {c.cpf_cnpj && <span className="text-[11px] text-slate-400 font-mono">{c.cpf_cnpj}</span>}
                   </div>
-                  <button
-                    onClick={() => setModalCliente(c)}
-                    className="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-slate-50 transition-colors"
-                    title="Editar cliente"
-                  >
-                    <Edit size={15} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setModalCliente(c)}
+                      className="p-1.5 text-slate-400 hover:text-sky-600 rounded-lg hover:bg-slate-50 transition-colors"
+                      title="Editar cliente"
+                    >
+                      <Edit size={15} />
+                    </button>
+                    <button
+                      onClick={() => handleExcluirCliente(c.id, c.nome)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                      title="Excluir cliente"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Veículo em Destaque (Apenas para Lava Rápido / Mecânica) */}
@@ -555,7 +579,18 @@ export const Clientes: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-3">
+              <div className="flex items-center gap-2 pt-3">
+                {modalCliente.id && (
+                  <button
+                    type="button"
+                    onClick={() => handleExcluirCliente(modalCliente.id!, modalCliente.nome || '')}
+                    className="py-2.5 px-3 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl font-semibold text-xs transition-colors flex items-center gap-1.5"
+                    title="Excluir este cliente"
+                  >
+                    <Trash2 size={14} />
+                    <span>Excluir</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setModalCliente(null)}

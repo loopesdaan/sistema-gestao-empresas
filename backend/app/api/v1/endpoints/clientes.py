@@ -6,6 +6,8 @@ from sqlalchemy import or_
 from app.core.database import get_db
 from app.models.usuario import Usuario
 from app.models.cliente import Cliente
+from app.models.venda import Venda
+from app.models.os import OrdemServico
 from app.schemas.cliente import ClienteCreate, ClienteUpdate, ClienteResponse
 from app.api.deps import get_current_user
 
@@ -84,4 +86,43 @@ def atualizar_cliente(
     db.commit()
     db.refresh(cliente)
     return cliente
+
+@router.delete("/{cliente_id}")
+def excluir_cliente(
+    cliente_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    cliente = db.query(Cliente).filter(
+        Cliente.id == cliente_id,
+        Cliente.empresa_id == current_user.empresa_id
+    ).first()
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+
+    if cliente.saldo_devedor and cliente.saldo_devedor > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Não é possível excluir o cliente '{cliente.nome}' pois ele possui saldo devedor pendente de R$ {float(cliente.saldo_devedor):.2f}. Realize a quitação do débito antes da exclusão."
+        )
+
+    vendas_count = db.query(Venda).filter(Venda.cliente_id == cliente_id).count()
+    os_count = db.query(OrdemServico).filter(OrdemServico.cliente_id == cliente_id).count()
+
+    if vendas_count > 0 or os_count > 0:
+        cliente.ativo = False
+        db.commit()
+        return {
+            "ok": True,
+            "tipo": "desativado",
+            "mensagem": f"O cliente '{cliente.nome}' possui histórico de vendas/serviços e foi inativado com sucesso para preservar a integridade fiscal."
+        }
+
+    db.delete(cliente)
+    db.commit()
+    return {
+        "ok": True,
+        "tipo": "excluido",
+        "mensagem": f"Cliente '{cliente.nome}' excluído com sucesso."
+    }
 
