@@ -221,11 +221,22 @@ def obter_status_hoje(
 
     is_admin = current_user.perfil == PerfilUsuario.ADMIN
 
-    # Busca horário sugerido de referência cadastrado para o perfil/usuário
+    # Busca horário sugerido de referência cadastrado: prioriza usuário individual, senão perfil
     config = db.query(ConfiguracaoPonto).filter(
         ConfiguracaoPonto.empresa_id == current_user.empresa_id,
-        (ConfiguracaoPonto.usuario_id == current_user.id) | (ConfiguracaoPonto.perfil == current_user.perfil.value)
+        ConfiguracaoPonto.usuario_id == current_user.id
     ).first()
+    if not config:
+        config = db.query(ConfiguracaoPonto).filter(
+            ConfiguracaoPonto.empresa_id == current_user.empresa_id,
+            ConfiguracaoPonto.perfil == current_user.perfil.value,
+            ConfiguracaoPonto.usuario_id.is_(None)
+        ).first()
+    if not config:
+        config = db.query(ConfiguracaoPonto).filter(
+            ConfiguracaoPonto.empresa_id == current_user.empresa_id,
+            ConfiguracaoPonto.perfil == current_user.perfil.value
+        ).first()
 
     horario_sugerido = {
         "entrada": config.horario_entrada if config else "08:00",
@@ -581,14 +592,15 @@ def salvar_configuracao_ponto(
             ConfiguracaoPonto.id == dados.id,
             ConfiguracaoPonto.empresa_id == current_user.empresa_id
         ).first()
-    elif dados.perfil:
-        config = db.query(ConfiguracaoPonto).filter(
-            ConfiguracaoPonto.perfil == dados.perfil,
-            ConfiguracaoPonto.empresa_id == current_user.empresa_id
-        ).first()
     elif dados.usuario_id:
         config = db.query(ConfiguracaoPonto).filter(
             ConfiguracaoPonto.usuario_id == dados.usuario_id,
+            ConfiguracaoPonto.empresa_id == current_user.empresa_id
+        ).first()
+    elif dados.perfil:
+        config = db.query(ConfiguracaoPonto).filter(
+            ConfiguracaoPonto.perfil == dados.perfil,
+            ConfiguracaoPonto.usuario_id.is_(None),
             ConfiguracaoPonto.empresa_id == current_user.empresa_id
         ).first()
 

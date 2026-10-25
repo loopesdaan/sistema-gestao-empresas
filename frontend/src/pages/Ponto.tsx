@@ -3,10 +3,10 @@ import {
   Clock, Shield, CheckCircle2, AlertTriangle, Calendar, 
   User, Check, AlertCircle, ArrowRight, UserCheck, Coffee, 
   LogIn, LogOut, Lock, Unlock, Sparkles, RefreshCw, Sliders,
-  Save, RotateCcw, Briefcase
+  Save, RotateCcw, Briefcase, Users
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import { RegistroPonto, StatusJornada, ConfiguracaoPonto } from '../types';
+import { RegistroPonto, StatusJornada, ConfiguracaoPonto, Usuario } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useNotificacoes } from '../contexts/NotificationContext';
 
@@ -23,6 +23,9 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
   const [historico, setHistorico] = useState<RegistroPonto[]>([]);
   const [equipePonto, setEquipePonto] = useState<RegistroPonto[]>([]);
   const [configuracoes, setConfiguracoes] = useState<ConfiguracaoPonto[]>([]);
+  const [usuariosEquipe, setUsuariosEquipe] = useState<Usuario[]>([]);
+  const [tipoEscala, setTipoEscala] = useState<'CARGO' | 'COLABORADOR'>('CARGO');
+  const [colaboradorSelecionadoId, setColaboradorSelecionadoId] = useState<number | null>(null);
   const [perfilAtivoEscala, setPerfilAtivoEscala] = useState<'OPERADOR_CAIXA' | 'ESTOQUISTA' | 'ADMIN'>('OPERADOR_CAIXA');
   const [formEscala, setFormEscala] = useState<ConfiguracaoPonto>({
     perfil: 'OPERADOR_CAIXA',
@@ -95,11 +98,15 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
 
   const carregarConfiguracoes = async () => {
     try {
-      const res = await apiService.getConfiguracoesPonto();
-      setConfiguracoes(res);
-      const atual = res.find(c => c.perfil === perfilAtivoEscala);
-      if (atual) {
-        setFormEscala({ ...atual });
+      const [resConfigs, resUsers] = await Promise.all([
+        apiService.getConfiguracoesPonto(),
+        apiService.listarUsuarios()
+      ]);
+      setConfiguracoes(resConfigs);
+      setUsuariosEquipe(resUsers);
+      
+      if (!colaboradorSelecionadoId && resUsers.length > 0) {
+        setColaboradorSelecionadoId(resUsers[0].id);
       }
     } catch (err) {
       console.error('Erro ao buscar configurações de ponto:', err);
@@ -113,26 +120,49 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
     if (abaAtiva === 'escalas' && isAdmin) carregarConfiguracoes();
   }, [abaAtiva]);
 
-  // Atualiza formEscala ao trocar de perfil na aba de escalas
+  // Atualiza formEscala dinamicamente com base no tipo de escala (Cargo ou Colaborador)
   useEffect(() => {
-    if (configuracoes.length > 0) {
-      const atual = configuracoes.find(c => c.perfil === perfilAtivoEscala);
+    if (configuracoes.length === 0) return;
+
+    if (tipoEscala === 'CARGO') {
+      const atual = configuracoes.find(c => c.perfil === perfilAtivoEscala && !c.usuario_id);
       if (atual) {
-        setFormEscala({ ...atual });
+        setFormEscala({ ...atual, usuario_id: undefined });
       } else {
-        setFormEscala(prev => ({ ...prev, perfil: perfilAtivoEscala }));
+        setFormEscala(prev => ({ ...prev, perfil: perfilAtivoEscala, usuario_id: undefined }));
+      }
+    } else if (tipoEscala === 'COLABORADOR' && colaboradorSelecionadoId) {
+      const user = usuariosEquipe.find(u => u.id === colaboradorSelecionadoId);
+      const customConfig = configuracoes.find(c => c.usuario_id === colaboradorSelecionadoId);
+      if (customConfig) {
+        setFormEscala({ ...customConfig });
+      } else if (user) {
+        // Usa a escala padrão do cargo do colaborador como base para personalização individual
+        const padraoCargo = configuracoes.find(c => c.perfil === user.perfil && !c.usuario_id);
+        if (padraoCargo) {
+          setFormEscala({ ...padraoCargo, id: undefined, usuario_id: user.id, perfil: user.perfil });
+        } else {
+          setFormEscala(prev => ({ ...prev, id: undefined, usuario_id: user.id, perfil: user.perfil }));
+        }
       }
     }
-  }, [perfilAtivoEscala, configuracoes]);
+  }, [tipoEscala, perfilAtivoEscala, colaboradorSelecionadoId, configuracoes, usuariosEquipe]);
 
   const handleSalvarEscala = async () => {
     try {
       setSalvandoEscala(true);
-      const res = await apiService.salvarConfiguracaoPonto(formEscala);
+      const payload: ConfiguracaoPonto = {
+        ...formEscala,
+        usuario_id: tipoEscala === 'COLABORADOR' ? (colaboradorSelecionadoId || undefined) : undefined
+      };
+      const res = await apiService.salvarConfiguracaoPonto(payload);
+      const nomeAlvo = tipoEscala === 'COLABORADOR' 
+        ? (usuariosEquipe.find(u => u.id === colaboradorSelecionadoId)?.nome || 'colaborador')
+        : (formEscala.perfil || 'cargo');
       addNotificacao({
         tipo: 'sucesso',
         titulo: 'Escala Salva com Sucesso',
-        mensagem: res.mensagem || `Horários de trabalho para ${formEscala.perfil} foram atualizados.`
+        mensagem: res.mensagem || `Horários de trabalho para ${nomeAlvo} foram atualizados.`
       });
       await carregarConfiguracoes();
     } catch (err: any) {
@@ -973,43 +1003,111 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
       {/* ABA 4: CONFIGURAÇÃO DE HORÁRIOS & ESCALAS DOS PERFIS (ADMIN ONLY) */}
       {abaAtiva === 'escalas' && isAdmin && (
         <div className="space-y-6">
-          {/* Header da Aba */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <Sliders size={20} className={temaAtual.textoHighlight} />
-                <span>Configuração de Jornadas & Escalas por Perfil</span>
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Defina os horários oficiais de entrada, almoço, saída e regras da CLT para cada cargo da sua empresa.
-              </p>
+          {/* Header da Aba com Escolha entre Escala por Cargo ou Colaborador Individual */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <Sliders size={20} className={temaAtual.textoHighlight} />
+                  <span>Configuração de Jornadas & Escalas de Trabalho</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Defina os horários oficiais tanto de forma geral por cargo quanto de forma personalizada para colaboradores específicos.
+                </p>
+              </div>
+
+              {/* Seletor do Modo de Escala: Por Cargo ou Individual */}
+              <div className="flex bg-slate-100 p-1 rounded-xl gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setTipoEscala('CARGO')}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                    tipoEscala === 'CARGO'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Briefcase size={14} />
+                  <span>Padrão por Cargo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoEscala('COLABORADOR')}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                    tipoEscala === 'COLABORADOR'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Users size={14} />
+                  <span>Por Colaborador Específico</span>
+                </button>
+              </div>
             </div>
 
-            {/* Seletor de Perfil */}
-            <div className="flex bg-slate-100 p-1 rounded-xl gap-1 overflow-x-auto">
-              {[
-                { id: 'OPERADOR_CAIXA', label: 'Operador de Caixa', icon: UserCheck },
-                { id: 'ESTOQUISTA', label: 'Controlador de Estoque', icon: Briefcase },
-                { id: 'ADMIN', label: 'Gerente Geral (Adm)', icon: Shield },
-              ].map((p) => {
-                const Icon = p.icon;
-                const isSel = perfilAtivoEscala === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => setPerfilAtivoEscala(p.id as any)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all shrink-0 ${
-                      isSel 
-                        ? 'bg-white text-slate-900 shadow-xs' 
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    <Icon size={14} />
-                    <span>{p.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* Seletor quando for por Cargo */}
+            {tipoEscala === 'CARGO' && (
+              <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-slate-500 mr-1">Selecione o Cargo:</span>
+                {[
+                  { id: 'OPERADOR_CAIXA', label: 'Operador de Caixa', icon: UserCheck },
+                  { id: 'ESTOQUISTA', label: 'Controlador de Estoque', icon: Briefcase },
+                  { id: 'ADMIN', label: 'Gerente Geral (Adm)', icon: Shield },
+                ].map((p) => {
+                  const Icon = p.icon;
+                  const isSel = perfilAtivoEscala === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setPerfilAtivoEscala(p.id as any)}
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                        isSel 
+                          ? 'bg-slate-900 text-white shadow-xs' 
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Icon size={14} />
+                      <span>{p.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Seletor quando for por Colaborador Específico */}
+            {tipoEscala === 'COLABORADOR' && (
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <span className="text-xs font-bold text-slate-500 block">Selecione o Colaborador da Equipe:</span>
+                <div className="flex flex-wrap gap-2">
+                  {usuariosEquipe.map((u) => {
+                    const isCustom = configuracoes.some(c => c.usuario_id === u.id);
+                    const isSel = colaboradorSelecionadoId === u.id;
+                    return (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => setColaboradorSelecionadoId(u.id)}
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${
+                          isSel
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        <User size={14} />
+                        <span>{u.nome}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                          isCustom 
+                            ? isSel ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800' 
+                            : isSel ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          {isCustom ? 'Personalizada' : 'Padrão'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Card do Formulário de Escala */}
@@ -1017,14 +1115,20 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h4 className="font-bold text-slate-800 text-sm">
-                  Horário de Trabalho: {
-                    perfilAtivoEscala === 'OPERADOR_CAIXA' ? 'Operador de Caixa (Frente de Caixa)' :
-                    perfilAtivoEscala === 'ESTOQUISTA' ? 'Controlador de Estoque (Inventário)' :
-                    'Gerente Geral (Administrador)'
+                  {tipoEscala === 'CARGO' 
+                    ? `Horário Padrão do Cargo: ${
+                        perfilAtivoEscala === 'OPERADOR_CAIXA' ? 'Operador de Caixa (Frente de Caixa)' :
+                        perfilAtivoEscala === 'ESTOQUISTA' ? 'Controlador de Estoque (Inventário)' :
+                        'Gerente Geral (Administrador)'
+                      }`
+                    : `Horário Individual de: ${usuariosEquipe.find(u => u.id === colaboradorSelecionadoId)?.nome || 'Colaborador'} (${formEscala.perfil || 'Equipe'})`
                   }
                 </h4>
                 <p className="text-xs text-slate-500">
-                  Estes horários serão usados como parâmetros padrão para o cálculo de batidas e horas extras.
+                  {tipoEscala === 'CARGO'
+                    ? 'Estes horários serão usados como parâmetros padrão para todos os colaboradores deste cargo.'
+                    : 'Esta escala se sobrepõe ao padrão do cargo exclusivamente para este colaborador.'
+                  }
                 </p>
               </div>
 
@@ -1181,7 +1285,14 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
                 className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r ${temaAtual.bgGradiente} shadow-md transition-all disabled:opacity-50`}
               >
                 <Save size={16} />
-                <span>{salvandoEscala ? 'Salvando Escala...' : 'Salvar Escala do Perfil'}</span>
+                <span>
+                  {salvandoEscala 
+                    ? 'Salvando Escala...' 
+                    : tipoEscala === 'CARGO' 
+                      ? 'Salvar Escala Padrão do Cargo' 
+                      : `Salvar Escala Individual de ${usuariosEquipe.find(u => u.id === colaboradorSelecionadoId)?.nome?.split(' ')[0] || 'Colaborador'}`
+                  }
+                </span>
               </button>
             </div>
           </div>

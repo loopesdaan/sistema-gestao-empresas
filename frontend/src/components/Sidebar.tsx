@@ -61,9 +61,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return item.id === 'produtos' || item.id === 'ponto' || item.id === 'notificacoes' || item.id === 'empresa';
     }
 
-    // Operador de Caixa: opera PDV, Caixa, OS, Clientes, Relatório das próprias vendas e Ponto
+    // Operador de Caixa: opera PDV, Caixa, OS, Clientes, Relatório das próprias vendas, Ponto, Notificações e Dados da Empresa
     if (isOperador) {
       if (item.id === 'dashboard' || item.id === 'usuarios') return false;
+      if (item.id === 'empresa' || item.id === 'relatorios') return true;
       return modulosAtivos.includes(item.modulo);
     }
 
@@ -143,7 +144,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 `}
               >
                 <Icon size={19} className={`shrink-0 ${isActive ? 'text-white' : item.highlight ? 'opacity-90' : 'text-slate-400'}`} />
-                <span className="truncate whitespace-nowrap">{item.label}</span>
+                <span className="truncate whitespace-nowrap">
+                  {isOperador && item.id === 'relatorios' ? 'Minhas Vendas' : item.label}
+                </span>
                 {item.highlight && !isActive && (
                   <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${temaAtual.accentBadge}`}>
                     Rápido

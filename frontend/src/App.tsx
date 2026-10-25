@@ -120,13 +120,14 @@ const AppContent: React.FC = () => {
   }
 
   const renderContent = () => {
-    // Se o usuário não for admin e tentar acessar abas de admin, redireciona para PDV
-    if (!isAdmin && (activeTab === 'dashboard' || activeTab === 'relatorios' || activeTab === 'usuarios')) {
+    // Se o usuário não for admin e tentar acessar abas restritas de admin, redireciona para PDV
+    if (!isAdmin && (activeTab === 'dashboard' || activeTab === 'usuarios')) {
       return <PDV />;
     }
 
     // Bloqueio Legal Trabalhista (CLT): operadores e controladores só operam se estiverem com ponto ativo ou bypass
-    const isOperacionalTab = ['pdv', 'caixa', 'produtos', 'os', 'clientes'].includes(activeTab);
+    // As únicas telas liberadas sem ponto são o Ponto Eletrônico (para registrar entrada) e Dados da Empresa
+    const isOperacionalTab = ['pdv', 'caixa', 'produtos', 'os', 'clientes', 'relatorios', 'notificacoes'].includes(activeTab);
     const bloqueadoPelaCLT = !isAdmin && isOperacionalTab && statusPonto && statusPonto.pode_operar === false;
 
     if (bloqueadoPelaCLT) {
@@ -188,7 +189,7 @@ const AppContent: React.FC = () => {
       case 'os':
         return <OS />;
       case 'relatorios':
-        return <Relatorios />;
+        return <Relatorios isAdmin={isAdmin} usuarioAtual={usuario} />;
       case 'usuarios':
         return <Usuarios />;
       case 'empresa':
@@ -208,7 +209,7 @@ const AppContent: React.FC = () => {
       produtos: 'Produtos & Estoque',
       clientes: 'Clientes & Crédito',
       os: 'Ordens de Serviço',
-      relatorios: 'Relatórios de Vendas',
+      relatorios: isAdmin ? 'Relatórios de Vendas' : 'Minhas Vendas Realizadas',
       usuarios: 'Gestão da Equipe',
       empresa: 'Dados da Empresa'
     };

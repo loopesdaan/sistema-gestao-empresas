@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../services/api';
-import { Venda, FormaPagamento, RelatorioOLAPResponse } from '../types';
+import { Venda, FormaPagamento, RelatorioOLAPResponse, Usuario } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { 
@@ -10,7 +10,12 @@ import {
   Crown, Award, Sparkles, TrendingDown, ArrowUpRight, AlertTriangle, Package, RefreshCw
 } from 'lucide-react';
 
-export const Relatorios: React.FC = () => {
+interface RelatoriosProps {
+  isAdmin?: boolean;
+  usuarioAtual?: Usuario;
+}
+
+export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuarioAtual }) => {
   const { empresa, temaAtual } = useEmpresa();
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,8 +30,8 @@ export const Relatorios: React.FC = () => {
   // Estados de Inteligência Analítica (OLAP) e Previsão Preditiva
   const [periodoOLAP, setPeriodoOLAP] = useState<string>('MENSAL');
   const [dadosOLAP, setDadosOLAP] = useState<RelatorioOLAPResponse | null>(null);
-  const [carregandoOLAP, setCarregandoOLAP] = useState<boolean>(true);
-  const [abaVisao, setAbaVisao] = useState<'OLAP' | 'FORECAST' | 'VENDAS'>('OLAP');
+  const [carregandoOLAP, setCarregandoOLAP] = useState<boolean>(isAdmin);
+  const [abaVisao, setAbaVisao] = useState<'OLAP' | 'FORECAST' | 'VENDAS'>(isAdmin ? 'OLAP' : 'VENDAS');
 
   const carregarVendas = async () => {
     setLoading(true);
@@ -57,8 +62,10 @@ export const Relatorios: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    carregarOLAP(periodoOLAP);
-  }, [periodoOLAP]);
+    if (isAdmin) {
+      carregarOLAP(periodoOLAP);
+    }
+  }, [periodoOLAP, isAdmin]);
 
   const handleCancelarVenda = async (id: number) => {
     if (!window.confirm(`Deseja realmente cancelar a venda #${id}? Os itens retornarão automaticamente ao estoque.`)) return;
@@ -102,6 +109,13 @@ export const Relatorios: React.FC = () => {
   // Vendas filtradas
   const vendasFiltradas = useMemo(() => {
     return vendas.filter(v => {
+      // Se não for admin, restringe estritamente às vendas do próprio operador
+      if (!isAdmin && usuarioAtual) {
+        const isMinhaVenda = (v.usuario_id && v.usuario_id === usuarioAtual.id) || 
+                             (v.usuario_nome && v.usuario_nome === usuarioAtual.nome);
+        if (!isMinhaVenda) return false;
+      }
+
       // Filtro status
       if (filtroStatus !== 'TODOS' && v.status !== filtroStatus) return false;
 
@@ -120,7 +134,7 @@ export const Relatorios: React.FC = () => {
 
       return true;
     });
-  }, [vendas, busca, filtroVendedor, filtroStatus]);
+  }, [vendas, busca, filtroVendedor, filtroStatus, isAdmin, usuarioAtual]);
 
   // Métricas calculadas sobre vendas concluídas
   const metricas = useMemo(() => {
@@ -440,9 +454,13 @@ export const Relatorios: React.FC = () => {
       {/* Top Header */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Relatório de Vendas Realizadas</h2>
+          <h2 className="text-xl font-bold text-slate-800">
+            {isAdmin ? 'Relatório de Vendas Realizadas' : 'Minhas Vendas Realizadas'}
+          </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Histórico completo com identificação do vendedor/operador, formas de pagamento e auditoria.
+            {isAdmin
+              ? 'Histórico completo com identificação do vendedor/operador, formas de pagamento e auditoria.'
+              : `Histórico e comprovantes das vendas registradas por você (${usuarioAtual?.nome || 'Operador'}).`}
           </p>
         </div>
 
@@ -455,7 +473,7 @@ export const Relatorios: React.FC = () => {
               title="Baixa Excel, HTML e abre janela de PDF"
             >
               <Layers size={15} />
-              <span>Exportar Tudo (Excel + PDF + HTML)</span>
+              <span>Exportar {isAdmin ? 'Tudo (Excel + PDF + HTML)' : 'Minhas Vendas'}</span>
             </button>
 
             <button
@@ -503,108 +521,110 @@ export const Relatorios: React.FC = () => {
         </div>
       </div>
 
-      {/* Barra de Seleção de Horizonte OLAP e Abas de Visão */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-        {/* Seletor de Horizonte Temporal OLAP */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-                Horizonte Temporal de Inteligência (OLAP)
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                {dadosOLAP?.dias_periodo || 30} dias analisados
-              </span>
+      {/* Barra de Seleção de Horizonte OLAP e Abas de Visão (Apenas para Gerente / Administrador) */}
+      {isAdmin && (
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+          {/* Seletor de Horizonte Temporal OLAP */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-500">
+                  Horizonte Temporal de Inteligência (OLAP)
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  {dadosOLAP?.dias_periodo || 30} dias analisados
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {dadosOLAP 
+                  ? `Janela de análise: ${new Date(dadosOLAP.data_inicio).toLocaleDateString('pt-BR')} até ${new Date(dadosOLAP.data_fim).toLocaleDateString('pt-BR')}`
+                  : 'Carregando inteligência analítica...'}
+              </p>
             </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              {dadosOLAP 
-                ? `Janela de análise: ${new Date(dadosOLAP.data_inicio).toLocaleDateString('pt-BR')} até ${new Date(dadosOLAP.data_fim).toLocaleDateString('pt-BR')}`
-                : 'Carregando inteligência analítica...'}
-            </p>
+
+            {/* 8 Horizontes Pills */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { id: 'SEMANAL', label: 'Semanal (7d)' },
+                { id: 'QUINZENAL', label: 'Quinzenal (15d)' },
+                { id: 'MENSAL', label: 'Mensal (30d)' },
+                { id: 'BIMESTRAL', label: 'Bimestral (60d)' },
+                { id: 'TRIMESTRAL', label: 'Trimestral (90d)' },
+                { id: 'QUADRIMESTRAL', label: 'Quadrimestral (120d)' },
+                { id: 'SEMESTRAL', label: 'Semestral (180d)' },
+                { id: 'ANUAL', label: 'Anual (365d)' }
+              ].map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setPeriodoOLAP(p.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    periodoOLAP === p.id
+                      ? 'bg-slate-900 text-white shadow-xs scale-102'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* 8 Horizontes Pills */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              { id: 'SEMANAL', label: 'Semanal (7d)' },
-              { id: 'QUINZENAL', label: 'Quinzenal (15d)' },
-              { id: 'MENSAL', label: 'Mensal (30d)' },
-              { id: 'BIMESTRAL', label: 'Bimestral (60d)' },
-              { id: 'TRIMESTRAL', label: 'Trimestral (90d)' },
-              { id: 'QUADRIMESTRAL', label: 'Quadrimestral (120d)' },
-              { id: 'SEMESTRAL', label: 'Semestral (180d)' },
-              { id: 'ANUAL', label: 'Anual (365d)' }
-            ].map(p => (
+          {/* Abas de Visão do Painel */}
+          <div className="border-t border-slate-100 pt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                key={p.id}
-                onClick={() => setPeriodoOLAP(p.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  periodoOLAP === p.id
-                    ? 'bg-slate-900 text-white shadow-xs scale-102'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                onClick={() => setAbaVisao('OLAP')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  abaVisao === 'OLAP'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 }`}
               >
-                {p.label}
+                <Crown size={15} />
+                <span>🏆 Ranking & Leaderboard OLAP</span>
               </button>
-            ))}
+
+              <button
+                onClick={() => setAbaVisao('FORECAST')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  abaVisao === 'FORECAST'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                <TrendingUp size={15} />
+                <span>📈 Previsão Preditiva (Produtos)</span>
+              </button>
+
+              <button
+                onClick={() => setAbaVisao('VENDAS')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  abaVisao === 'VENDAS'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                <Table size={15} />
+                <span>📋 Transações & Auditoria (OLTP)</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { carregarOLAP(periodoOLAP); carregarVendas(); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                title="Recarregar análises"
+              >
+                <RefreshCw size={13} className={carregandoOLAP ? 'animate-spin text-sky-600' : ''} />
+                <span>Atualizar Dados</span>
+              </button>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Abas de Visão do Painel */}
-        <div className="border-t border-slate-100 pt-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setAbaVisao('OLAP')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                abaVisao === 'OLAP'
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              <Crown size={15} />
-              <span>🏆 Ranking & Leaderboard OLAP</span>
-            </button>
-
-            <button
-              onClick={() => setAbaVisao('FORECAST')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                abaVisao === 'FORECAST'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              <TrendingUp size={15} />
-              <span>📈 Previsão Preditiva (Produtos)</span>
-            </button>
-
-            <button
-              onClick={() => setAbaVisao('VENDAS')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                abaVisao === 'VENDAS'
-                  ? 'bg-sky-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              <Table size={15} />
-              <span>📋 Transações & Auditoria (OLTP)</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { carregarOLAP(periodoOLAP); carregarVendas(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-              title="Recarregar análises"
-            >
-              <RefreshCw size={13} className={carregandoOLAP ? 'animate-spin text-sky-600' : ''} />
-              <span>Atualizar Dados</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ABA 1: RANKING E LEADERBOARD OLAP */}
-      {abaVisao === 'OLAP' && (
+      {/* ABA 1: RANKING E LEADERBOARD OLAP (ADMIN ONLY) */}
+      {isAdmin && abaVisao === 'OLAP' && (
         <div className="space-y-6">
           {/* Cartões Consolidados do Período OLAP */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -882,8 +902,8 @@ export const Relatorios: React.FC = () => {
         </div>
       )}
 
-      {/* ABA 2: PREVISÃO PREDITIVA DE FATURAMENTO COM BASE EM PRODUTOS */}
-      {abaVisao === 'FORECAST' && (
+      {/* ABA 2: PREVISÃO PREDITIVA DE FATURAMENTO COM BASE EM PRODUTOS (ADMIN ONLY) */}
+      {isAdmin && abaVisao === 'FORECAST' && (
         <div className="space-y-6">
           {/* Cartões de Projeção Preditiva */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1051,30 +1071,36 @@ export const Relatorios: React.FC = () => {
       )}
 
       {/* ABA 3: TRANSAÇÕES DETALHADAS & AUDITORIA (OLTP) */}
-      {abaVisao === 'VENDAS' && (
+      {(!isAdmin || abaVisao === 'VENDAS') && (
         <div className="space-y-6">
           {/* Cartões de Indicadores Rápidos */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <div className="flex items-center justify-between text-slate-500 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider">Faturamento Líquido</span>
+                <span className="text-xs font-semibold uppercase tracking-wider">
+                  {isAdmin ? 'Faturamento Líquido' : 'Meu Faturamento Total'}
+                </span>
                 <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
                   <DollarSign size={16} />
                 </div>
               </div>
               <h3 className="text-xl font-bold text-slate-900">{formatMoney(metricas.faturamentoTotal)}</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Total das vendas filtradas</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {isAdmin ? 'Total das vendas filtradas' : 'Total acumulado por você'}
+              </p>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <div className="flex items-center justify-between text-slate-500 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider">Qtd. de Vendas</span>
+                <span className="text-xs font-semibold uppercase tracking-wider">
+                  {isAdmin ? 'Qtd. de Vendas' : 'Minhas Vendas'}
+                </span>
                 <div className="p-2 rounded-lg bg-sky-50 text-sky-600">
                   <ShoppingCart size={16} />
                 </div>
               </div>
               <h3 className="text-xl font-bold text-slate-900">{metricas.totalVendas} concluídas</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Volume de transações</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Volume de atendimentos</p>
             </div>
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
@@ -1090,15 +1116,19 @@ export const Relatorios: React.FC = () => {
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
               <div className="flex items-center justify-between text-slate-500 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wider">Vendedor Destaque</span>
+                <span className="text-xs font-semibold uppercase tracking-wider">
+                  {isAdmin ? 'Vendedor Destaque' : 'Operador Responsável'}
+                </span>
                 <div className="p-2 rounded-lg bg-amber-50 text-amber-600">
                   <User size={16} />
                 </div>
               </div>
-              <h3 className="text-xs font-bold text-slate-900 truncate" title={metricas.topVendedor}>
-                {metricas.topVendedor}
+              <h3 className="text-xs font-bold text-slate-900 truncate" title={isAdmin ? metricas.topVendedor : (usuarioAtual?.nome || 'Você')}>
+                {isAdmin ? metricas.topVendedor : (usuarioAtual?.nome || 'Você')}
               </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Maior faturamento no filtro</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {isAdmin ? 'Maior faturamento no filtro' : 'Matrícula autenticada'}
+              </p>
             </div>
           </div>
 
@@ -1112,27 +1142,29 @@ export const Relatorios: React.FC = () => {
                 type="text"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar por #ID, cliente ou vendedor..."
+                placeholder="Buscar por #ID ou cliente..."
                 className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
               />
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-              {/* Filtro de Vendedor */}
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-                <User size={14} className="text-slate-500" />
-                <span className="font-semibold text-slate-600">Vendedor:</span>
-                <select
-                  value={filtroVendedor}
-                  onChange={(e) => setFiltroVendedor(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none text-xs cursor-pointer"
-                >
-                  <option value="TODOS">Todos os Vendedores</option>
-                  {vendedoresDisponiveis.map(vend => (
-                    <option key={vend} value={vend}>{vend}</option>
-                  ))}
-                </select>
-              </div>
+              {/* Filtro de Vendedor (Apenas para Gerente / Administrador) */}
+              {isAdmin && (
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+                  <User size={14} className="text-slate-500" />
+                  <span className="font-semibold text-slate-600">Vendedor:</span>
+                  <select
+                    value={filtroVendedor}
+                    onChange={(e) => setFiltroVendedor(e.target.value)}
+                    className="bg-transparent font-bold text-slate-800 focus:outline-none text-xs cursor-pointer"
+                  >
+                    <option value="TODOS">Todos os Vendedores</option>
+                    {vendedoresDisponiveis.map(vend => (
+                      <option key={vend} value={vend}>{vend}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Filtro de Status */}
               <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
