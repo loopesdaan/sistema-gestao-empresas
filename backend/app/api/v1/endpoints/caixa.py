@@ -15,7 +15,7 @@ from app.schemas.caixa import (
     AberturaCaixa, FechamentoCaixa, MovimentacaoCaixaCreate,
     CaixaResponse, MovimentacaoCaixaResponse, ResumoCaixaResponse
 )
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, verificar_ponto_trabalho
 
 router = APIRouter()
 
@@ -120,7 +120,7 @@ def listar_caixas_abertos(
 def abrir_caixa(
     dados: AberturaCaixa,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(verificar_ponto_trabalho)
 ) -> Any:
     if current_user.perfil == PerfilUsuario.ESTOQUISTA:
         raise HTTPException(

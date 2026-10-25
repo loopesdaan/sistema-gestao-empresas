@@ -17,7 +17,8 @@ import { Onboarding } from './pages/Onboarding';
 import { ChatbotIA } from './components/ChatbotIA';
 import { TourModal } from './components/TourModal';
 import { apiService } from './services/api';
-import { Usuario, Caixa as CaixaType } from './types';
+import { Usuario, Caixa as CaixaType, StatusJornada } from './types';
+import { Clock } from 'lucide-react';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { EmpresaProvider } from './contexts/EmpresaContext';
 
@@ -41,6 +42,7 @@ const AppContent: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [caixaAberto, setCaixaAberto] = useState(false);
   const [caixaAtual, setCaixaAtual] = useState<CaixaType | null>(null);
+  const [statusPonto, setStatusPonto] = useState<StatusJornada | null>(null);
   // Controla exibição do wizard de onboarding inicial
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTour, setShowTour] = useState(false);
@@ -56,22 +58,26 @@ const AppContent: React.FC = () => {
     }
   }, [usuario]);
 
-  // Checa status do caixa periodicamente
+  // Checa status do ponto e do caixa periodicamente
   useEffect(() => {
     if (!usuario) return;
 
-    const verificarCaixa = async () => {
+    const verificarStatus = async () => {
       try {
-        const c = await apiService.getCaixaAtual();
+        const [c, s] = await Promise.all([
+          apiService.getCaixaAtual().catch(() => null),
+          apiService.getStatusPontoHoje().catch(() => null)
+        ]);
         setCaixaAberto(!!c);
         setCaixaAtual(c || null);
+        setStatusPonto(s || null);
       } catch (err) {
         // Silencioso se der erro de rede
       }
     };
 
-    verificarCaixa();
-    const interval = setInterval(verificarCaixa, 30000);
+    verificarStatus();
+    const interval = setInterval(verificarStatus, 15000);
     return () => clearInterval(interval);
   }, [usuario, activeTab]);
 
@@ -117,6 +123,51 @@ const AppContent: React.FC = () => {
     // Se o usuário não for admin e tentar acessar abas de admin, redireciona para PDV
     if (!isAdmin && (activeTab === 'dashboard' || activeTab === 'relatorios' || activeTab === 'usuarios')) {
       return <PDV />;
+    }
+
+    // Bloqueio Legal Trabalhista (CLT): operadores e controladores só operam se estiverem com ponto ativo ou bypass
+    const isOperacionalTab = ['pdv', 'caixa', 'produtos', 'os', 'clientes'].includes(activeTab);
+    const bloqueadoPelaCLT = !isAdmin && isOperacionalTab && statusPonto && statusPonto.pode_operar === false;
+
+    if (bloqueadoPelaCLT) {
+      return (
+        <div className="p-4 sm:p-6 max-w-3xl mx-auto my-6 sm:my-12 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl p-6 sm:p-10 border border-amber-200 shadow-xl text-center space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto shadow-inner">
+              <Clock size={36} />
+            </div>
+            <div className="space-y-2">
+              <span className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-amber-100 text-amber-800">
+                Bloqueio Legal Trabalhista (CLT)
+              </span>
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+                Jornada de Trabalho Não Iniciada
+              </h2>
+              <p className="text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                Olá, <strong>{usuario.nome}</strong>. Conforme os Arts. 58 e 71 da CLT, é obrigatório registrar a entrada no <strong>Ponto Eletrônico</strong> antes de abrir caixas, registrar vendas ou realizar movimentações de estoque.
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 max-w-md mx-auto space-y-1.5 text-left">
+              <p><strong>Status atual da jornada:</strong> {statusPonto.mensagem_status || 'Aguardando batida de entrada'}</p>
+              <p className="text-[11px] text-slate-400">
+                Dica para testes: O Gerente/Administrador pode ativar o <em>Bypass de Ponto</em> na tela de Ponto Eletrônico para testes sem restrição.
+              </p>
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('ponto')}
+                className="px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl font-black text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 mx-auto active:scale-95"
+              >
+                <Clock size={18} />
+                <span>Ir para o Ponto Eletrônico e Bater Entrada</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     switch (activeTab) {

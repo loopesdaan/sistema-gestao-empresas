@@ -405,6 +405,18 @@ export const apiService = {
     const { data } = await api.put('/notificacoes/resolver-todas');
     return data;
   },
+
+  // Inteligência Analítica OLAP & Previsão Preditiva
+  getRelatorioOLAP: async (periodo: string = 'MENSAL') => {
+    const { data } = await api.get(`/relatorios/olap-analitico?periodo=${periodo}`);
+    return data;
+  },
+
+  // Bypass de Teste para Ponto Eletrônico
+  toggleBypassPonto: async () => {
+    const { data } = await api.post('/ponto/toggle-bypass-teste');
+    return data;
+  },
 };
 
 

@@ -20,6 +20,7 @@ class Empresa(Base):
     perfil_negocio = Column(String(50), nullable=True)
     modulos_ativos = Column(Text, nullable=True)  # JSON string
     onboarding_concluido = Column(Boolean, default=False, nullable=True)
+    bypass_ponto_teste = Column(Boolean, default=False, nullable=True)
 
     usuarios = relationship("Usuario", back_populates="empresa", cascade="all, delete-orphan")
     produtos = relationship("Produto", back_populates="empresa", cascade="all, delete-orphan")

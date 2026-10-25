@@ -7,7 +7,7 @@ from app.core.database import get_db
 from app.models.usuario import Usuario, PerfilUsuario
 from app.models.produto import Produto
 from app.schemas.produto import ProdutoCreate, ProdutoUpdate, ProdutoResponse
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, verificar_ponto_trabalho
 
 router = APIRouter()
 
@@ -86,7 +86,7 @@ def obter_produto(
 def criar_produto(
     produto_in: ProdutoCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(verificar_ponto_trabalho)
 ) -> Any:
     if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.ESTOQUISTA]:
         raise HTTPException(status_code=403, detail="Apenas Administradores e Estoquistas podem cadastrar produtos.")
@@ -109,7 +109,7 @@ def atualizar_produto(
     produto_id: int,
     produto_in: ProdutoUpdate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(verificar_ponto_trabalho)
 ) -> Any:
     if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.ESTOQUISTA]:
         raise HTTPException(status_code=403, detail="Apenas Administradores e Estoquistas podem alterar produtos e estoque.")

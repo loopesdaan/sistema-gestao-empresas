@@ -240,6 +240,8 @@ export interface StatusJornada {
   horas_extras_aprovadas?: number;
   bloqueado_clt?: boolean;
   isento_ponto?: boolean;
+  bypass_ativo?: boolean;
+  pode_operar?: boolean;
   pode_testar?: boolean;
   mensagem_status?: string;
   entrada_1?: string;
@@ -306,5 +308,69 @@ export interface MonitorCaixaItem {
   alerta_sangria: boolean;
   status: StatusCaixa;
   pendencias_solicitacao: number;
+}
+
+// Inteligência Analítica OLAP & Previsão Preditiva
+export interface RankingOperadorItem {
+  posicao: number;
+  badge: string;
+  usuario_id: number;
+  nome_operador: string;
+  perfil: string;
+  quantidade_vendas: number;
+  faturamento: number;
+  ticket_medio: number;
+  participacao_percentual: number;
+}
+
+export interface ProdutoMotorOLAP {
+  produto_id: number;
+  nome: string;
+  unidades_vendidas: number;
+  faturamento: number;
+  taxa_giro_diaria: number;
+  receita_diaria: number;
+  estoque_atual: number;
+  dias_estoque_estimados: number;
+  risco_ruptura: 'ALTO' | 'MEDIO' | 'BAIXO';
+  contribuicao_percentual: number;
+}
+
+export interface PrevisaoFaturamentoOLAP {
+  previsao_7_dias: number;
+  previsao_30_dias: number;
+  previsao_90_dias: number;
+  receita_diaria_estimada: number;
+  fator_tendencia: number;
+  confianca_estatistica: number;
+  produtos_motores: ProdutoMotorOLAP[];
+  sugestoes_estrategicas: string[];
+}
+
+export interface MetricasConsolidadasOLAP {
+  faturamento_total: number;
+  faturamento_anterior: number;
+  crescimento_percentual: number;
+  quantidade_vendas: number;
+  ticket_medio: number;
+  itens_vendidos: number;
+  media_diaria: number;
+}
+
+export interface SerieTemporalItem {
+  data: string;
+  faturamento: number;
+  quantidade_vendas: number;
+}
+
+export interface RelatorioOLAPResponse {
+  periodo_selecionado: string;
+  dias_periodo: number;
+  data_inicio: string;
+  data_fim: string;
+  metricas_consolidadas: MetricasConsolidadasOLAP;
+  ranking_operadores: RankingOperadorItem[];
+  previsao_faturamento: PrevisaoFaturamentoOLAP;
+  serie_temporal: SerieTemporalItem[];
 }
 

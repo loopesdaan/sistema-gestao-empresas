@@ -8,7 +8,8 @@ from app.core.database import get_db
 from app.models.usuario import Usuario, PerfilUsuario
 from app.models.ponto import RegistroPonto, ConfiguracaoPonto, StatusJornada
 from app.models.notificacao import Notificacao
-from app.api.deps import get_current_user
+from app.models.empresa import Empresa
+from app.api.deps import get_current_user, get_current_admin
 
 router = APIRouter()
 
@@ -311,12 +312,24 @@ def obter_status_hoje(
             "bloqueado_clt": False if is_admin else (registro.bloqueado_clt or jornada_estourada)
         }
 
+    empresa = db.query(Empresa).filter(Empresa.id == current_user.empresa_id).first()
+    bypass_ativo = bool(getattr(empresa, "bypass_ponto_teste", False)) if empresa else False
+    isento_total = is_admin or (config and config.isento_ponto) or bypass_ativo
+
+    pode_operar = isento_total or (
+        bool(registro) and 
+        registro.status_jornada == StatusJornada.TRABALHANDO and 
+        not (registro.bloqueado_clt or jornada_estourada)
+    )
+
     return {
         "possui_ponto_hoje": bool(registro),
         "registro_id": registro.id if registro else None,
         "status_jornada": registro.status_jornada if registro else "NAO_INICIADA",
         "bloqueado_clt": False if is_admin else (registro.bloqueado_clt or jornada_estourada) if registro else False,
-        "isento_ponto": is_admin,
+        "isento_ponto": is_admin or (config and config.isento_ponto),
+        "bypass_ativo": bypass_ativo,
+        "pode_operar": pode_operar,
         "pode_testar": True,
         "proxima_acao": proxima_acao,
         "mensagem_status": mensagem_status,
@@ -335,6 +348,26 @@ def obter_status_hoje(
         "hora_extra_autorizada": registro.horas_extras_aprovadas if registro else 0,
         "limite_restante_minutos": max(0, limite_maximo - minutos_atuais),
         "jornada_estourada": False if is_admin else jornada_estourada
+    }
+
+@router.post("/toggle-bypass-teste")
+def alternar_bypass_ponto(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_admin)
+) -> Any:
+    """Administrador ativa ou desativa o bypass geral de ponto eletrônico para testes da equipe"""
+    empresa = db.query(Empresa).filter(Empresa.id == current_user.empresa_id).first()
+    if not empresa:
+        raise HTTPException(status_code=404, detail="Empresa não encontrada.")
+
+    novo_estado = not bool(getattr(empresa, "bypass_ponto_teste", False))
+    empresa.bypass_ponto_teste = novo_estado
+    db.commit()
+
+    return {
+        "ok": True,
+        "bypass_ativo": novo_estado,
+        "mensagem": f"Bypass de ponto para testes {'ATIVADO' if novo_estado else 'DESATIVADO'} com sucesso. {'Operadores e Controladores liberados para operar.' if novo_estado else 'Batida de ponto obrigatória restaurada.'}"
     }
 
 @router.get("/meu-historico")

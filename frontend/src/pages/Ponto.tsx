@@ -167,6 +167,27 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
     }
   };
 
+  const handleToggleBypass = async () => {
+    try {
+      setCarregando(true);
+      const res = await apiService.toggleBypassPonto();
+      addNotificacao({
+        tipo: res.bypass_ativo ? 'sucesso' : 'info',
+        titulo: res.bypass_ativo ? 'Bypass de Ponto ATIVADO' : 'Bypass de Ponto DESATIVADO',
+        mensagem: res.mensagem
+      });
+      await carregarStatusHoje();
+    } catch (err: any) {
+      addNotificacao({
+        tipo: 'aviso',
+        titulo: 'Erro ao Alternar Bypass',
+        mensagem: err.response?.data?.detail || 'Erro ao alterar bypass de ponto.'
+      });
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   const [horaSimulada, setHoraSimulada] = useState<string>('');
 
   const handleBaterPonto = async (tipo?: string) => {
@@ -411,6 +432,25 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
                   >
                     <RotateCcw size={14} className={carregando ? 'animate-spin' : ''} />
                     <span>Resetar Teste</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleBypass}
+                    disabled={carregando}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all ${
+                      statusJornada?.bypass_ativo
+                        ? 'bg-purple-600 text-white hover:bg-purple-700 ring-2 ring-purple-300'
+                        : 'bg-white hover:bg-purple-50 text-purple-900 border border-purple-200'
+                    }`}
+                    title="Permite que Operadores e Controladores trabalhem sem bater ponto (Modo Demonstração)"
+                  >
+                    <span>🧪 Bypass Equipe:</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${
+                      statusJornada?.bypass_ativo ? 'bg-purple-800 text-white' : 'bg-purple-100 text-purple-800'
+                    }`}>
+                      {statusJornada?.bypass_ativo ? 'ATIVO' : 'DESLIGADO'}
+                    </span>
                   </button>
                 </div>
               </div>

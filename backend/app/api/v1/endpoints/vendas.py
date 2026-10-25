@@ -12,7 +12,7 @@ from app.models.produto import Produto
 from app.models.estoque import MovimentacaoEstoque, TipoMovimentacaoEstoque
 from app.models.venda import Venda, ItemVenda, PagamentoVenda, StatusVenda, FormaPagamento
 from app.schemas.venda import VendaCreate, VendaResponse
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, verificar_ponto_trabalho
 
 router = APIRouter()
 
@@ -95,7 +95,7 @@ def obter_venda(
 def registrar_venda(
     dados: VendaCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user)
+    current_user: Usuario = Depends(verificar_ponto_trabalho)
 ) -> Any:
     # 0. Validação de perfil: Controlador de Estoque não realiza vendas
     if current_user.perfil == PerfilUsuario.ESTOQUISTA:
