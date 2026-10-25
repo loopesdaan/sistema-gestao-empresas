@@ -83,12 +83,12 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
     }
   };
 
-  const handleResponderTicket = async (notificacaoId: number, ticketId: number, aprovado: boolean) => {
+  const handleResponderTicket = async (notificacaoId: number, ticketId: number, aprovado: boolean, valorPendente?: number) => {
     try {
       setExecutandoAcao(notificacaoId);
       let msg = `Solicitação de caixa ${aprovado ? 'aprovada' : 'rejeitada'} com sucesso.`;
       try {
-        const res = await apiService.responderTicketCaixa(ticketId, aprovado);
+        const res = await apiService.responderTicketCaixa(ticketId, aprovado, valorPendente);
         if (res?.mensagem) msg = res.mensagem;
       } catch (errTicket: any) {
         console.warn('Aviso ao responder ticket diretamente:', errTicket);
@@ -481,7 +481,7 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
                         <button
                           type="button"
                           disabled={executandoAcao === item.id}
-                          onClick={() => handleResponderTicket(item.id, item.referencia_id!, true)}
+                          onClick={() => handleResponderTicket(item.id, item.referencia_id!, true, item.valor_pendente)}
                           className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1 shadow-xs active:scale-95 disabled:opacity-50"
                         >
                           <CheckCircle2 size={14} />
@@ -491,7 +491,7 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
                         <button
                           type="button"
                           disabled={executandoAcao === item.id}
-                          onClick={() => handleResponderTicket(item.id, item.referencia_id!, false)}
+                          onClick={() => handleResponderTicket(item.id, item.referencia_id!, false, item.valor_pendente)}
                           className="px-3.5 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-xl text-xs font-black transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50"
                         >
                           <XCircle size={14} />

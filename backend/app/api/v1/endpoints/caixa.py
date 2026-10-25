@@ -155,13 +155,31 @@ def lancar_movimentacao(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    caixa = db.query(Caixa).filter(
-        Caixa.empresa_id == current_user.empresa_id,
-        Caixa.usuario_id == current_user.id,
-        Caixa.status == StatusCaixa.ABERTO
-    ).first()
+    # Se caixa_id for informado explicitamente
+    if dados.caixa_id:
+        query = db.query(Caixa).filter(
+            Caixa.id == dados.caixa_id,
+            Caixa.empresa_id == current_user.empresa_id,
+            Caixa.status == StatusCaixa.ABERTO
+        )
+        if current_user.perfil != PerfilUsuario.ADMIN:
+            query = query.filter(Caixa.usuario_id == current_user.id)
+        caixa = query.first()
+    else:
+        # Busca o caixa aberto do usuário, ou se for admin, o caixa aberto ativo da empresa
+        caixa = db.query(Caixa).filter(
+            Caixa.empresa_id == current_user.empresa_id,
+            Caixa.usuario_id == current_user.id,
+            Caixa.status == StatusCaixa.ABERTO
+        ).first()
+        if not caixa and current_user.perfil == PerfilUsuario.ADMIN:
+            caixa = db.query(Caixa).filter(
+                Caixa.empresa_id == current_user.empresa_id,
+                Caixa.status == StatusCaixa.ABERTO
+            ).order_by(Caixa.data_abertura.desc()).first()
+
     if not caixa:
-        raise HTTPException(status_code=400, detail="Nenhum caixa aberto para este operador.")
+        raise HTTPException(status_code=400, detail="Nenhum caixa aberto para registrar esta movimentação.")
 
     mov = MovimentacaoCaixa(
         caixa_id=caixa.id,
@@ -245,12 +263,28 @@ def historico_caixas(
 class TicketCaixaSchema(BaseModel):
     tipo: TipoSolicitacaoCaixa
     valor_solicitado: Optional[Decimal] = None
+    valor: Optional[Decimal] = None
     motivo: Optional[str] = None
+    justificativa: Optional[str] = None
+
+    def get_valor(self) -> Optional[Decimal]:
+        return self.valor_solicitado if self.valor_solicitado is not None else self.valor
+
+    def get_motivo(self) -> Optional[str]:
+        return self.motivo if self.motivo is not None else self.justificativa
 
 class RespostaTicketSchema(BaseModel):
     aprovado: bool
     valor_aprovado: Optional[Decimal] = None
+    valor_efetivo: Optional[Decimal] = None
     motivo: Optional[str] = None
+    observacao: Optional[str] = None
+
+    def get_valor(self) -> Optional[Decimal]:
+        return self.valor_aprovado if self.valor_aprovado is not None else self.valor_efetivo
+
+    def get_motivo(self) -> Optional[str]:
+        return self.motivo if self.motivo is not None else self.observacao
 
 @router.post("/{caixa_id}/solicitar-ticket")
 def solicitar_ticket_caixa(
@@ -267,28 +301,32 @@ def solicitar_ticket_caixa(
     if not caixa or caixa.status != StatusCaixa.ABERTO:
         raise HTTPException(status_code=400, detail="Caixa deve estar aberto para solicitar tickets.")
 
+    valor_solicitado = dados.get_valor()
+    motivo = dados.get_motivo()
+
     ticket = SolicitacaoCaixa(
         empresa_id=current_user.empresa_id,
         caixa_id=caixa.id,
         usuario_id=current_user.id,
         tipo=dados.tipo,
-        valor_solicitado=dados.valor_solicitado,
-        motivo=dados.motivo,
+        valor_solicitado=valor_solicitado,
+        motivo=motivo,
         status=StatusSolicitacaoCaixa.PENDENTE
     )
     db.add(ticket)
     db.flush()
     
     # Cria notificação para os administradores
+    valor_str = f" de R$ {valor_solicitado:.2f}" if valor_solicitado is not None else ""
     notif = Notificacao(
         empresa_id=current_user.empresa_id,
         usuario_id=None,
         titulo=f"Solicitação de {dados.tipo.value} (Caixa #{caixa.id})",
-        mensagem=f"Operador {current_user.nome} solicitou {dados.tipo.value} {f'de R$ {dados.valor_solicitado}' if dados.valor_solicitado else ''}. Motivo: {dados.motivo or 'Não informado'}.",
+        mensagem=f"Operador {current_user.nome} solicitou {dados.tipo.value}{valor_str}. Motivo: {motivo or 'Não informado'}.",
         tipo="CAIXA_TICKET",
         referencia_tipo="TICKET_CAIXA",
         referencia_id=ticket.id,
-        valor_pendente=dados.valor_solicitado
+        valor_pendente=valor_solicitado
     )
     db.add(notif)
     db.commit()
@@ -419,18 +457,19 @@ def responder_ticket_caixa(
     ticket.respondido_por_id = current_user.id
 
     if dados.aprovado:
-        valor = dados.valor_aprovado or ticket.valor_solicitado or Decimal("0.00")
+        valor = dados.get_valor() or ticket.valor_solicitado or Decimal("0.00")
         ticket.status = StatusSolicitacaoCaixa.APROVADO
         ticket.valor_aprovado = valor
 
         # Gera movimentação real no caixa
         tipo_mov = TipoMovimentacaoCaixa.SUPRIMENTO if ticket.tipo == TipoSolicitacaoCaixa.SUPRIMENTO else TipoMovimentacaoCaixa.SANGRIA
+        motivo_final = dados.get_motivo() or ticket.motivo or 'Sem observações'
         mov = MovimentacaoCaixa(
             caixa_id=ticket.caixa_id,
             usuario_id=ticket.usuario_id,
             tipo=tipo_mov,
             valor=valor,
-            motivo=f"Aprovado pelo ADM {current_user.nome}: {dados.motivo or ticket.motivo or 'Sem observações'}"
+            motivo=f"Aprovado pelo ADM {current_user.nome}: {motivo_final}"
         )
         db.add(mov)
     else:

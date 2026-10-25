@@ -158,8 +158,8 @@ export const apiService = {
     const res = await api.post('/caixa/abrir', { saldo_inicial: saldoInicial, observacoes });
     return res.data;
   },
-  movimentarCaixa: async (tipo: 'SANGRIA' | 'SUPRIMENTO', valor: number, motivo: string) => {
-    const res = await api.post('/caixa/movimentacao', { tipo, valor, motivo });
+  movimentarCaixa: async (tipo: 'SANGRIA' | 'SUPRIMENTO', valor: number, motivo: string, caixaId?: number) => {
+    const res = await api.post('/caixa/movimentacao', { tipo, valor, motivo, caixa_id: caixaId });
     return res.data;
   },
   getResumoCaixa: async (caixaId: number): Promise<ResumoCaixa> => {
@@ -361,8 +361,15 @@ export const apiService = {
   },
 
   // Caixa - Tickets & Monitor em Tempo Real
-  solicitarTicketCaixa: async (caixaId: number, dados: { tipo: string; valor?: number; justificativa?: string }) => {
-    const { data } = await api.post(`/caixa/${caixaId}/solicitar-ticket`, dados);
+  solicitarTicketCaixa: async (caixaId: number, dados: { tipo: string; valor?: number; valor_solicitado?: number; justificativa?: string; motivo?: string }) => {
+    const payload = {
+      tipo: dados.tipo,
+      valor: dados.valor ?? dados.valor_solicitado,
+      valor_solicitado: dados.valor_solicitado ?? dados.valor,
+      justificativa: dados.justificativa ?? dados.motivo,
+      motivo: dados.motivo ?? dados.justificativa
+    };
+    const { data } = await api.post(`/caixa/${caixaId}/solicitar-ticket`, payload);
     return data;
   },
   getTicketsPendentes: async () => {
@@ -372,7 +379,9 @@ export const apiService = {
   responderTicketCaixa: async (ticketId: number, aprovado: boolean, valorEfetivo?: number, observacao?: string) => {
     const { data } = await api.post(`/caixa/solicitacoes/${ticketId}/responder`, {
       aprovado,
+      valor_aprovado: valorEfetivo,
       valor_efetivo: valorEfetivo,
+      motivo: observacao,
       observacao
     });
     return data;

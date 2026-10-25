@@ -180,7 +180,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
     e.preventDefault();
     if (!modalMov || valorMov <= 0) return;
     try {
-      await apiService.movimentarCaixa(modalMov, valorMov, motivoMov);
+      await apiService.movimentarCaixa(modalMov, valorMov, motivoMov, caixaAtual?.id);
       setModalMov(null);
       setValorMov(0);
       setMotivoMov('');

@@ -16,6 +16,7 @@ class MovimentacaoCaixaCreate(BaseModel):
     tipo: TipoMovimentacaoCaixa
     valor: Decimal
     motivo: str
+    caixa_id: Optional[int] = None
 
 class MovimentacaoCaixaResponse(BaseModel):
     id: int
