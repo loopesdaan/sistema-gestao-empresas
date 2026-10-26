@@ -105,14 +105,8 @@ def consultar_point_status(
     payment_intent_id: str,
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Consulta o status de uma intenção de pagamento via Point. Em modo dev, aprova na segunda consulta."""
-    count = POINT_INTENT_CALLS.get(payment_intent_id, 0)
-    POINT_INTENT_CALLS[payment_intent_id] = count + 1
-    if count >= 1:
-        status_val = "APPROVED"
-    else:
-        status_val = "OPEN"
-    return {"payment_intent_id": payment_intent_id, "status": status_val}
+    """Consulta de maquininha em modo manual: aprovação imediata."""
+    return {"payment_intent_id": payment_intent_id, "status": "APPROVED", "modo": "MANUAL_SUSPENSO"}
 
 
 @router.post("/point-simular/{payment_intent_id}")

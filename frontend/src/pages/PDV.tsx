@@ -9,7 +9,7 @@ import {
   Search, Barcode, Trash2, Plus, Minus, CreditCard, 
   Banknote, QrCode, UserCheck, CheckCircle2, AlertCircle, 
   ShoppingCart, RefreshCw, X, Copy, Check, Sparkles, Wrench,
-  Lock, Clock, Receipt, Shield, AlertTriangle
+  Lock, Clock, Receipt, Shield, AlertTriangle, Smartphone
 } from 'lucide-react';
 
 interface CartItem {
@@ -124,58 +124,6 @@ export const PDV: React.FC = () => {
     ).slice(0, 8);
     setProdutosSugestoes(filtrados);
   }, [busca, todosProdutos]);
-
-  // Polling de status do PIX Mercado Pago enquanto a cobrança estiver pendente
-  useEffect(() => {
-    if (!pixData || pixData.status === 'approved' || !modalPagamentoAberto) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await apiService.consultarStatusPagamento(pixData.payment_id);
-        if (res.status === 'approved') {
-          setPixData(prev => prev ? { ...prev, status: 'approved' } : null);
-          clearInterval(interval);
-          addNotificacao({
-            tipo: 'sucesso',
-            titulo: 'PIX Recebido!',
-            mensagem: 'Pagamento confirmado. Venda finalizada.',
-          });
-          // Finaliza a venda automaticamente quando o PIX for pago!
-          handleFinalizarVenda();
-        }
-      } catch (err) {
-        // Silencioso em caso de falha transitória
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [pixData, modalPagamentoAberto]);
-
-  // Polling de status do Point (maquininha de cartão) a cada 3 segundos
-  useEffect(() => {
-    if (!aguardandoPoint || !pointIntentId || !modalPagamentoAberto) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await apiService.consultarStatusPoint(pointIntentId);
-        setPointData(prev => prev ? { ...prev, status: res.status } : null);
-        if (res.status === 'APPROVED') {
-          clearInterval(interval);
-          setAguardandoPoint(false);
-          addNotificacao({
-            tipo: 'sucesso',
-            titulo: 'Pagamento Aprovado!',
-            mensagem: 'Cartão aprovado na maquininha. Venda finalizada.',
-          });
-          handleFinalizarVenda();
-        }
-      } catch (err) {
-        // Silencioso em caso de falha transitória
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [aguardandoPoint, pointIntentId, modalPagamentoAberto]);
 
   const handleAbrirModalImportarOS = async () => {
     setCarregandoOS(true);
@@ -878,116 +826,43 @@ export const PDV: React.FC = () => {
               })}
             </div>
 
-            {/* Integração PIX Mercado Pago */}
+            {/* Confirmação de Pagamento PIX (Baixa Manual pelo Operador) */}
             {formaPagamento === 'PIX' && (
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center mb-5 space-y-3">
-                {!pixData ? (
-                  <div className="py-3">
-                    <p className="text-xs text-slate-600 mb-3">
-                      Gere o QR Code dinâmico para o cliente pagar diretamente pelo aplicativo do banco.
-                    </p>
-                    <button
-                      type="button"
-                      disabled={gerandoPix}
-                      onClick={handleGerarPixMercadoPago}
-                      className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 mx-auto disabled:opacity-50"
-                    >
-                      <Sparkles size={16} />
-                      <span>{gerandoPix ? 'Gerando QR Code...' : 'Gerar Cobrança PIX Mercado Pago'}</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="inline-block p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
-                      <div className="flex flex-col items-center">
-                        <QRCodeSVG
-                          value={
-                            pixData.qr_code ||
-                            `00020126580014BR.GOV.BCB.PIX0136${pixData.payment_id}-pix-gestao5204000053039865405${Number(totalLiquido).toFixed(2)}5802BR5925GESTAO PME6009SAO PAULO62070503***6304`
-                          }
-                          size={180}
-                          level="M"
-                          includeMargin={true}
-                          className="rounded-lg shadow-2xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-center gap-2 text-xs font-semibold text-amber-600 animate-pulse">
-                      <RefreshCw size={14} className="animate-spin" />
-                      <span>Aguardando pagamento do cliente...</span>
-                    </div>
-
-                    <div className="flex justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleCopiarPix}
-                        className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors"
-                      >
-                        {pixCopiado ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                        <span>{pixCopiado ? 'Copiado!' : 'Copiar Pix Copia e Cola'}</span>
-                      </button>
-
-                      {/* Botão de simulação para desenvolvimento */}
-                      <button
-                        type="button"
-                        onClick={handleSimularAprovacaoPix}
-                        className="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors"
-                        title="Simula a confirmação imediata do pagamento pelo banco"
-                      >
-                        <Sparkles size={14} />
-                        <span>Simular Pagamento Pago (Dev)</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
+              <div className="p-4 bg-sky-50/70 rounded-2xl border border-sky-200 text-center mb-5 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center mx-auto shadow-inner">
+                  <Smartphone size={24} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">Recebimento via PIX (Balcão)</h4>
+                  <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
+                    Solicite que o cliente realize o pagamento utilizando a chave PIX ou o QR Code físico do estabelecimento.
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold border border-amber-200">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Aguardando operador conferir o recebimento e dar baixa</span>
+                </div>
               </div>
             )}
 
-            {/* Cartão via Mercado Pago Point (maquininha) */}
+            {/* Confirmação de Pagamento em Cartão (Maquininha Física da Loja) */}
             {(formaPagamento === 'CARTAO_CREDITO' || formaPagamento === 'CARTAO_DEBITO') && (
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center mb-5 space-y-3">
-                {!pointData ? (
-                  <div className="py-3">
-                    <p className="text-xs text-slate-600 mb-3">
-                      Envie a cobrança para a maquininha Mercado Pago Point e aguarde o cliente inserir o cartão.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleEnviarParaMaquininha}
-                      className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 mx-auto"
-                    >
-                      <CreditCard size={16} />
-                      <span>Enviar para Maquininha</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {aguardandoPoint && (
-                      <div className="flex items-center justify-center gap-2 text-xs font-semibold text-amber-600 animate-pulse">
-                        <RefreshCw size={14} className="animate-spin" />
-                        <span>Aguardando pagamento na maquininha...</span>
-                      </div>
-                    )}
-                    {pointData.status === 'APPROVED' && (
-                      <div className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-600">
-                        <CheckCircle2 size={14} />
-                        <span>Pagamento aprovado! Finalizando venda...</span>
-                      </div>
-                    )}
-
-                    {/* Botão de simulação para desenvolvimento */}
-                    <button
-                      type="button"
-                      onClick={handleSimularAprovacaoPoint}
-                      className="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors mx-auto"
-                      title="Simula a aprovação imediata pela maquininha"
-                    >
-                      <Sparkles size={14} />
-                      <span>Simular Aprovação (Dev)</span>
-                    </button>
-                  </div>
-                )}
+              <div className="p-4 bg-indigo-50/70 rounded-2xl border border-indigo-200 text-center mb-5 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center mx-auto shadow-inner">
+                  <CreditCard size={24} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    Pagamento em Cartão ({formaPagamento === 'CARTAO_CREDITO' ? 'Crédito' : 'Débito'})
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
+                    Insira, aproxime ou passe o cartão na maquininha física da loja (POS/TEF).
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 text-xs font-bold border border-amber-200">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Aguardando comprovante da maquininha para dar baixa</span>
+                </div>
               </div>
             )}
 
@@ -1081,9 +956,21 @@ export const PDV: React.FC = () => {
                 type="button"
                 onClick={handleFinalizarVenda}
                 disabled={!podeFinalizar}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50"
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-600/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {finalizando ? 'Processando...' : 'Confirmar e Emitir'}
+                <CheckCircle2 size={16} />
+                <span>
+                  {finalizando 
+                    ? 'Dando Baixa...' 
+                    : formaPagamento === 'PIX'
+                      ? 'Confirmar Baixa do PIX'
+                      : formaPagamento === 'CARTAO_CREDITO' || formaPagamento === 'CARTAO_DEBITO'
+                        ? 'Confirmar Baixa no Cartão'
+                        : formaPagamento === 'A_PRAZO'
+                          ? 'Confirmar Venda a Prazo'
+                          : 'Confirmar e Emitir'
+                  }
+                </span>
               </button>
             </div>
           </div>

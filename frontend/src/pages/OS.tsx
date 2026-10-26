@@ -7,7 +7,7 @@ import {
   Wrench, Plus, Search, Clock, CheckCircle2, 
   AlertCircle, ChevronRight, User, Calendar, Edit, Package,
   CreditCard, Banknote, QrCode, UserCheck, Receipt, Printer,
-  Sparkles, RefreshCw, X, AlertTriangle, Check, Copy
+  Sparkles, RefreshCw, X, AlertTriangle, Check, Copy, Smartphone
 } from 'lucide-react';
 
 export const OS: React.FC = () => {
@@ -654,49 +654,40 @@ export const OS: React.FC = () => {
             )}
 
             {formaPagamento === 'PIX' && (
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center space-y-3">
-                {!pixData ? (
-                  <div>
-                    <p className="text-xs text-slate-600 mb-3">
-                      Gere o QR Code dinâmico do Mercado Pago para o cliente escanear e pagar instantaneamente.
-                    </p>
-                    <button
-                      type="button"
-                      disabled={gerandoPix}
-                      onClick={handleGerarPixMercadoPago}
-                      className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 mx-auto disabled:opacity-50"
-                    >
-                      <Sparkles size={15} />
-                      <span>{gerandoPix ? 'Gerando QR Code...' : 'Gerar QR Code PIX'}</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="inline-block p-3 bg-white rounded-xl border border-slate-200 shadow-2xs">
-                      <QRCodeSVG
-                        value={
-                          pixData.qr_code ||
-                          `00020126580014BR.GOV.BCB.PIX0136${pixData.payment_id}-os5204000053039865405${Number(modalCobrarOS?.valor_total || 0).toFixed(2)}5802BR5925GESTAO PME6009SAO PAULO62070503***6304`
-                        }
-                        size={160}
-                        level="M"
-                        includeMargin={true}
-                        className="rounded-lg shadow-2xs"
-                      />
-                    </div>
+              <div className="p-4 bg-sky-50/70 rounded-2xl border border-sky-200 text-center space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center mx-auto shadow-inner">
+                  <Smartphone size={20} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">Recebimento via PIX (Balcão)</h4>
+                  <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
+                    Solicite a transferência ao cliente utilizando a chave PIX ou o QR Code físico da loja.
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold border border-amber-200">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Aguardando operador conferir o recebimento e dar baixa</span>
+                </div>
+              </div>
+            )}
 
-                    <div className="flex justify-center">
-                      <button
-                        type="button"
-                        onClick={handleCopiarPix}
-                        className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors"
-                      >
-                        {pixCopiado ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                        <span>{pixCopiado ? 'Chave Copiada!' : 'Copiar Pix Copia e Cola'}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
+            {(formaPagamento === 'CARTAO_CREDITO' || formaPagamento === 'CARTAO_DEBITO') && (
+              <div className="p-4 bg-indigo-50/70 rounded-2xl border border-indigo-200 text-center space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center mx-auto shadow-inner">
+                  <CreditCard size={20} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    Pagamento em Cartão ({formaPagamento === 'CARTAO_CREDITO' ? 'Crédito' : 'Débito'})
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
+                    Passe na maquininha física do estabelecimento (POS/TEF) e confirme a baixa.
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold border border-amber-200">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Aguardando comprovante da maquininha</span>
+                </div>
               </div>
             )}
 
