@@ -24,3 +24,16 @@
   background: #94a3b8;
 }
 
+/* Oculta badges e gavetas injetadas automaticamente pelo Netlify */
+#netlify-badge,
+.netlify-badge,
+[data-netlify-badge],
+[data-netlify-drawer],
+div[class*="netlify-feedback"],
+iframe[src*="netlify"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
