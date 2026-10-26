@@ -1,3 +1,4 @@
+import os
 import logging
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -27,7 +28,7 @@ def migrar_colunas():
                 if "modulos_ativos" not in empresa_cols:
                     conn.execute(text("ALTER TABLE empresas ADD COLUMN modulos_ativos TEXT"))
                 if "onboarding_concluido" not in empresa_cols:
-                    conn.execute(text("ALTER TABLE empresas ADD COLUMN onboarding_concluido BOOLEAN DEFAULT 0"))
+                    conn.execute(text("ALTER TABLE empresas ADD COLUMN onboarding_concluido BOOLEAN DEFAULT FALSE"))
                 if "cep" not in empresa_cols:
                     conn.execute(text("ALTER TABLE empresas ADD COLUMN cep VARCHAR(10)"))
                 if "cor_primaria" not in empresa_cols:
@@ -76,79 +77,119 @@ def migrar_colunas():
     except Exception as e:
         logger.warning(f"Aviso durante migração de colunas: {e}")
 
-def inicializar_dados_demo():
-    """Gera dados iniciais de demonstração caso o banco de dados esteja vazio"""
+def inicializar_banco_dados():
+    """
+    Inicializa a empresa e usuários de acordo com o ambiente (Dev vs Prod).
+    Em PRODUÇÃO: Garante empresa e cria os dois administradores oficiais:
+      - danilo.lopes@teste.com (Senha: Teste@123)
+      - leticia.melo@teste.com (Senha: Teste@123)
+      Sem dados fictícios de demonstração.
+    Em DESENVOLVIMENTO: Cria os administradores oficiais e popula dados de demonstração.
+    """
     db = SessionLocal()
     try:
-        empresa_existente = db.query(Empresa).first()
-        if not empresa_existente:
-            logger.info("Banco inicializado pela primeira vez. Criando empresa e dados de demonstração...")
+        is_prod = settings.ENVIRONMENT.lower() in ["production", "prod"]
+        
+        empresa = db.query(Empresa).first()
+        if not empresa:
+            logger.info(f"Criando empresa principal ({'PRODUÇÃO' if is_prod else 'DESENVOLVIMENTO'})...")
             empresa = Empresa(
-                razao_social="Auto & Varejo Comércio e Serviços LTDA",
-                nome_fantasia="Gestão PME Modelo",
-                cnpj="12.345.678/0001-90",
-                telefone="(11) 98765-4321",
+                razao_social="Sistema de Gestão Comercial PME",
+                nome_fantasia="Gestão PME",
+                cnpj="00.000.000/0001-00" if is_prod else "12.345.678/0001-90",
+                telefone="(11) 99999-9999" if is_prod else "(11) 98765-4321",
                 email="contato@gestaopme.com.br",
-                endereco="Av. Paulista, 1500 - Sala 42, São Paulo - SP"
+                endereco="São Paulo - SP"
             )
             db.add(empresa)
             db.commit()
             db.refresh(empresa)
 
-            # Usuário Administrador
-            admin = Usuario(
-                empresa_id=empresa.id,
-                nome="Administrador do Sistema",
-                email="admin@gestao.com",
-                hashed_password=get_password_hash("admin123"),
-                perfil=PerfilUsuario.ADMIN,
-                ativo=True
-            )
-            # Usuário Vendedor / Operador
-            vendedor = Usuario(
-                empresa_id=empresa.id,
-                nome="Operador de Caixa",
-                email="caixa@gestao.com",
-                hashed_password=get_password_hash("caixa123"),
-                perfil=PerfilUsuario.OPERADOR_CAIXA,
-                ativo=True
-            )
-            # Usuário Estoquista
-            estoquista = Usuario(
-                empresa_id=empresa.id,
-                nome="Estoquista Responsável",
-                email="estoque@gestao.com",
-                hashed_password=get_password_hash("estoque123"),
-                perfil=PerfilUsuario.ESTOQUISTA,
-                ativo=True
-            )
-            db.add_all([admin, vendedor, estoquista])
+        # 1. Garante os dois Administradores Oficiais solicitados
+        admins_oficiais = [
+            ("Danilo Lopes", "danilo.lopes@teste.com", "Teste@123"),
+            ("Leticia Melo", "leticia.melo@teste.com", "Teste@123"),
+        ]
 
-            # Clientes Demo
-            cliente1 = Cliente(
-                empresa_id=empresa.id,
-                nome="João Silva Santos",
-                cpf_cnpj="123.456.789-00",
-                telefone="(11) 99123-4567",
-                email="joao.silva@email.com",
-                endereco="Rua das Flores, 120",
-                limite_credito=Decimal("1500.00"),
-                saldo_devedor=Decimal("0.00")
-            )
-            cliente2 = Cliente(
-                empresa_id=empresa.id,
-                nome="Oficina Mecânica Rápida LTDA",
-                cpf_cnpj="98.765.432/0001-10",
-                telefone="(11) 3344-5566",
-                email="oficina.rapida@email.com",
-                endereco="Rua dos Motores, 500",
-                limite_credito=Decimal("5000.00"),
-                saldo_devedor=Decimal("350.00")
-            )
-            db.add_all([cliente1, cliente2])
+        for nome, email_admin, senha in admins_oficiais:
+            u_admin = db.query(Usuario).filter(Usuario.email == email_admin).first()
+            if not u_admin:
+                novo_admin = Usuario(
+                    empresa_id=empresa.id,
+                    nome=nome,
+                    email=email_admin,
+                    hashed_password=get_password_hash(senha),
+                    perfil=PerfilUsuario.ADMIN,
+                    ativo=True
+                )
+                db.add(novo_admin)
+                logger.info(f"Administrador oficial cadastrado com sucesso: {email_admin}")
+            else:
+                u_admin.perfil = PerfilUsuario.ADMIN
+                u_admin.ativo = True
+                u_admin.hashed_password = get_password_hash(senha)
+                db.add(u_admin)
+        db.commit()
 
-            # Produtos Demo
-            produtos_iniciais = [
+        # 2. Se for PRODUÇÃO, desativa contas de demonstração e encerra
+        if is_prod:
+            emails_demo = ["admin@gestao.com", "caixa@gestao.com", "estoque@gestao.com", "caixa2@gestao.com", "caixa3@gestao.com", "estoque2@gestao.com"]
+            for email_d in emails_demo:
+                u_d = db.query(Usuario).filter(Usuario.email == email_d).first()
+                if u_d:
+                    u_d.ativo = False
+                    db.add(u_d)
+            db.commit()
+            logger.info("Ambiente de Produção ativo: Contas demo desativadas. Apenas administradores oficiais autorizados.")
+            return
+
+        # 3. Se for DESENVOLVIMENTO, popula dados de demonstração
+        usuarios_demo = [
+            ("Administrador Demo", "admin@gestao.com", "admin123", PerfilUsuario.ADMIN),
+            ("Operador de Caixa", "caixa@gestao.com", "caixa123", PerfilUsuario.OPERADOR_CAIXA),
+            ("Estoquista Responsável", "estoque@gestao.com", "estoque123", PerfilUsuario.ESTOQUISTA),
+        ]
+        for nome, email_d, senha_d, perfil_d in usuarios_demo:
+            if not db.query(Usuario).filter(Usuario.email == email_d).first():
+                db.add(Usuario(
+                    empresa_id=empresa.id,
+                    nome=nome,
+                    email=email_d,
+                    hashed_password=get_password_hash(senha_d),
+                    perfil=perfil_d,
+                    ativo=True
+                ))
+        db.commit()
+
+        # Clientes Demo se não existirem
+        if db.query(Cliente).count() == 0:
+            db.add_all([
+                Cliente(
+                    empresa_id=empresa.id,
+                    nome="João Silva Santos",
+                    cpf_cnpj="123.456.789-00",
+                    telefone="(11) 99123-4567",
+                    email="joao.silva@email.com",
+                    endereco="Rua das Flores, 120",
+                    limite_credito=Decimal("1500.00"),
+                    saldo_devedor=Decimal("0.00")
+                ),
+                Cliente(
+                    empresa_id=empresa.id,
+                    nome="Oficina Mecânica Rápida LTDA",
+                    cpf_cnpj="98.765.432/0001-10",
+                    telefone="(11) 3344-5566",
+                    email="oficina.rapida@email.com",
+                    endereco="Rua dos Motores, 500",
+                    limite_credito=Decimal("5000.00"),
+                    saldo_devedor=Decimal("350.00")
+                )
+            ])
+            db.commit()
+
+        # Produtos Demo se não existirem
+        if db.query(Produto).count() == 0:
+            db.add_all([
                 Produto(
                     empresa_id=empresa.id,
                     nome="Óleo Motor Sintético 5W30 1L",
@@ -169,7 +210,7 @@ def inicializar_dados_demo():
                     preco_custo=Decimal("15.50"),
                     preco_venda=Decimal("35.00"),
                     estoque_atual=Decimal("8.00"),
-                    estoque_minimo=Decimal("10.00") # Alerta de estoque baixo!
+                    estoque_minimo=Decimal("10.00")
                 ),
                 Produto(
                     empresa_id=empresa.id,
@@ -191,7 +232,7 @@ def inicializar_dados_demo():
                     preco_custo=Decimal("12.00"),
                     preco_venda=Decimal("29.90"),
                     estoque_atual=Decimal("2.00"),
-                    estoque_minimo=Decimal("5.00") # Alerta de estoque baixo!
+                    estoque_minimo=Decimal("5.00")
                 ),
                 Produto(
                     empresa_id=empresa.id,
@@ -204,27 +245,11 @@ def inicializar_dados_demo():
                     estoque_atual=Decimal("22.00"),
                     estoque_minimo=Decimal("8.00")
                 )
-            ]
-            db.add_all(produtos_iniciais)
+            ])
             db.commit()
-            logger.info("Dados de demonstração criados com sucesso!")
-        else:
-            # Garante que o usuário estoquista exista caso o banco já tenha sido populado antes
-            estoquista_existente = db.query(Usuario).filter(Usuario.email == "estoque@gestao.com").first()
-            if not estoquista_existente:
-                novo_estoquista = Usuario(
-                    empresa_id=empresa_existente.id,
-                    nome="Estoquista Responsável",
-                    email="estoque@gestao.com",
-                    hashed_password=get_password_hash("estoque123"),
-                    perfil=PerfilUsuario.ESTOQUISTA,
-                    ativo=True
-                )
-                db.add(novo_estoquista)
-                db.commit()
-                logger.info("Usuário Estoquista (estoque@gestao.com) adicionado.")
+            logger.info("Catálogo demo inicializado com sucesso em desenvolvimento!")
     except Exception as e:
-        logger.error(f"Erro ao inicializar dados demo: {e}")
+        logger.error(f"Erro ao inicializar banco de dados: {e}")
         db.rollback()
     finally:
         db.close()
@@ -233,9 +258,9 @@ def inicializar_dados_demo():
 async def lifespan(app: FastAPI):
     # Cria todas as tabelas caso não existam
     Base.metadata.create_all(bind=engine)
-    # Migra novas colunas (ex: perfil_negocio, modulos_ativos, onboarding_concluido)
+    # Migra novas colunas (ex: perfil_negocio, modulos_ativos, motivo_cancelamento)
     migrar_colunas()
-    inicializar_dados_demo()
+    inicializar_banco_dados()
     yield
 
 app = FastAPI(
@@ -245,16 +270,24 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configuração CORS
+# Configuração Dinâmica de CORS (Permite localhost + Netlify em produção)
+origens_cors = list(settings.BACKEND_CORS_ORIGINS)
+if settings.FRONTEND_URL and settings.FRONTEND_URL.strip():
+    origens_cors.append(settings.FRONTEND_URL.strip().rstrip("/"))
+if os.getenv("CORS_ORIGINS"):
+    for org in os.getenv("CORS_ORIGINS", "").split(","):
+        if org.strip():
+            origens_cors.append(org.strip())
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=origens_cors,
+    allow_origin_regex=r"https://.*\.netlify\.app|http://localhost:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-import os
 os.makedirs("uploads", exist_ok=True)
 app.mount("/static/uploads", StaticFiles(directory="uploads"), name="uploads")
 

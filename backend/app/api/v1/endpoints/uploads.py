@@ -1,9 +1,11 @@
 import os
 import uuid
+import base64
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from app.api.deps import get_current_user
 from app.models.usuario import Usuario
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -16,7 +18,11 @@ async def upload_imagem(
     tipo: str = Form("geral"),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Faz upload seguro de imagens (logo da empresa ou foto de funcionário)"""
+    """
+    Faz upload seguro de imagens (logo da empresa ou foto de usuário).
+    Em containers com disco efêmero (Render/Heroku/Koyeb), gera Data URI (base64)
+    para persistência permanente nas colunas textuais do banco relacional PostgreSQL.
+    """
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     
     # Valida extensão
@@ -41,10 +47,27 @@ async def upload_imagem(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao salvar arquivo: {e}")
 
-    url = f"/static/uploads/{filename}"
+    # Determina o MIME type para Base64 persistente
+    mime_type = "image/png"
+    if ext in [".jpg", ".jpeg"]:
+        mime_type = "image/jpeg"
+    elif ext == ".webp":
+        mime_type = "image/webp"
+    elif ext == ".svg":
+        mime_type = "image/svg+xml"
+
+    base64_str = base64.b64encode(conteudo).decode("utf-8")
+    data_uri = f"data:{mime_type};base64,{base64_str}"
+
+    # Em produção em nuvem efêmera (Render), usa o data_uri para nunca sumir
+    is_prod = settings.ENVIRONMENT.lower() in ["production", "prod"]
+    url_final = data_uri if is_prod else f"/static/uploads/{filename}"
+
     return {
         "ok": True,
-        "url": url,
+        "url": url_final,
+        "data_url": data_uri,
+        "static_url": f"/static/uploads/{filename}",
         "filename": filename,
         "tipo": tipo
     }

@@ -10,10 +10,13 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('admin@gestao.com');
-  const [password, setPassword] = useState('admin123');
+  // Em produção (Netlify / build), DEV é false: tela limpa sem atalhos ou credenciais pré-preenchidas
+  const isDev = import.meta.env.DEV;
+
+  const [email, setEmail] = useState(isDev ? 'admin@gestao.com' : '');
+  const [password, setPassword] = useState(isDev ? 'admin123' : '');
   const [mostrarSenha, setMostrarSenha] = useState(false);
-  const [perfilAtivo, setPerfilAtivo] = useState<'admin' | 'caixa' | 'estoque'>('admin');
+  const [perfilAtivo, setPerfilAtivo] = useState<'admin' | 'caixa' | 'estoque' | null>(isDev ? 'admin' : null);
   const [lembrar, setLembrar] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,82 +81,89 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
           )}
 
-          {/* Seletor Rápido de Cargo / Perfil para Demonstração */}
-          <div className="space-y-2">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              Selecione o Cargo para Acesso:
-            </span>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => selecionarPerfilDemo('admin')}
-                className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
-                  perfilAtivo === 'admin'
-                    ? 'bg-gradient-to-b from-sky-500/20 to-sky-600/10 border-sky-500/50 shadow-md shadow-sky-500/10'
-                    : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 text-slate-400'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <Shield size={16} className={perfilAtivo === 'admin' ? 'text-sky-400' : 'text-slate-400'} />
-                  {perfilAtivo === 'admin' && <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />}
-                </div>
-                <div>
-                  <span className={`block font-bold text-xs ${perfilAtivo === 'admin' ? 'text-white' : 'text-slate-300'}`}>
-                    Gerente
-                  </span>
-                  <span className="text-[10px] text-slate-400 block leading-tight">
-                    Acesso Total
-                  </span>
-                </div>
-              </button>
+          {/* Seletor Rápido de Cargo / Perfil apenas em AMBIENTE DE DESENVOLVIMENTO */}
+          {isDev && (
+            <div className="space-y-2 p-3 bg-slate-800/40 border border-slate-700/60 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider block">
+                  Atalhos Rápidos de Acesso:
+                </span>
+                <span className="text-[9px] bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded-full font-mono font-bold">
+                  DEV ONLY
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => selecionarPerfilDemo('admin')}
+                  className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                    perfilAtivo === 'admin'
+                      ? 'bg-gradient-to-b from-sky-500/20 to-sky-600/10 border-sky-500/50 shadow-md shadow-sky-500/10'
+                      : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Shield size={16} className={perfilAtivo === 'admin' ? 'text-sky-400' : 'text-slate-400'} />
+                    {perfilAtivo === 'admin' && <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />}
+                  </div>
+                  <div>
+                    <span className={`block font-bold text-xs ${perfilAtivo === 'admin' ? 'text-white' : 'text-slate-300'}`}>
+                      Gerente
+                    </span>
+                    <span className="text-[10px] text-slate-400 block leading-tight">
+                      Acesso Total
+                    </span>
+                  </div>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => selecionarPerfilDemo('caixa')}
-                className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
-                  perfilAtivo === 'caixa'
-                    ? 'bg-gradient-to-b from-emerald-500/20 to-emerald-600/10 border-emerald-500/50 shadow-md shadow-emerald-500/10'
-                    : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 text-slate-400'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <ShoppingCart size={16} className={perfilAtivo === 'caixa' ? 'text-emerald-400' : 'text-slate-400'} />
-                  {perfilAtivo === 'caixa' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
-                </div>
-                <div>
-                  <span className={`block font-bold text-xs ${perfilAtivo === 'caixa' ? 'text-white' : 'text-slate-300'}`}>
-                    Operador
-                  </span>
-                  <span className="text-[10px] text-slate-400 block leading-tight">
-                    PDV, Caixa & OS
-                  </span>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => selecionarPerfilDemo('caixa')}
+                  className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                    perfilAtivo === 'caixa'
+                      ? 'bg-gradient-to-b from-emerald-500/20 to-emerald-600/10 border-emerald-500/50 shadow-md shadow-emerald-500/10'
+                      : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <ShoppingCart size={16} className={perfilAtivo === 'caixa' ? 'text-emerald-400' : 'text-slate-400'} />
+                    {perfilAtivo === 'caixa' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                  </div>
+                  <div>
+                    <span className={`block font-bold text-xs ${perfilAtivo === 'caixa' ? 'text-white' : 'text-slate-300'}`}>
+                      Operador
+                    </span>
+                    <span className="text-[10px] text-slate-400 block leading-tight">
+                      PDV, Caixa & OS
+                    </span>
+                  </div>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => selecionarPerfilDemo('estoque')}
-                className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
-                  perfilAtivo === 'estoque'
-                    ? 'bg-gradient-to-b from-amber-500/20 to-amber-600/10 border-amber-500/50 shadow-md shadow-amber-500/10'
-                    : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 text-slate-400'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <Package size={16} className={perfilAtivo === 'estoque' ? 'text-amber-400' : 'text-slate-400'} />
-                  {perfilAtivo === 'estoque' && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
-                </div>
-                <div>
-                  <span className={`block font-bold text-xs ${perfilAtivo === 'estoque' ? 'text-white' : 'text-slate-300'}`}>
-                    Controlador
-                  </span>
-                  <span className="text-[10px] text-slate-400 block leading-tight">
-                    Gestão de Estoque
-                  </span>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => selecionarPerfilDemo('estoque')}
+                  className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
+                    perfilAtivo === 'estoque'
+                      ? 'bg-gradient-to-b from-amber-500/20 to-amber-600/10 border-amber-500/50 shadow-md shadow-amber-500/10'
+                      : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Package size={16} className={perfilAtivo === 'estoque' ? 'text-amber-400' : 'text-slate-400'} />
+                    {perfilAtivo === 'estoque' && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                  </div>
+                  <div>
+                    <span className={`block font-bold text-xs ${perfilAtivo === 'estoque' ? 'text-white' : 'text-slate-300'}`}>
+                      Controlador
+                    </span>
+                    <span className="text-[10px] text-slate-400 block leading-tight">
+                      Gestão de Estoque
+                    </span>
+                  </div>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4 pt-1">
             <div>
