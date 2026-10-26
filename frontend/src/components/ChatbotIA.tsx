@@ -172,19 +172,18 @@ export const ChatbotIA: React.FC<ChatbotIAProps> = ({ onNavigateTab, onOpenTour 
   };
 
   return (
-    <div className="fixed bottom-20 right-6 z-40">
-      {/* Botão Flutuante quando fechado */}
+    <div className="fixed bottom-5 right-5 z-40">
+      {/* Botão Flutuante Circular Minimalista */}
       {!aberto && (
         <button
+          type="button"
           onClick={() => setAberto(true)}
-          className={`flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r ${temaAtual.bgGradiente} text-white font-bold text-xs rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all border-2 border-white/40`}
+          className={`relative w-12 h-12 rounded-full bg-gradient-to-r ${temaAtual.bgGradiente} text-white shadow-xl hover:shadow-2xl hover:scale-110 active:scale-95 transition-all border-2 border-white/60 flex items-center justify-center cursor-pointer`}
           title="Assistente IA do Sistema"
+          aria-label="Abrir Assistente IA"
         >
-          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-            <Bot size={16} />
-          </div>
-          <span>Assistente IA</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          <Bot size={22} className="drop-shadow-xs" />
+          <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white animate-pulse" />
         </button>
       )}
 
