@@ -40,7 +40,7 @@ def serialize_caixa(caixa: Caixa) -> CaixaResponse:
     )
 
 def buscar_caixa_seguro(db: Session, caixa_id: int, empresa_id: int) -> Optional[Caixa]:
-    """Busca caixa pelo ID exato ou com tolerância float64 (+- 1000) para resiliência ao CockroachDB"""
+    """Busca caixa pelo ID exato ou com tolerância float64 (+- 1000) apenas para IDs grandes do CockroachDB"""
     # 1. Busca exata com empresa
     c = db.query(Caixa).filter(
         Caixa.id == caixa_id,
@@ -49,26 +49,31 @@ def buscar_caixa_seguro(db: Session, caixa_id: int, empresa_id: int) -> Optional
     if c:
         return c
 
-    # 2. Janela de tolerância float64 (+- 1000)
-    c = db.query(Caixa).filter(
-        Caixa.id.between(caixa_id - 1000, caixa_id + 1000),
-        Caixa.empresa_id == empresa_id
-    ).first()
-    if c:
-        return c
+    # 2. Janela de tolerância float64 (+- 1000) APENAS SE FOR ID GRANDE (> 10_000_000)
+    # IDs normais (1, 2, 8, etc.) são exatos e NUNCA sofrem arredondamento
+    if caixa_id and caixa_id > 10_000_000:
+        c = db.query(Caixa).filter(
+            Caixa.id.between(caixa_id - 1000, caixa_id + 1000),
+            Caixa.empresa_id == empresa_id
+        ).first()
+        if c:
+            return c
 
     # 3. Fallback sem filtro estrito de empresa
     c = db.query(Caixa).filter(Caixa.id == caixa_id).first()
     if c:
         return c
 
-    c = db.query(Caixa).filter(Caixa.id.between(caixa_id - 1000, caixa_id + 1000)).first()
-    return c
+    if caixa_id and caixa_id > 10_000_000:
+        c = db.query(Caixa).filter(Caixa.id.between(caixa_id - 1000, caixa_id + 1000)).first()
+        return c
+
+    return None
 
 def calcular_resumo_caixa(caixa: Caixa, db: Session) -> ResumoCaixaResponse:
-    # Busca todas as vendas concluídas do caixa (com tolerância de ID de 64-bits)
+    # Busca todas as vendas concluídas EXCLUSIVAMENTE deste turno de caixa
     vendas = db.query(Venda).filter(
-        (Venda.caixa_id == caixa.id) | Venda.caixa_id.between(caixa.id - 1000, caixa.id + 1000),
+        Venda.caixa_id == caixa.id,
         Venda.status == StatusVenda.CONCLUIDA
     ).all()
     venda_ids = [v.id for v in vendas]
@@ -96,9 +101,9 @@ def calcular_resumo_caixa(caixa: Caixa, db: Session) -> ResumoCaixaResponse:
             else:
                 totais_por_forma[FormaPagamento.DINHEIRO] += val
 
-    # Movimentações do caixa (sangrias e suprimentos com tolerância de ID)
+    # Movimentações do caixa (sangrias e suprimentos EXCLUSIVAMENTE deste turno de caixa)
     movs = db.query(MovimentacaoCaixa).filter(
-        (MovimentacaoCaixa.caixa_id == caixa.id) | MovimentacaoCaixa.caixa_id.between(caixa.id - 1000, caixa.id + 1000)
+        MovimentacaoCaixa.caixa_id == caixa.id
     ).all()
     total_suprimentos = sum([Decimal(str(m.valor or 0)) for m in movs if m.tipo == TipoMovimentacaoCaixa.SUPRIMENTO], Decimal("0.00"))
     total_sangrias = sum([Decimal(str(m.valor or 0)) for m in movs if m.tipo == TipoMovimentacaoCaixa.SANGRIA], Decimal("0.00"))

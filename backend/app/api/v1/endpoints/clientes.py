@@ -43,7 +43,7 @@ def buscar_cliente_seguro(cliente_id: int, db: Session, current_user: Usuario) -
             db.refresh(cliente)
 
     # Fallback 2: Tolerância para precisão IEEE 754 de 64-bit int no JavaScript (CockroachDB IDs)
-    if not cliente and cliente_id:
+    if not cliente and cliente_id and cliente_id > 10_000_000:
         candidatos = db.query(Cliente).filter(
             Cliente.empresa_id == current_user.empresa_id,
             Cliente.id >= cliente_id - 1000,

@@ -129,7 +129,7 @@ def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_use
         ).first()
 
         # Tolerância a float64 caso o ID do CockroachDB tenha sofrido perda de precisão no frontend
-        if not caixa:
+        if not caixa and caixa_id > 10_000_000:
             candidatos = db.query(Caixa).filter(
                 Caixa.empresa_id == current_user.empresa_id,
                 Caixa.id >= caixa_id - 1000,
@@ -201,7 +201,7 @@ def buscar_produto_seguro(produto_id: int, db: Session, current_user: Usuario) -
             db.refresh(produto)
 
     # Fallback 2: Tolerância para precisão IEEE 754 de 64-bit int no JavaScript (CockroachDB IDs)
-    if not produto and produto_id:
+    if not produto and produto_id and produto_id > 10_000_000:
         candidatos = db.query(Produto).filter(
             Produto.empresa_id == current_user.empresa_id,
             Produto.id >= produto_id - 1000,
