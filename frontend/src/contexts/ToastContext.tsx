@@ -88,9 +88,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Intercepta chamadas de window.alert legadas e redireciona para toast no estilo da aplicação
+  // Intercepta chamadas de window.alert e window.prompt legadas e redireciona para toast no estilo da aplicação
   useEffect(() => {
     const alertOriginal = window.alert;
+    const promptOriginal = window.prompt;
+
     window.alert = (msg: any) => {
       const texto = typeof msg === 'string' ? msg : JSON.stringify(msg);
       // Se tiver palavra erro ou falha, usa estilo erro, senão aviso
@@ -100,8 +102,15 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toast.aviso(texto);
       }
     };
+
+    window.prompt = (msg?: string, _defaultText?: string) => {
+      toast.aviso(msg || 'Operação requer confirmação visual do sistema.');
+      return null;
+    };
+
     return () => {
       window.alert = alertOriginal;
+      window.prompt = promptOriginal;
     };
   }, []);
 

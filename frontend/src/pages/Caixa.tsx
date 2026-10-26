@@ -17,7 +17,7 @@ interface CaixaProps {
 
 export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
   const { temaAtual } = useEmpresa();
-  const { toast } = useToast();
+  const { toast, confirmar } = useToast();
   const [caixaAtual, setCaixaAtual] = useState<CaixaType | null>(null);
   const [resumo, setResumo] = useState<ResumoCaixa | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +54,16 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
     valor: 50,
     motivo: ''
   });
+
+  // Modal Aprovar Ticket de Caixa (Substitui prompt nativo do navegador)
+  const [modalAprovarTicket, setModalAprovarTicket] = useState<{
+    ticketId: number;
+    caixaId: number;
+    tipo: string;
+    valor: string;
+    usuarioNome: string;
+    motivo?: string;
+  } | null>(null);
 
   const caixasFechadosFiltrados = useMemo(() => {
     return caixasFechados.filter((c) => {
@@ -683,23 +693,33 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                         <td className="p-3 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
-                              onClick={() => handleResponderTicket(t.id, false)}
-                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold"
+                              type="button"
+                              onClick={() => {
+                                confirmar({
+                                  titulo: 'Recusar Chamado de Caixa',
+                                  mensagem: `Deseja realmente recusar o pedido de ${t.tipo.replace('_', ' ')} do colaborador ${t.usuario_nome || 'Operador'}?`,
+                                  tipo: 'aviso',
+                                  textoConfirmar: 'Sim, Recusar',
+                                  onConfirmar: () => handleResponderTicket(t.id, false)
+                                });
+                              }}
+                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
                             >
                               Recusar
                             </button>
                             <button
+                              type="button"
                               onClick={() => {
-                                const valStr = prompt('Informe o valor aprovado para a movimentação:', String(t.valor_solicitado || '50.00'));
-                                if (!valStr) return;
-                                const val = parseFloat(valStr);
-                                if (isNaN(val) || val <= 0) {
-                                  toast.aviso('Informe um valor numérico válido.');
-                                  return;
-                                }
-                                handleResponderTicket(t.id, true, val);
+                                setModalAprovarTicket({
+                                  ticketId: t.id,
+                                  caixaId: t.caixa_id,
+                                  tipo: t.tipo,
+                                  valor: t.valor_solicitado ? String(t.valor_solicitado) : '50.00',
+                                  usuarioNome: t.usuario_nome || `Operador #${t.usuario_id}`,
+                                  motivo: t.motivo || ''
+                                });
                               }}
-                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-xs"
+                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer transition-colors"
                             >
                               Aprovar & Gerar
                             </button>
@@ -1236,6 +1256,135 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                   className={`flex-1 py-2.5 bg-gradient-to-r ${temaAtual.bgGradiente} text-white font-bold rounded-xl shadow-md transition-all`}
                 >
                   Enviar Chamado
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: APROVAR TICKET DE CAIXA (SUBSTITUTO INTEGRADO PARA PROMPT NATIVO) */}
+      {modalAprovarTicket && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalAprovarTicket(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
+                  <CheckCircle2 size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Aprovar Chamado</h3>
+                  <p className="text-[11px] text-slate-500">Defina o valor liberado para o caixa</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalAprovarTicket(null)}
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Fechar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-3 border border-slate-200/60 text-xs space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Operador:</span>
+                <span className="font-bold text-slate-800">{modalAprovarTicket.usuarioNome}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Caixa Destino:</span>
+                <span className="font-bold text-slate-800">Caixa #{formatarNumeroCaixa(modalAprovarTicket.caixaId)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Tipo:</span>
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                  modalAprovarTicket.tipo === 'SUPRIMENTO'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : modalAprovarTicket.tipo === 'SANGRIA_CEGA'
+                      ? 'bg-purple-100 text-purple-800'
+                      : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {modalAprovarTicket.tipo.replace('_', ' ')}
+                </span>
+              </div>
+              {modalAprovarTicket.motivo && (
+                <div className="pt-2 border-t border-slate-200/60">
+                  <span className="text-slate-500 font-medium block mb-1">Justificativa do Operador:</span>
+                  <p className="text-slate-700 text-[11px] italic leading-tight bg-white p-2 rounded-xl border border-slate-200/70">
+                    "{modalAprovarTicket.motivo}"
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const val = parseFloat(modalAprovarTicket.valor.replace(',', '.'));
+                if (isNaN(val) || val <= 0) {
+                  toast.aviso('Informe um valor numérico válido maior que zero.');
+                  return;
+                }
+                const ticketId = modalAprovarTicket.ticketId;
+                setModalAprovarTicket(null);
+                await handleResponderTicket(ticketId, true, val);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Valor Aprovado para Movimentação:
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">
+                    R$
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    autoFocus
+                    value={modalAprovarTicket.valor}
+                    onChange={(e) => setModalAprovarTicket({ ...modalAprovarTicket, valor: e.target.value })}
+                    className="w-full pl-11 pr-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-base font-bold text-slate-900"
+                    placeholder="0,00"
+                  />
+                </div>
+                <div className="flex gap-1.5 mt-2">
+                  {[20, 50, 100, 200, 500].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setModalAprovarTicket({ ...modalAprovarTicket, valor: v.toFixed(2) })}
+                      className="flex-1 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer"
+                    >
+                      +{v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setModalAprovarTicket(null)}
+                  className="flex-1 py-2.5 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 transition-colors text-xs cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-md transition-all text-xs cursor-pointer"
+                >
+                  Aprovar & Gerar
                 </button>
               </div>
             </form>
