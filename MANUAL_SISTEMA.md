@@ -2,145 +2,117 @@
 
 ## 1. Visão Geral e Proposta de Valor
 
-Este sistema foi concebido como uma plataforma de gestão integrada (ERP/PDV/Ponto) multi-segmento, desenhada para atender com excelência diferentes nichos do varejo e prestação de serviços no Brasil, mantendo consistência arquitetural e conformidade rigorosa com a legislação trabalhista brasileira (CLT).
+Este sistema foi concebido como uma plataforma de gestão integrada (ERP, PDV e Ponto Eletrônico) multi-segmento, desenhada para atender com excelência diferentes nichos do varejo e prestação de serviços no Brasil, mantendo consistência arquitetural, conformidade rigorosa com a legislação trabalhista brasileira (CLT) e independência de gateways externos com operação de baixa manual no balcão.
 
 ### Segmentos Atendidos Nativamente:
-1. **Oficinas Mecânicas & Auto Centers:** Foco em Ordens de Serviço (OS), laudo técnico, identificação do veículo (placa, modelo, cor), mão de obra e peças automotivas.
-2. **Lava Rápido & Estética Automotiva:** Cadastro simplificado com histórico por placa de veículo, serviços expressos e frente de caixa ágil.
-3. **Adegas & Conveniências:** Catálogo focado em bebidas, controle de estoque unitário e vendas no balcão em segundos.
-4. **Lojas de Materiais de Construção:** Venda balcão, controle de limite de crédito para clientes frequentes, entregas e crediário controlado.
-5. **Lojas de Roupas & Calçados:** Gestão de itens, crediário próprio (vendas a prazo) e controle de perfil de compra.
-6. **Comércio Geral & Personalizado:** Flexibilidade total de módulos e nomenclaturas.
+1. **Oficinas Mecânicas & Auto Centers:** Foco em Ordens de Serviço (OS), laudo técnico, identificação do veículo (placa, modelo, cor, quilometragem), peças do estoque e mão de obra.
+2. **Lava Rápido & Estética Automotiva:** Cadastro ágil com histórico por placa de veículo, serviços expressos e frente de caixa ágil.
+3. **Adegas & Conveniências:** Catálogo focado em bebidas, controle de estoque unitário e vendas no balcão em segundos com leitor de código de barras.
+4. **Lojas de Materiais de Construção:** Venda balcão, entregas, controle rigoroso de limite de crédito para clientes frequentes e crediário próprio (vendas a prazo).
+5. **Lojas de Roupas & Calçados:** Gestão de itens, crediário controlado e histórico detalhado de compras por cliente.
+6. **Comércio Geral & Varejo Multi-Segmento:** Flexibilidade de cadastros, parametrização e relatórios.
 
 ---
 
-## 2. Arquitetura de Software & Modelo Transacional OLTP
+## 2. Arquitetura de Software: Modelo Transacional OLTP & Analítico OLAP
 
 ### 2.1 Padrão OLTP (Online Transaction Processing)
-O sistema implementa uma arquitetura puramente **OLTP**:
+O núcleo do sistema implementa uma arquitetura transacional robusta:
 - **Atomicidade e Integridade ACID:** Cada venda no PDV envolve múltiplos registros interdependentes (cabeçalho da venda, itens faturados, formas de pagamento e decremento do saldo físico do produto no estoque). Toda essa operação é envelopada em uma transação de banco de dados (`db.commit()`), garantindo que se qualquer etapa falhar, toda a operação sofre `rollback`, impedindo furos de estoque ou inconsistências financeiras.
-- **Isolamento de Concorrência:** O modelo de dados utiliza índices em chaves estrangeiras (`empresa_id`, `usuario_id`, `caixa_id`, `codigo_barras`) e identificadores primários sequenciais, permitindo concorrência massiva de leituras e escritas sem deadlocks.
+- **Isolamento de Concorrência:** O modelo de dados utiliza índices em chaves estrangeiras (`empresa_id`, `usuario_id`, `caixa_id`, `codigo_barras`) e identificadores primários sequenciais, permitindo concorrência de leituras e escritas sem deadlocks.
+- **Benchmark de Desempenho:** Testes automatizados locais registraram mais de **750 requisições/s em consultas de catálogo** (latência média de 12.7 ms) e **280 checkouts transacionais completos/s no PDV** com 100% de sucesso.
 
-### 2.2 Capacidade de Escalar & Benchmark de Carga
-Executamos testes de carga transacional automatizados (`backend/scripts/benchmark_oltp.py`) com os seguintes resultados obtidos em ambiente local:
-- **Consultas ao Catálogo (Leitura):** **752.7 requisições/segundo**, com latência média de **12.7 ms** e P95 de **42.0 ms** (100% de taxa de sucesso).
-- **Checkout de Vendas no PDV (Escrita Transacional ACID + Estoque):** **286.7 checkouts completos/segundo**, com latência média de **15.9 ms** e P95 de **55.2 ms** (100% de taxa de sucesso).
-
-#### Projeção de Escala:
-- **SQLite (Dev):** Indicado para testes e até 10 a 25 operadores simultâneos devido à trava de arquivo do SQLite.
-- **PostgreSQL + PgBouncer (Produção):** Graças ao controle de concorrência multiversão (MVCC) e bloqueios por linha (`row-level locking`), um único servidor com 4 vCPUs e 8GB de RAM suporta entre **500 e 2.000 operadores de caixa emitindo cupons em paralelo** sem qualquer degradação de desempenho.
-
----
-
-## 3. Ponto Eletrônico em Conformidade com a CLT
-
-O módulo de Ponto Eletrônico foi projetado em estrita observância à Consolidação das Leis do Trabalho:
-
-1. **Jornada Padrão de 4 Batidas Diárias:**
-   - 1ª Entrada (ex: 09:00)
-   - 1ª Saída para Almoço / Intervalo (ex: 12:00)
-   - 2ª Entrada / Retorno do Almoço (ex: 13:00)
-   - 2ª Saída Final (ex: 18:00)
-2. **Intervalo Interjornada de 11 Horas (Art. 66 da CLT):**
-   - O sistema valida a última saída do dia anterior e trava o registro de nova entrada antes de decorridas 11 horas consecutivas de descanso obrigatório.
-3. **Limite de Horas Extras e Banco de Horas (Art. 59 da CLT):**
-   - A prorrogação da jornada normal de trabalho é limitada legalmente a no máximo **2 horas diárias (120 minutos)**.
-   - O sistema exige autorização expressa do Administrador (`POST /ponto/aprovar-hora-extra`).
-4. **Trava Inteligente do Frente de Caixa (PDV):**
-   - Caso o colaborador atinja o limite legal de sua jornada, o sistema permite que ele **conclua a venda do cliente que já está no carrinho**.
-   - Assim que a venda é finalizada (ou se o carrinho estiver vazio), uma tela de bloqueio com aviso legal de proteção trabalhista impede novas vendas até que o Administrador autorize a prorrogação no painel de auditoria.
+### 2.2 Camada Analítica OLAP & Inteligência Comercial
+O sistema conta com um módulo analítico dedicado à tomada de decisão estratégica:
+- **Agrupamentos Temporais Avançados:** Filtro e consolidação de faturamento por Ano, Semestre, Quadrimestre, Trimestre, Bimestre, Mês, Quinzena e Semana.
+- **Ranking de Operadores de Caixa:** Visualização quantitativa e financeira dos colaboradores com melhor desempenho em vendas.
+- **Modelos de Previsão de Faturamento:** Algoritmo que calcula projeções de faturamento futuro baseado no histórico recente de giros e curvas de saída de produtos.
+- **Segregação de Acesso aos Relatórios:** Operadores visualizam apenas as vendas realizadas por eles próprios; Administradores e Controladores têm visão panorâmica de toda a empresa.
 
 ---
 
-## 4. Governança e Controle de Caixa
+## 3. Ponto Eletrônico & Barreira de Segurança CLT
+
+O módulo de Ponto Eletrônico foi projetado em estrita observância à Consolidação das Leis do Trabalho (CLT):
+
+1. **Jornada de 4 Batidas Diárias:**
+   - 1ª Entrada (início do expediente)
+   - 1ª Saída para Almoço / Intervalo
+   - 2ª Entrada / Retorno do Almoço
+   - 2ª Saída Final (encerramento da jornada)
+2. **Barreira de Acesso Operacional por Ponto:**
+   - Para garantir que ninguém trabalhe sem o devido registro legal, operadores e controladores têm acesso bloqueado às telas operacionais (PDV, Caixa, Estoque, OS, Notificações e Relatórios) até que o ponto do dia seja registrado.
+3. **Bypass Administrativo de Teste e Emergência:**
+   - O Administrador possui uma chave mestre de bypass para autorizar operações imediatas durante auditorias, testes de bancada ou exceções operacionais.
+4. **Regras Trabalhistas Automáticas:**
+   - Intervalo interjornada de 11 horas consecutivas de descanso (Art. 66 da CLT).
+   - Limite de até 2 horas extras diárias (Art. 59 da CLT).
+   - Parametrização de horários sugeridos de expediente por função.
+
+---
+
+## 4. Governança, Controle de Caixa & Notificações Rápidas
 
 1. **Abertura com Fundo de Troco:** O operador inicia a sessão com valor inicial em dinheiro físico.
 2. **Tempo de Abertura em Tempo Real:** Exibido no topo do PDV e na barra superior (`🟢 Aberto às 08:30 • Duração: 4h 15m`).
-3. **Tickets de Suprimento e Sangria:**
-   - Operadores podem emitir chamados/tickets para a administração solicitando troco ou retirada segura.
-   - **Sangria Cega:** Modalidade em que o operador solicita a coleta mas o valor final é apurado e homologado exclusivamente pelo administrador.
-4. **Monitor de Caixas em Tempo Real (Painel do Administrador):**
-   - Acompanhamento simultâneo de todos os terminais ativos.
-   - Barra de progresso do dinheiro físico em gaveta comparado ao `limite_gaveta` configurado.
-   - Alerta visual e sonoro quando o limite é excedido, orientando a realização imediata de sangria.
-5. **Auditoria de Quebras de Caixa:**
-   - Ao fechar a sessão, o operador declara o dinheiro físico contado.
-   - O sistema compara com o saldo esperado calculado a partir das movimentações e registra divergências (Falta / Sobra / 100% Bateu) no histórico perene do banco de dados.
-   - Funcionários têm acesso read-only ao histórico de seus caixas fechados para auditoria de prestação de contas.
+3. **Monitor de Gaveta & Alerta de Sangria:**
+   - Acompanhamento contínuo do dinheiro em espécie presente no caixa.
+   - Quando o valor ultrapassa o `limite_gaveta` configurado, alertas visuais orientam a realização de sangria para segurança patrimonial.
+4. **Tickets de Suprimento e Sangria com Resposta Rápida:**
+   - Operadores emitem pedidos de suprimento de troco ou retirada de sangria com um clique.
+   - Notificações são encaminhadas aos administradores e controladores para aprovação ágil.
+5. **Auditoria de Quebras de Caixa (Fechamento Cego):**
+   - Ao fechar a sessão, o operador declara o dinheiro físico contado na gaveta sem visualizar o saldo esperado.
+   - O sistema compara o valor declarado com o saldo calculado a partir das transações e registra divergências (Falta, Sobra ou 100% Bateu) no banco de dados.
 
 ---
 
-## 5. Visualizador de Comprovantes Digitais
+## 5. Pagamentos no Balcão & Conferência Manual Segura
 
-- Permite navegar por todas as vendas realizadas em um turno de caixa através dos botões `[← Venda Anterior]` e `[Próxima Venda →]`, sem exigir impressão física imediata.
-- Formato de cupom fiscal térmico, apresentando dados da empresa (com logotipo), cliente, operador, lista de itens, descontos, acréscimos, formas de pagamento, troco calculado e botão de cópia de texto ou impressão direta.
+O sistema opera no modelo de confirmação e baixa manual, garantindo autonomia completa de provedores externos de pagamento:
 
----
-
-## 6. Integração Mercado Pago & Pagamentos
-
-- **PIX Oficial:** Geração de QR Code vetorial SVG dinâmico com valor pré-fixado, chave Copia e Cola e simulação de webhook de confirmação instantânea.
-- **Cartões Débito/Crédito:** Suporte para maquininhas Point integradas via API Mercado Pago.
-- **Dinheiro:** Calculadora de troco automática.
-- **Vendas a Prazo (Crediário):** Validação de limite de crédito do cliente, bloqueio de vendas acima do teto e geração de notificações persistentes que permanecem ativas até a quitação do débito.
+- **Dinheiro Físico:** Lançamento rápido com calculadora automática de troco.
+- **PIX (Balcão):** O PDV orienta o recebimento via chave PIX ou QR Code estático no balcão da loja. O operador confere a notificação no aplicativo bancário e confirma a baixa com um clique.
+- **Cartões de Débito e Crédito:** O cliente passa o cartão na maquininha física da loja (Stone, PagBank, Cielo, etc.). O operador confere a emissão do comprovante impresso e confirma a baixa no sistema.
+- **A Prazo (Crediário / Fiado):** O sistema valida o teto de crédito do cliente cadastrado e bloqueia vendas para inadimplentes ou para valores superiores ao limite autorizado.
 
 ---
 
-## 7. Assistente de IA & Tour Interativo
+## 6. Visualizador de Comprovantes Digitais
 
-- **Chatbot Inteligente (Sidecar):** Widget flutuante treinado com as diretrizes operacionais de cada módulo do sistema (PDV, Estoque, Ponto CLT, Caixa, Relatórios e Mercado Pago), oferecendo respostas e botões de atalho rápido para cada seção.
-- **Tour Guiado:** Modal interativo de 5 etapas com mini-maquetes visuais explicando o funcionamento do sistema passo a passo.
-
----
-
-## 8. Exportação de Relatórios
-
-- **Excel (.csv):** Gerado com ponto e vírgula como delimitador e cabeçalho UTF-8 BOM (`\ufeff`), garantindo abertura perfeita no Microsoft Excel brasileiro sem caracteres corrompidos.
-- **HTML Estilizado:** Documento independente com identidade visual da empresa.
-- **PDF de Impressão:** Relatório formatado com quebra de página automática para auditorias físicas.
-- **Dashboard em HTML:** Exportação de métricas gerenciais e gráficos.
+- Permite navegar por todas as vendas realizadas em um turno de caixa através dos botões `[← Venda Anterior]` e `[Próxima Venda →]`, sem exigir impressão física prévia.
+- Layout de cupom fiscal térmico, apresentando dados da empresa (com logotipo), cliente, operador, lista de itens, descontos, acréscimos, formas de pagamento, troco calculado e botões de impressão e cópia rápida de texto.
 
 ---
 
-## 9. Análise de Segurança & Vulnerabilidades
+## 7. Gestão de Ordens de Serviço (OS)
 
-Durante a varredura do código-fonte, foram validados os seguintes pontos de segurança:
-1. **Armazenamento de Senhas:** Criptografia unidirecional com `bcrypt` (função de custo balanceada contra ataques de força bruta).
-2. **Autenticação JWT:** Tokens de acesso com assinatura criptográfica `HS256`, tempo de expiração (`ACCESS_TOKEN_EXPIRE_MINUTES`) e extração baseada em Bearer Token.
-3. **Injeção de SQL:** Todas as consultas utilizam o ORM SQLAlchemy com parâmetros escapados e tipados, eliminando riscos de SQL Injection.
-4. **Uploads de Imagens:**
-   - Validação rigorosa de extensões permitidas (`.jpg`, `.jpeg`, `.png`, `.webp`, `.svg`).
-   - Limite estrito de tamanho de arquivo (máximo 5MB).
-   - Nomeação via UUID criptográfico aleatório (`uuid.uuid4()`), impedindo sobrescrita ou Path Traversal.
-5. **CORS:** Configuração com origens controladas no backend (`main.py`).
+- **Workflow Dinâmico:** *Aberta ➔ Em Andamento ➔ Aguardando Peças ➔ Concluída ➔ Entregue*.
+- **Controle de Insumos:** Peças associadas à OS são reservadas e baixadas do estoque físico.
+- **Mão de Obra e Serviços:** Discriminação de horas técnicas e valores de serviço.
+- **Cobrança Direta no Balcão:** Faturamento integrado ao caixa ativo, com suporte a todas as formas de pagamento (dinheiro, PIX, cartões ou fiado).
 
 ---
 
-## 10. Guia de Inicialização e Subida para Git
+## 8. Segurança e Integridade dos Dados
 
-### Pré-requisitos:
-- Python 3.10+ (ou superior)
-- Node.js 18+ e npm
+1. **Autenticação Segura & RBAC:** Criptografia unidirecional com `bcrypt` para senhas e tokens de sessão `JWT` com controle de tempo de expiração.
+2. **Exclusão Segura de Usuários e Clientes:**
+   - Bloqueio de autoexclusão do usuário conectado.
+   - Proteção de integridade do último Administrador ativo do sistema.
+   - Bloqueio de exclusão de clientes com débitos em aberto.
+   - *Soft Delete* (inativação) para entidades com histórico transacional/fiscal para preservação de auditoria contábil, e *Hard Delete* para registros sem movimentações.
+3. **Uploads Sanitizados:** Validação rigorosa de extensões de imagens (`.png`, `.jpg`, `.jpeg`, `.webp`, `.svg`) com limite de 5MB e geração de nomes aleatórios com `UUIDv4`.
 
-### Como Rodar o Backend:
-```bash
-cd backend
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
+---
 
-### Como Rodar o Frontend:
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## 9. Assistente de IA & Exportação de Relatórios
 
-### Inicialização do Repositório Git:
-```bash
-git init
-git add .
-git commit -m "feat: Sistema de Gestao Comercial Multi-Segmento v2.5 com CLT, Auditoria de Caixa, Benchmark OLTP e IA Integrada"
-```
+- **Chatbot Inteligente (Sidecar):** Assistente contextual treinado nas rotinas operacionais (PDV, Estoque, Ponto CLT, Caixa e Relatórios) para suporte em tempo real.
+- **Exportação Multi-Formato:** Planilhas em Excel (`.csv` com separador `;` e cabeçalho UTF-8 BOM), relatórios em HTML estilizado e impressão direta com layout responsivo.
 
+---
+
+## 10. Licenciamento & Uso Livre
+
+O software é distribuído sob os termos da **Licença MIT**, concedendo liberdade total para utilização, estudo, modificação, distribuição e implementação em ambientes comerciais ou privados sem restrições proprietárias.
