@@ -69,6 +69,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [erroPontoRapido, setErroPontoRapido] = useState<string | null>(null);
   const pontoDropdownRef = useRef<HTMLDivElement>(null);
 
+  const formatHora = (isoStr?: string | null) => {
+    if (!isoStr) return '--:--';
+    try {
+      if (typeof isoStr === 'string' && isoStr.length === 5 && isoStr.includes(':')) return isoStr;
+      return new Date(isoStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+    } catch {
+      return (isoStr && isoStr.slice(11, 16)) || '--:--';
+    }
+  };
+
   // Relógio em tempo real
   useEffect(() => {
     const atualizar = () => {
@@ -209,19 +219,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   <div className={`p-2 rounded-xl border ${statusPontoRapido?.entrada_1 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                     <span className="block font-bold">1ª Entrada</span>
-                    <span className="font-mono">{statusPontoRapido?.entrada_1 ? statusPontoRapido.entrada_1.slice(11, 16) : '--:--'}</span>
+                    <span className="font-mono">{formatHora(statusPontoRapido?.entrada_1)}</span>
                   </div>
                   <div className={`p-2 rounded-xl border ${statusPontoRapido?.saida_1 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                     <span className="block font-bold">2ª Almoço (Saída)</span>
-                    <span className="font-mono">{statusPontoRapido?.saida_1 ? statusPontoRapido.saida_1.slice(11, 16) : '--:--'}</span>
+                    <span className="font-mono">{formatHora(statusPontoRapido?.saida_1)}</span>
                   </div>
                   <div className={`p-2 rounded-xl border ${statusPontoRapido?.entrada_2 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                     <span className="block font-bold">3ª Almoço (Volta)</span>
-                    <span className="font-mono">{statusPontoRapido?.entrada_2 ? statusPontoRapido.entrada_2.slice(11, 16) : '--:--'}</span>
+                    <span className="font-mono">{formatHora(statusPontoRapido?.entrada_2)}</span>
                   </div>
                   <div className={`p-2 rounded-xl border ${statusPontoRapido?.saida_2 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
                     <span className="block font-bold">4ª Saída</span>
-                    <span className="font-mono">{statusPontoRapido?.saida_2 ? statusPontoRapido.saida_2.slice(11, 16) : '--:--'}</span>
+                    <span className="font-mono">{formatHora(statusPontoRapido?.saida_2)}</span>
                   </div>
                 </div>
 

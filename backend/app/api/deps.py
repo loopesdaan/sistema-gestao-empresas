@@ -4,6 +4,7 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import oauth2_scheme, decode_token
+from app.core.time import hoje_brasil_str
 from app.models.usuario import Usuario, PerfilUsuario
 from app.models.ponto import RegistroPonto, StatusJornada, ConfiguracaoPonto
 from app.models.empresa import Empresa
@@ -67,8 +68,8 @@ def verificar_ponto_trabalho(
     if config and config.isento_ponto:
         return current_user
 
-    # 3. Verifica registro do dia
-    hoje_str = date.today().isoformat()
+    # 3. Verifica registro do dia no horário oficial de Brasília
+    hoje_str = hoje_brasil_str()
     reg = db.query(RegistroPonto).filter(
         RegistroPonto.usuario_id == current_user.id,
         RegistroPonto.data == hoje_str

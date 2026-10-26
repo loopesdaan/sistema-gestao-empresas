@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.core.database import get_db
+from app.core.time import agora_brasil, hoje_brasil_str, to_brasil_naive
 from app.models.usuario import Usuario, PerfilUsuario
 from app.models.ponto import RegistroPonto, ConfiguracaoPonto, StatusJornada
 from app.models.notificacao import Notificacao
@@ -56,9 +57,9 @@ def registrar_batida(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Registra uma das 4 batidas diárias de ponto regulamentadas pela CLT a qualquer hora com validação estrita da etapa"""
-    hoje_str = date.today().isoformat()
-    agora = datetime.now(timezone.utc)
+    """Registra uma das 4 batidas diárias de ponto regulamentadas pela CLT a qualquer hora com validação estrita da etapa no Horário Oficial de Brasília"""
+    hoje_str = hoje_brasil_str()
+    agora = agora_brasil()
 
     # Suporte a horário personalizado para testes do ADM
     if dados and dados.hora_personalizada:
@@ -106,9 +107,10 @@ def registrar_batida(
 
     if tipo_alvo == "ENTRADA":
         if registro and registro.entrada_1:
+            e1_fmt = to_brasil_naive(registro.entrada_1).strftime('%H:%M')
             raise HTTPException(
                 status_code=400,
-                detail=f"A entrada de hoje já foi registrada às {registro.entrada_1.strftime('%H:%M')}."
+                detail=f"A entrada de hoje já foi registrada às {e1_fmt}."
             )
 
         if not registro:
@@ -136,14 +138,16 @@ def registrar_batida(
                 detail="Você precisa registrar a entrada antes de registrar a saída para almoço."
             )
         if registro.saida_almoco:
+            sa_fmt = to_brasil_naive(registro.saida_almoco).strftime('%H:%M')
             raise HTTPException(
                 status_code=400,
-                detail=f"A saída para almoço já foi registrada às {registro.saida_almoco.strftime('%H:%M')}."
+                detail=f"A saída para almoço já foi registrada às {sa_fmt}."
             )
 
         registro.saida_almoco = agora
         registro.status_jornada = StatusJornada.INTERVALO_ALMOCO
-        delta = (agora - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
+        e1_dt = to_brasil_naive(registro.entrada_1)
+        delta = (agora - e1_dt).total_seconds() / 60.0
         registro.minutos_trabalhados = max(0, int(delta))
         tipo_batida = "SAIDA_ALMOCO"
         mensagem = f"Saída para almoço registrada às {agora.strftime('%H:%M')}."
@@ -155,9 +159,10 @@ def registrar_batida(
                 detail="Você precisa registrar a saída para almoço antes de registrar o retorno."
             )
         if registro.retorno_almoco:
+            ra_fmt = to_brasil_naive(registro.retorno_almoco).strftime('%H:%M')
             raise HTTPException(
                 status_code=400,
-                detail=f"O retorno do almoço já foi registrado às {registro.retorno_almoco.strftime('%H:%M')}."
+                detail=f"O retorno do almoço já foi registrado às {ra_fmt}."
             )
 
         registro.retorno_almoco = agora
@@ -172,16 +177,21 @@ def registrar_batida(
                 detail="Você precisa registrar o retorno do almoço antes de registrar a saída final."
             )
         if registro.saida_2:
+            s2_fmt = to_brasil_naive(registro.saida_2).strftime('%H:%M')
             raise HTTPException(
                 status_code=400,
-                detail=f"A saída final de hoje já foi registrada às {registro.saida_2.strftime('%H:%M')}."
+                detail=f"A saída final de hoje já foi registrada às {s2_fmt}."
             )
 
         registro.saida_2 = agora
         registro.status_jornada = StatusJornada.FINALIZADA
         
-        p1 = (registro.saida_almoco.replace(tzinfo=timezone.utc) - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
-        p2 = (agora - registro.retorno_almoco.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
+        e1_dt = to_brasil_naive(registro.entrada_1)
+        sa_dt = to_brasil_naive(registro.saida_almoco)
+        ra_dt = to_brasil_naive(registro.retorno_almoco)
+
+        p1 = (sa_dt - e1_dt).total_seconds() / 60.0
+        p2 = (agora - ra_dt).total_seconds() / 60.0
         total_min = max(0, int(p1 + p2))
         registro.minutos_trabalhados = total_min
         registro.saldo_minutos = total_min - registro.minutos_previstos
@@ -199,10 +209,10 @@ def registrar_batida(
         "data": registro.data,
         "status_jornada": registro.status_jornada,
         "bloqueado_clt": registro.bloqueado_clt,
-        "entrada_1": registro.entrada_1,
-        "saida_almoco": registro.saida_almoco,
-        "retorno_almoco": registro.retorno_almoco,
-        "saida_2": registro.saida_2,
+        "entrada_1": to_brasil_naive(registro.entrada_1),
+        "saida_almoco": to_brasil_naive(registro.saida_almoco),
+        "retorno_almoco": to_brasil_naive(registro.retorno_almoco),
+        "saida_2": to_brasil_naive(registro.saida_2),
         "minutos_trabalhados": registro.minutos_trabalhados,
         "horas_extras_aprovadas": registro.horas_extras_aprovadas
     }
@@ -212,8 +222,8 @@ def obter_status_hoje(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Retorna o status e os cálculos dinâmicos da jornada de trabalho de hoje"""
-    hoje_str = date.today().isoformat()
+    """Retorna o status e os cálculos dinâmicos da jornada de trabalho de hoje no Horário Oficial de Brasília"""
+    hoje_str = hoje_brasil_str()
     registro = db.query(RegistroPonto).filter(
         RegistroPonto.usuario_id == current_user.id,
         RegistroPonto.data == hoje_str
@@ -253,35 +263,38 @@ def obter_status_hoje(
         "saida_final": horario_sugerido["saida_final"]
     }
 
-    agora = datetime.now(timezone.utc)
+    agora = agora_brasil()
     minutos_atuais = registro.minutos_trabalhados if registro else 0
 
     if registro and registro.entrada_1:
+        e1_dt = to_brasil_naive(registro.entrada_1)
         # Se bateu entrada (a hora que for!), almoço previsto após 4 horas
-        almoco_prev = registro.entrada_1 + timedelta(hours=4)
+        almoco_prev = e1_dt + timedelta(hours=4)
         previsoes["saida_almoco"] = almoco_prev.strftime("%H:%M")
         
         if registro.saida_almoco:
+            sa_dt = to_brasil_naive(registro.saida_almoco)
             # Retorno após mínimo de 1 hora CLT
-            retorno_prev = registro.saida_almoco + timedelta(hours=1)
+            retorno_prev = sa_dt + timedelta(hours=1)
             previsoes["retorno_almoco"] = retorno_prev.strftime("%H:%M")
             
             if registro.retorno_almoco:
-                p1_min = (registro.saida_almoco.replace(tzinfo=timezone.utc) - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
+                ra_dt = to_brasil_naive(registro.retorno_almoco)
+                p1_min = (sa_dt - e1_dt).total_seconds() / 60.0
                 restante_min = max(0, 480 - p1_min)
-                saida_prev = registro.retorno_almoco + timedelta(minutes=restante_min)
+                saida_prev = ra_dt + timedelta(minutes=restante_min)
                 previsoes["saida_final"] = saida_prev.strftime("%H:%M")
                 
                 if registro.status_jornada == StatusJornada.TRABALHANDO:
-                    p2_min = (agora - registro.retorno_almoco.replace(tzinfo=timezone.utc)).total_seconds() / 60.0
+                    p2_min = (agora - ra_dt).total_seconds() / 60.0
                     minutos_atuais = int(p1_min + p2_min)
             else:
-                previsoes["saida_final"] = (registro.entrada_1 + timedelta(hours=9)).strftime("%H:%M")
+                previsoes["saida_final"] = (e1_dt + timedelta(hours=9)).strftime("%H:%M")
         else:
-            previsoes["retorno_almoco"] = (registro.entrada_1 + timedelta(hours=5)).strftime("%H:%M")
-            previsoes["saida_final"] = (registro.entrada_1 + timedelta(hours=9)).strftime("%H:%M")
+            previsoes["retorno_almoco"] = (e1_dt + timedelta(hours=5)).strftime("%H:%M")
+            previsoes["saida_final"] = (e1_dt + timedelta(hours=9)).strftime("%H:%M")
             if registro.status_jornada == StatusJornada.TRABALHANDO:
-                minutos_atuais = int((agora - registro.entrada_1.replace(tzinfo=timezone.utc)).total_seconds() / 60.0)
+                minutos_atuais = int((agora - e1_dt).total_seconds() / 60.0)
 
     # Determina próxima ação
     if not registro or not registro.entrada_1:
@@ -305,15 +318,19 @@ def obter_status_hoje(
 
     ponto_hoje_obj = None
     if registro:
+        e1 = to_brasil_naive(registro.entrada_1)
+        sa = to_brasil_naive(registro.saida_almoco)
+        ra = to_brasil_naive(registro.retorno_almoco)
+        s2 = to_brasil_naive(registro.saida_2)
         ponto_hoje_obj = {
             "id": registro.id,
             "data": registro.data,
-            "entrada_1": registro.entrada_1.isoformat() if registro.entrada_1 else None,
-            "saida_almoco": registro.saida_almoco.isoformat() if registro.saida_almoco else None,
-            "saida_1": registro.saida_almoco.isoformat() if registro.saida_almoco else None,
-            "retorno_almoco": registro.retorno_almoco.isoformat() if registro.retorno_almoco else None,
-            "entrada_2": registro.retorno_almoco.isoformat() if registro.retorno_almoco else None,
-            "saida_2": registro.saida_2.isoformat() if registro.saida_2 else None,
+            "entrada_1": e1.isoformat() if e1 else None,
+            "saida_almoco": sa.isoformat() if sa else None,
+            "saida_1": sa.isoformat() if sa else None,
+            "retorno_almoco": ra.isoformat() if ra else None,
+            "entrada_2": ra.isoformat() if ra else None,
+            "saida_2": s2.isoformat() if s2 else None,
             "total_minutos_trabalhados": minutos_atuais,
             "minutos_trabalhados": minutos_atuais,
             "saldo_minutos": registro.saldo_minutos,
@@ -386,18 +403,38 @@ def meu_historico(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Histórico do mês do funcionário logado"""
+    """Histórico do mês do funcionário logado no Horário Oficial de Brasília"""
     registros = db.query(RegistroPonto).filter(
         RegistroPonto.usuario_id == current_user.id
     ).order_by(RegistroPonto.data.desc()).limit(31).all()
-    return registros
+    return [
+        {
+            "id": r.id,
+            "usuario_id": r.usuario_id,
+            "data": r.data,
+            "entrada_1": to_brasil_naive(r.entrada_1),
+            "saida_almoco": to_brasil_naive(r.saida_almoco),
+            "saida_1": to_brasil_naive(r.saida_almoco),
+            "retorno_almoco": to_brasil_naive(r.retorno_almoco),
+            "entrada_2": to_brasil_naive(r.retorno_almoco),
+            "saida_2": to_brasil_naive(r.saida_2),
+            "minutos_trabalhados": r.minutos_trabalhados,
+            "total_minutos_trabalhados": r.minutos_trabalhados,
+            "saldo_minutos": r.saldo_minutos,
+            "horas_extras_aprovadas": r.horas_extras_aprovadas,
+            "minutos_hora_extra_autorizada": r.horas_extras_aprovadas,
+            "status_jornada": r.status_jornada,
+            "bloqueado_clt": r.bloqueado_clt
+        }
+        for r in registros
+    ]
 
 @router.get("/equipe-auditoria")
 def equipe_auditoria(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Visão do Administrador de todos os pontos da equipe"""
+    """Visão do Administrador de todos os pontos da equipe no Horário Oficial de Brasília"""
     if current_user.perfil != PerfilUsuario.ADMIN:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores.")
         
@@ -411,11 +448,14 @@ def equipe_auditoria(
             "usuario_id": r.usuario_id,
             "usuario_nome": r.usuario.nome if r.usuario else "",
             "data": r.data,
-            "entrada_1": r.entrada_1,
-            "saida_almoco": r.saida_almoco,
-            "retorno_almoco": r.retorno_almoco,
-            "saida_2": r.saida_2,
+            "entrada_1": to_brasil_naive(r.entrada_1),
+            "saida_almoco": to_brasil_naive(r.saida_almoco),
+            "saida_1": to_brasil_naive(r.saida_almoco),
+            "retorno_almoco": to_brasil_naive(r.retorno_almoco),
+            "entrada_2": to_brasil_naive(r.retorno_almoco),
+            "saida_2": to_brasil_naive(r.saida_2),
             "minutos_trabalhados": r.minutos_trabalhados,
+            "total_minutos_trabalhados": r.minutos_trabalhados,
             "saldo_minutos": r.saldo_minutos,
             "horas_extras_aprovadas": r.horas_extras_aprovadas,
             "status_jornada": r.status_jornada,
@@ -657,7 +697,7 @@ def resetar_ponto_teste(
     if current_user.perfil != PerfilUsuario.ADMIN:
         raise HTTPException(status_code=403, detail="Apenas administradores podem resetar batidas em modo de teste.")
     
-    hoje_str = date.today().isoformat()
+    hoje_str = hoje_brasil_str()
     registro = db.query(RegistroPonto).filter(
         RegistroPonto.usuario_id == current_user.id,
         RegistroPonto.data == hoje_str
@@ -676,7 +716,7 @@ def simular_dia_completo(
     if current_user.perfil != PerfilUsuario.ADMIN:
         raise HTTPException(status_code=403, detail="Apenas administradores podem simular jornadas.")
 
-    hoje_str = date.today().isoformat()
+    hoje_str = hoje_brasil_str()
     
     # Remove registro de hoje se existir
     existente = db.query(RegistroPonto).filter(
@@ -687,7 +727,7 @@ def simular_dia_completo(
         db.delete(existente)
         db.commit()
 
-    base = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    base = agora_brasil().replace(minute=0, second=0, microsecond=0)
     e1 = base.replace(hour=8, minute=30)
     s1 = base.replace(hour=12, minute=30)
     r1 = base.replace(hour=13, minute=30)
