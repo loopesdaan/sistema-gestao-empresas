@@ -155,6 +155,13 @@ def lancar_movimentacao(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
+    # Regra de negócio: apenas administradores podem registrar movimentações avulsas diretamente
+    if current_user.perfil != PerfilUsuario.ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso restrito: Funções não administradoras não podem lançar sangria ou entrada de valores diretamente no caixa. Utilize a opção 'Solicitar Ticket' para aprovação do Administrador."
+        )
+
     # Se caixa_id for informado explicitamente
     if dados.caixa_id:
         query = db.query(Caixa).filter(
