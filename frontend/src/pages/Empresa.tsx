@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiService } from '../services/api';
+import { apiService, resolveImageUrl } from '../services/api';
 import { Empresa as EmpresaType } from '../types';
 import { useEmpresa, PALETAS_CORES } from '../contexts/EmpresaContext';
 import { 
@@ -161,10 +161,10 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
             <div className="relative group shrink-0">
               {empresa.logo_url ? (
                 <img
-                  src={empresa.logo_url.startsWith('http') ? empresa.logo_url : `http://localhost:8000${empresa.logo_url}`}
+                  src={resolveImageUrl(empresa.logo_url)}
                   alt="Logotipo da Empresa"
                   onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-600 bg-white shadow-md"
+                  className="w-16 h-16 rounded-2xl object-contain border-2 border-slate-600 bg-white p-1 shadow-md"
                 />
               ) : (
                 <div className="w-16 h-16 rounded-2xl bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-400 font-bold text-2xl shadow-inner">

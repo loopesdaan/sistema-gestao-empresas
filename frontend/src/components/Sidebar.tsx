@@ -4,6 +4,7 @@ import {
   Wrench, BarChart3, Settings, LogOut, X, Shield, Sparkles, Clock, Bell 
 } from 'lucide-react';
 import { useEmpresa } from '../contexts/EmpresaContext';
+import { resolveImageUrl } from '../services/api';
 
 interface SidebarProps {
   activeTab: string;
@@ -95,13 +96,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
             {empresa.logo_url ? (
               <img
-                src={empresa.logo_url.startsWith('http') ? empresa.logo_url : `http://localhost:8000${empresa.logo_url}`}
+                src={resolveImageUrl(empresa.logo_url)}
                 alt={nomeExibicao}
-                onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
-                className="w-10 h-10 rounded-xl object-cover border border-slate-700 shadow-md shrink-0 bg-white"
+                onError={(e) => { 
+                  // Em caso de falha de carregamento, faz fallback para o ícone temático
+                  (e.currentTarget as HTMLElement).style.display = 'none'; 
+                }}
+                className="w-10 h-10 rounded-xl object-contain border border-slate-700/80 shadow-md shrink-0 bg-white p-0.5"
               />
             ) : (
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${temaAtual.bgGradiente} flex items-center justify-center text-white text-xl shadow-md shrink-0`}>
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${temaAtual.bgGradiente} flex items-center justify-center text-white text-xl shadow-md shrink-0 border border-white/20`}>
                 {temaAtual.emoji}
               </div>
             )}

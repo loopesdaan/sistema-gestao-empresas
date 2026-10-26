@@ -178,6 +178,8 @@ async def salvar_onboarding(
         empresa.cnpj = data["cnpj"]
     if "telefone" in data:
         empresa.telefone = data["telefone"]
+    if "email" in data:
+        empresa.email = data["email"]
     if "endereco" in data:
         empresa.endereco = data["endereco"]
     if "cep" in data:

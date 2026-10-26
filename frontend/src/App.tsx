@@ -251,6 +251,7 @@ const AppContent: React.FC = () => {
           caixaAberto={caixaAberto}
           caixaAtual={caixaAtual}
           userName={usuario.nome}
+          isAdmin={isAdmin}
         />
 
         <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">

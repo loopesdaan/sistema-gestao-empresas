@@ -114,6 +114,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [razaoSocial, setRazaoSocial] = useState(empresa.razao_social || 'Comércio & Serviços LTDA');
   const [cnpj, setCnpj] = useState(empresa.cnpj || '');
   const [telefone, setTelefone] = useState(empresa.telefone || '');
+  const [email, setEmail] = useState(empresa.email || '');
   const [cep, setCep] = useState(empresa.cep || '');
   const [endereco, setEndereco] = useState(empresa.endereco || '');
   const [buscandoCep, setBuscandoCep] = useState(false);
@@ -156,6 +157,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     if (empresa.razao_social) setRazaoSocial(empresa.razao_social);
     if (empresa.cnpj) setCnpj(empresa.cnpj);
     if (empresa.telefone) setTelefone(empresa.telefone);
+    if (empresa.email) setEmail(empresa.email);
     if (empresa.cep) setCep(empresa.cep);
     if (empresa.endereco) setEndereco(empresa.endereco);
     if (empresa.perfil_negocio) setRamoSelecionado(empresa.perfil_negocio);
@@ -232,6 +234,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         razao_social: razaoSocial,
         cnpj,
         telefone,
+        email,
         cep,
         endereco,
         cor_primaria: corLocal,
@@ -392,6 +395,19 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                     />
                   </div>
                   <div>
+                    <label className="block font-semibold text-slate-300 mb-1.5">E-mail Comercial (Opcional)</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="contato@minhaempresa.com.br"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="block font-semibold text-slate-300">CEP</label>
                       <button
@@ -401,7 +417,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                         className="text-[11px] text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1 disabled:opacity-50"
                       >
                         <Sparkles size={12} />
-                        <span>{buscandoCep ? 'Buscando...' : 'Preencher por CEP'}</span>
+                        <span>{buscandoCep ? 'Buscando...' : 'Buscar CEP'}</span>
                       </button>
                     </div>
                     <input
@@ -418,17 +434,17 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                       className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block font-semibold text-slate-300 mb-1.5">Endereço Completo</label>
-                  <input
-                    type="text"
-                    value={endereco}
-                    onChange={(e) => setEndereco(e.target.value)}
-                    placeholder="Rua, número, complemento, bairro, cidade - UF"
-                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:outline-none"
-                  />
+                  <div className="sm:col-span-2">
+                    <label className="block font-semibold text-slate-300 mb-1.5">Endereço Completo</label>
+                    <input
+                      type="text"
+                      value={endereco}
+                      onChange={(e) => setEndereco(e.target.value)}
+                      placeholder="Rua, número, complemento, bairro, cidade - UF"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 

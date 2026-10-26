@@ -5,8 +5,15 @@ import { useEmpresa } from '../contexts/EmpresaContext';
 import { 
   Users, Search, Plus, Phone, Mail, MapPin, DollarSign, 
   AlertCircle, Edit, Car, Sparkles, CheckCircle2,
-  TrendingDown, CreditCard, X, Trash2
+  TrendingDown, CreditCard, X, Trash2, Banknote, Wallet, Check
 } from 'lucide-react';
+
+interface ModalQuitacaoState {
+  cliente: Cliente;
+  valor: number;
+  formaPagamento: 'DINHEIRO' | 'PIX' | 'CARTAO_DEBITO' | 'CARTAO_CREDITO';
+  lancarCaixa: boolean;
+}
 
 export const Clientes: React.FC = () => {
   const { perfilNegocio, temaAtual } = useEmpresa();
@@ -18,6 +25,11 @@ export const Clientes: React.FC = () => {
   const [filtroStatus, setFiltroStatus] = useState<'TODOS' | 'COM_DEBITO' | 'SEM_DEBITO'>('TODOS');
   const [modalCliente, setModalCliente] = useState<Partial<Cliente> | null>(null);
   const [buscandoCep, setBuscandoCep] = useState(false);
+
+  // Modal intuitivo de quitação/baixa de débito
+  const [modalQuitacao, setModalQuitacao] = useState<ModalQuitacaoState | null>(null);
+  const [salvandoQuitacao, setSalvandoQuitacao] = useState(false);
+  const [feedbackQuitacao, setFeedbackQuitacao] = useState<string | null>(null);
 
   const carregarClientes = async () => {
     setLoading(true);
@@ -99,6 +111,56 @@ export const Clientes: React.FC = () => {
       carregarClientes();
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Erro ao salvar cliente');
+    }
+  };
+
+  const handleConfirmarQuitacao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalQuitacao) return;
+
+    const valorPago = Number(modalQuitacao.valor);
+    if (isNaN(valorPago) || valorPago <= 0) {
+      alert('Informe um valor válido para quitação.');
+      return;
+    }
+
+    setSalvandoQuitacao(true);
+    try {
+      const saldoAtual = Number(modalQuitacao.cliente.saldo_devedor || 0);
+      const novoSaldo = Math.max(0, saldoAtual - valorPago);
+
+      // 1. Atualiza o saldo devedor do cliente no banco
+      await apiService.atualizarCliente(modalQuitacao.cliente.id, {
+        saldo_devedor: novoSaldo
+      });
+
+      // 2. Se marcado para lançar no caixa, registra a entrada financeira
+      if (modalQuitacao.lancarCaixa) {
+        try {
+          const caixaAtivo = await apiService.getCaixaAtual().catch(() => null);
+          if (caixaAtivo) {
+            await apiService.movimentarCaixa(
+              'SUPRIMENTO',
+              valorPago,
+              `Recebimento de Débito (${modalQuitacao.formaPagamento}) - Cliente: ${modalQuitacao.cliente.nome}`,
+              caixaAtivo.id
+            );
+          }
+        } catch (caixaErr) {
+          console.warn('Aviso ao lançar no caixa:', caixaErr);
+        }
+      }
+
+      setFeedbackQuitacao(`Recebimento de ${formatMoney(valorPago)} de ${modalQuitacao.cliente.nome} registrado com sucesso!`);
+      setTimeout(() => {
+        setFeedbackQuitacao(null);
+        setModalQuitacao(null);
+        carregarClientes();
+      }, 1400);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Erro ao registrar quitação do débito.');
+    } finally {
+      setSalvandoQuitacao(false);
     }
   };
 
@@ -359,30 +421,64 @@ export const Clientes: React.FC = () => {
 
               {/* Rodapé do Card */}
               {ehAutomotivo ? (
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs bg-slate-50 -mx-5 -mb-5 p-4 rounded-b-2xl">
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Segmento</span>
-                    <span className="font-semibold text-slate-700">Veículo / Cliente</span>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-2.5 bg-slate-50 -mx-5 -mb-5 p-4 rounded-b-2xl">
+                  <div className="flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Segmento</span>
+                      <span className="font-semibold text-slate-700">Veículo / Cliente</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Saldo Devedor</span>
+                      <span className={`font-bold ${Number(c.saldo_devedor) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                        {formatMoney(c.saldo_devedor)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Status</span>
-                    <span className="inline-flex items-center gap-1 font-bold text-emerald-600">
-                      <CheckCircle2 size={12} /> Ativo
-                    </span>
-                  </div>
+
+                  {Number(c.saldo_devedor) > 0 && (
+                    <button
+                      onClick={() => setModalQuitacao({
+                        cliente: c,
+                        valor: Number(c.saldo_devedor),
+                        formaPagamento: 'DINHEIRO',
+                        lancarCaixa: true
+                      })}
+                      className="w-full py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                    >
+                      <Banknote size={15} />
+                      <span>Receber Débito ({formatMoney(c.saldo_devedor)})</span>
+                    </button>
+                  )}
                 </div>
               ) : (
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs bg-slate-50 -mx-5 -mb-5 p-4 rounded-b-2xl">
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Limite de Crédito</span>
-                    <span className="font-semibold text-slate-700">{formatMoney(c.limite_credito)}</span>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-2.5 bg-slate-50 -mx-5 -mb-5 p-4 rounded-b-2xl">
+                  <div className="flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Limite de Crédito</span>
+                      <span className="font-semibold text-slate-700">{formatMoney(c.limite_credito)}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Saldo Devedor (Fiado)</span>
+                      <span className={`font-bold ${Number(c.saldo_devedor) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                        {formatMoney(c.saldo_devedor)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Saldo Devedor (Fiado)</span>
-                    <span className={`font-bold ${Number(c.saldo_devedor) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                      {formatMoney(c.saldo_devedor)}
-                    </span>
-                  </div>
+
+                  {Number(c.saldo_devedor) > 0 && (
+                    <button
+                      onClick={() => setModalQuitacao({
+                        cliente: c,
+                        valor: Number(c.saldo_devedor),
+                        formaPagamento: 'DINHEIRO',
+                        lancarCaixa: true
+                      })}
+                      className="w-full py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                    >
+                      <Banknote size={15} />
+                      <span>Receber Débito ({formatMoney(c.saldo_devedor)})</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -603,6 +699,192 @@ export const Clientes: React.FC = () => {
                   className={`flex-1 py-2.5 bg-gradient-to-r ${temaAtual.bgGradiente} text-white rounded-xl font-bold text-xs shadow-xs transition-all`}
                 >
                   Salvar Cliente
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Modal Intuitivo de Quitação de Débito / Fiado */}
+      {modalQuitacao && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => !salvandoQuitacao && setModalQuitacao(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs">
+                  <Banknote size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-base leading-tight">
+                    Receber Débito de Cliente
+                  </h3>
+                  <p className="text-[11px] text-slate-500 truncate max-w-[240px]">
+                    {modalQuitacao.cliente.nome}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={salvandoQuitacao}
+                onClick={() => setModalQuitacao(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Feedback Sucesso */}
+            {feedbackQuitacao && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-2xl flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                <span>{feedbackQuitacao}</span>
+              </div>
+            )}
+
+            {/* Resumo da Dívida */}
+            <div className="bg-gradient-to-br from-slate-50 to-amber-50/40 p-3.5 rounded-2xl border border-amber-200/60">
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <span className="text-slate-500 font-semibold">Saldo Devedor Atual:</span>
+                <span className="text-amber-700 font-black text-sm">
+                  {formatMoney(modalQuitacao.cliente.saldo_devedor)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs pt-1.5 border-t border-amber-100">
+                <span className="text-slate-500 font-semibold">Saldo Restante Após Pagamento:</span>
+                <span className="text-slate-800 font-bold">
+                  {formatMoney(Math.max(0, Number(modalQuitacao.cliente.saldo_devedor || 0) - (Number(modalQuitacao.valor) || 0)))}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmarQuitacao} className="space-y-3.5 text-xs">
+              {/* Valor a Receber */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">Valor a Receber (R$) *</label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setModalQuitacao({
+                        ...modalQuitacao,
+                        valor: Number(modalQuitacao.cliente.saldo_devedor || 0)
+                      })}
+                      className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-[10px] font-bold transition-colors"
+                    >
+                      Quitar Tudo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalQuitacao({
+                        ...modalQuitacao,
+                        valor: Math.round((Number(modalQuitacao.cliente.saldo_devedor || 0) / 2) * 100) / 100
+                      })}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition-colors"
+                    >
+                      50%
+                    </button>
+                  </div>
+                </div>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={Number(modalQuitacao.cliente.saldo_devedor || 0)}
+                  required
+                  value={modalQuitacao.valor || ''}
+                  onChange={(e) => setModalQuitacao({
+                    ...modalQuitacao,
+                    valor: parseFloat(e.target.value) || 0
+                  })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-base font-black text-slate-800 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Forma de Pagamento */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1.5">Forma de Pagamento</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'DINHEIRO', label: 'Dinheiro', icon: Banknote },
+                    { id: 'PIX', label: 'PIX', icon: Sparkles },
+                    { id: 'CARTAO_DEBITO', label: 'Cartão Débito', icon: CreditCard },
+                    { id: 'CARTAO_CREDITO', label: 'Cartão Crédito', icon: CreditCard }
+                  ].map((fp) => {
+                    const Icon = fp.icon;
+                    const ativo = modalQuitacao.formaPagamento === fp.id;
+                    return (
+                      <button
+                        type="button"
+                        key={fp.id}
+                        onClick={() => setModalQuitacao({
+                          ...modalQuitacao,
+                          formaPagamento: fp.id as any
+                        })}
+                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                          ativo
+                            ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold ring-1 ring-emerald-500'
+                            : 'border-slate-200 hover:border-slate-300 text-slate-700 font-medium'
+                        }`}
+                      >
+                        <Icon size={15} className={ativo ? 'text-emerald-600' : 'text-slate-400'} />
+                        <span className="text-xs">{fp.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Lançamento Automático no Caixa */}
+              <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100/60 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={modalQuitacao.lancarCaixa}
+                  onChange={(e) => setModalQuitacao({
+                    ...modalQuitacao,
+                    lancarCaixa: e.target.checked
+                  })}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                />
+                <div className="text-left">
+                  <span className="font-bold text-slate-800 block text-xs">
+                    Lançar entrada no Caixa Aberto
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">
+                    Registra automaticamente como Suprimento/Recebimento no caixa ativo.
+                  </span>
+                </div>
+              </label>
+
+              {/* Ações */}
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={salvandoQuitacao}
+                  onClick={() => setModalQuitacao(null)}
+                  className="flex-1 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-semibold text-xs transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvandoQuitacao || Number(modalQuitacao.valor) <= 0}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {salvandoQuitacao ? (
+                    <span>Registrando...</span>
+                  ) : (
+                    <>
+                      <Check size={15} />
+                      <span>Confirmar Recebimento</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

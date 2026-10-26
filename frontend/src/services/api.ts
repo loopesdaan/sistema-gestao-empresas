@@ -6,6 +6,15 @@ import {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
+export const resolveImageUrl = (url?: string): string => {
+  if (!url) return '';
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  const baseUrl = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
 });
@@ -299,6 +308,7 @@ export const apiService = {
     razao_social?: string;
     cnpj?: string;
     telefone?: string;
+    email?: string;
     endereco?: string;
     cep?: string;
     cor_primaria?: string;

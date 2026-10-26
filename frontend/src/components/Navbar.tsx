@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Menu, Bell, ShoppingCart, User, CheckCheck, X, Clock, ArrowRight } from 'lucide-react';
+import { Menu, Bell, ShoppingCart, User, CheckCheck, X, Clock, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useNotificacoes, Notificacao } from '../contexts/NotificationContext';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { Caixa } from '../types';
+import { apiService } from '../services/api';
 
 interface NavbarProps {
   onMenuToggle: () => void;
@@ -13,6 +14,7 @@ interface NavbarProps {
   caixaAberto: boolean;
   caixaAtual?: Caixa | null;
   userName?: string;
+  isAdmin?: boolean;
 }
 
 // Retorna classes de cor baseadas no tipo da notificação
@@ -50,12 +52,73 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenNotificacoes,
   caixaAberto,
   caixaAtual,
-  userName = 'Administrador'
+  userName = 'Administrador',
+  isAdmin = false
 }) => {
   const { notificacoes, naoLidas, marcarLida, marcarTodasLidas } = useNotificacoes();
   const { temaAtual } = useEmpresa();
   const [dropdownAberto, setDropdownAberto] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Mini Popover de Ponto Rápido para colaboradores elegíveis
+  const [pontoRapidoAberto, setPontoRapidoAberto] = useState(false);
+  const [statusPontoRapido, setStatusPontoRapido] = useState<any>(null);
+  const [relogioAgora, setRelogioAgora] = useState('');
+  const [salvandoPontoRapido, setSalvandoPontoRapido] = useState(false);
+  const [msgSucessoPonto, setMsgSucessoPonto] = useState<string | null>(null);
+  const [erroPontoRapido, setErroPontoRapido] = useState<string | null>(null);
+  const pontoDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Relógio em tempo real
+  useEffect(() => {
+    const atualizar = () => {
+      setRelogioAgora(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    atualizar();
+    const interval = setInterval(atualizar, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Carrega status ao abrir o ponto rápido
+  useEffect(() => {
+    if (pontoRapidoAberto) {
+      setMsgSucessoPonto(null);
+      setErroPontoRapido(null);
+      apiService.getStatusPontoHoje().then(setStatusPontoRapido).catch(() => {});
+    }
+  }, [pontoRapidoAberto]);
+
+  // Fecha dropdowns ao clicar fora
+  useEffect(() => {
+    const handleClickFora = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownAberto(false);
+      }
+      if (pontoDropdownRef.current && !pontoDropdownRef.current.contains(e.target as Node)) {
+        setPontoRapidoAberto(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickFora);
+    return () => document.removeEventListener('mousedown', handleClickFora);
+  }, []);
+
+  const handleBaterPontoRapido = async () => {
+    setSalvandoPontoRapido(true);
+    setErroPontoRapido(null);
+    try {
+      await apiService.baterPonto({});
+      const horaRegistrada = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      setMsgSucessoPonto(`Ponto batido às ${horaRegistrada} com sucesso!`);
+      const statusAtualizado = await apiService.getStatusPontoHoje().catch(() => null);
+      if (statusAtualizado) {
+        setStatusPontoRapido(statusAtualizado);
+      }
+    } catch (err: any) {
+      setErroPontoRapido(err.response?.data?.detail || 'Erro ao registrar ponto');
+    } finally {
+      setSalvandoPontoRapido(false);
+    }
+  };
 
   const tempoAbertoFormatado = useMemo(() => {
     if (!caixaAtual?.data_abertura) return null;
@@ -117,16 +180,93 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
-        {/* Botão Atalho Bater Ponto CLT */}
-        {onOpenPonto && (
-          <button
-            onClick={onOpenPonto}
-            title="Registrar ponto eletrônico ou consultar espelho de ponto CLT"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 rounded-xl text-xs font-semibold shadow-xs transition-colors"
-          >
-            <Clock size={15} className="text-amber-600 animate-pulse" />
-            <span className="hidden sm:inline">Bater Ponto</span>
-          </button>
+        {/* Botão Atalho Bater Ponto CLT (Apenas para colaboradores elegíveis, oculto para Admin) */}
+        {!isAdmin && onOpenPonto && (
+          <div className="relative" ref={pontoDropdownRef}>
+            <button
+              onClick={() => setPontoRapidoAberto(prev => !prev)}
+              title="Registrar ponto eletrônico rápido"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 rounded-xl text-xs font-semibold shadow-xs transition-colors"
+            >
+              <Clock size={15} className="text-amber-600 animate-pulse" />
+              <span className="hidden sm:inline">Bater Ponto</span>
+            </button>
+
+            {/* Mini tela flutuante abaixo do botão */}
+            {pontoRapidoAberto && (
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 p-4 space-y-3.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="font-bold text-xs text-slate-800">Registro Rápido de Ponto</span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                    {relogioAgora}
+                  </span>
+                </div>
+
+                {/* Exibição das 4 batidas de hoje */}
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className={`p-2 rounded-xl border ${statusPontoRapido?.entrada_1 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                    <span className="block font-bold">1ª Entrada</span>
+                    <span className="font-mono">{statusPontoRapido?.entrada_1 ? statusPontoRapido.entrada_1.slice(11, 16) : '--:--'}</span>
+                  </div>
+                  <div className={`p-2 rounded-xl border ${statusPontoRapido?.saida_1 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                    <span className="block font-bold">2ª Almoço (Saída)</span>
+                    <span className="font-mono">{statusPontoRapido?.saida_1 ? statusPontoRapido.saida_1.slice(11, 16) : '--:--'}</span>
+                  </div>
+                  <div className={`p-2 rounded-xl border ${statusPontoRapido?.entrada_2 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                    <span className="block font-bold">3ª Almoço (Volta)</span>
+                    <span className="font-mono">{statusPontoRapido?.entrada_2 ? statusPontoRapido.entrada_2.slice(11, 16) : '--:--'}</span>
+                  </div>
+                  <div className={`p-2 rounded-xl border ${statusPontoRapido?.saida_2 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                    <span className="block font-bold">4ª Saída</span>
+                    <span className="font-mono">{statusPontoRapido?.saida_2 ? statusPontoRapido.saida_2.slice(11, 16) : '--:--'}</span>
+                  </div>
+                </div>
+
+                {/* Mensagem de sucesso ou erro */}
+                {msgSucessoPonto && (
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-1.5 animate-in fade-in">
+                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                    <span>{msgSucessoPonto}</span>
+                  </div>
+                )}
+                {erroPontoRapido && (
+                  <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs font-semibold flex items-center gap-1.5 animate-in fade-in">
+                    <AlertCircle size={16} className="text-rose-600 shrink-0" />
+                    <span>{erroPontoRapido}</span>
+                  </div>
+                )}
+
+                {/* Botão de Registro Imediato */}
+                <button
+                  type="button"
+                  disabled={salvandoPontoRapido}
+                  onClick={handleBaterPontoRapido}
+                  className="w-full py-2.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                >
+                  <Clock size={15} />
+                  <span>{salvandoPontoRapido ? 'Registrando Ponto...' : 'Bater Ponto Agora'}</span>
+                </button>
+
+                {/* Link para espelho completo */}
+                <div className="text-center pt-1 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPontoRapidoAberto(false);
+                      onOpenPonto();
+                    }}
+                    className="text-[11px] font-semibold text-slate-500 hover:text-sky-600 transition-colors inline-flex items-center gap-1"
+                  >
+                    <span>Consultar espelho de ponto completo</span>
+                    <ArrowRight size={12} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Botão Atalho PDV */}

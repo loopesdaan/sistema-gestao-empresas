@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Venda } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
+import { resolveImageUrl } from '../services/api';
 
 interface ComprovanteDigitalModalProps {
   isOpen: boolean;
@@ -240,10 +241,10 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
             <div className="text-center space-y-1 border-b border-dashed border-slate-300 pb-3">
               {empresa.logo_url && (
                 <img
-                  src={empresa.logo_url.startsWith('http') ? empresa.logo_url : `http://localhost:8000${empresa.logo_url}`}
+                  src={resolveImageUrl(empresa.logo_url)}
                   alt="Logo"
                   onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
-                  className="w-12 h-12 mx-auto rounded-lg object-cover mb-2 border border-slate-200"
+                  className="w-12 h-12 mx-auto rounded-lg object-contain mb-2 border border-slate-200 p-0.5 bg-white"
                 />
               )}
               <h2 className="font-black text-sm uppercase tracking-wide">
