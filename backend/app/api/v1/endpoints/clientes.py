@@ -1,5 +1,6 @@
 from typing import Any, List, Optional
 from decimal import Decimal
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from app.models.cliente import Cliente
 from app.models.venda import Venda
 from app.models.os import OrdemServico
 from app.models.caixa import Caixa, StatusCaixa, MovimentacaoCaixa, TipoMovimentacaoCaixa
+from app.models.notificacao import Notificacao
 from app.schemas.cliente import ClienteCreate, ClienteUpdate, ClienteResponse
 from app.api.deps import get_current_user
 
@@ -141,58 +143,85 @@ def quitar_debito_cliente(
 ) -> Any:
     cliente = buscar_cliente_seguro(cliente_id, db, current_user)
 
-    saldo_anterior = cliente.saldo_devedor or Decimal("0.00")
+    saldo_anterior = (cliente.saldo_devedor or Decimal("0.00")).quantize(Decimal("0.01"))
     if saldo_anterior <= Decimal("0.00"):
         raise HTTPException(
             status_code=400,
             detail=f"O cliente '{cliente.nome}' não possui saldo devedor pendente."
         )
 
-    valor_abatido = min(dados.valor, saldo_anterior)
-    novo_saldo = max(Decimal("0.00"), saldo_anterior - dados.valor)
+    valor_pagamento = dados.valor.quantize(Decimal("0.01"))
+    valor_abatido = min(valor_pagamento, saldo_anterior)
+    novo_saldo = max(Decimal("0.00"), saldo_anterior - valor_pagamento)
     cliente.saldo_devedor = novo_saldo
 
     lancou_caixa = False
     detalhe_caixa = ""
 
-    if dados.lancar_caixa:
-        # Busca caixa aberto pertencente ao operador ou à empresa
-        caixa = db.query(Caixa).filter(
-            Caixa.empresa_id == current_user.empresa_id,
-            Caixa.status == StatusCaixa.ABERTO,
-            Caixa.usuario_id == current_user.id
-        ).first()
-
-        if not caixa:
+    try:
+        if dados.lancar_caixa:
+            # Busca caixa aberto do operador ou caixa aberto ativo da empresa
             caixa = db.query(Caixa).filter(
                 Caixa.empresa_id == current_user.empresa_id,
+                Caixa.usuario_id == current_user.id,
                 Caixa.status == StatusCaixa.ABERTO
-            ).first()
+            ).order_by(Caixa.data_abertura.desc()).first()
 
-        if caixa:
-            movimentacao = MovimentacaoCaixa(
-                caixa_id=caixa.id,
-                tipo=TipoMovimentacaoCaixa.SUPRIMENTO,
-                valor=dados.valor,
-                motivo=f"Recebimento de Débito ({dados.forma_pagamento}) - Cliente: {cliente.nome}"
-            )
-            db.add(movimentacao)
-            caixa.saldo_final = (caixa.saldo_final or Decimal("0.00")) + dados.valor
-            lancou_caixa = True
-            detalhe_caixa = f" (Entrada financeira lançada no Caixa #{caixa.id})"
+            if not caixa:
+                caixa = db.query(Caixa).filter(
+                    Caixa.empresa_id == current_user.empresa_id,
+                    Caixa.status == StatusCaixa.ABERTO
+                ).order_by(Caixa.data_abertura.desc()).first()
 
-    db.commit()
-    db.refresh(cliente)
+            if caixa:
+                movimentacao = MovimentacaoCaixa(
+                    caixa_id=caixa.id,
+                    usuario_id=current_user.id,
+                    tipo=TipoMovimentacaoCaixa.SUPRIMENTO,
+                    valor=valor_pagamento,
+                    motivo=f"Quitação de Débito ({dados.forma_pagamento}) - Cliente: {cliente.nome}"
+                )
+                db.add(movimentacao)
+                lancou_caixa = True
+                num_caixa = (caixa.id % 100) if caixa.id > 1_000_000_000 else caixa.id
+                detalhe_caixa = f" (Entrada financeira lançada no Caixa #{num_caixa:02d})"
+
+        # Se o débito foi completamente quitado, resolve notificações pendentes do cliente
+        if novo_saldo == Decimal("0.00"):
+            notifs = db.query(Notificacao).filter(
+                Notificacao.empresa_id == current_user.empresa_id,
+                Notificacao.referencia_tipo == "CLIENTE",
+                Notificacao.referencia_id == cliente.id,
+                Notificacao.status == "PENDENTE"
+            ).all()
+            for n in notifs:
+                n.status = "RESOLVIDA"
+                n.resolvido_em = datetime.now(timezone.utc)
+                n.resolvido_por_id = current_user.id
+
+        db.commit()
+        db.refresh(cliente)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        import logging
+        logging.getLogger("gestao_app").error(f"Erro ao quitar débito do cliente #{cliente_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao registrar quitação do débito: {str(e)}"
+        )
 
     return {
         "ok": True,
         "cliente_id": cliente.id,
         "cliente_nome": cliente.nome,
-        "valor_pago": float(dados.valor),
+        "valor_pago": float(valor_pagamento),
         "saldo_devedor_anterior": float(saldo_anterior),
         "novo_saldo_devedor": float(novo_saldo),
         "lancado_caixa": lancou_caixa,
-        "mensagem": f"Recebimento de R$ {dados.valor:.2f} registrado com sucesso para {cliente.nome}{detalhe_caixa}."
+        "mensagem": f"Recebimento de R$ {valor_pagamento:.2f} registrado com sucesso para {cliente.nome}{detalhe_caixa}."
     }
 
 @router.delete("/{cliente_id}")
