@@ -139,6 +139,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [usuariosLista, setUsuariosLista] = useState<Array<{ nome: string; email: string; perfil: string }>>([]);
 
   useEffect(() => {
+    carregarDadosEmpresa();
     apiService.listarUsuarios().then((lista) => {
       if (Array.isArray(lista) && lista.length > 0) {
         setUsuariosLista(lista.map(u => ({ nome: u.nome, email: u.email, perfil: u.perfil })));
@@ -164,6 +165,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     if (empresa.cor_primaria) setCorLocal(empresa.cor_primaria);
     if (modulosAtivos && modulosAtivos.length > 0) {
       setModulos(modulosAtivos);
+    }
+    if (empresa.onboarding_concluido) {
+      setEtapa(2);
     }
   }, [empresa]);
 
@@ -259,12 +263,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       onComplete();
     } catch (err: any) {
       console.error('Erro ao salvar onboarding:', err);
-      // Fallback gracioso
-      setPerfilNegocio(ramoSelecionado);
-      setModulosAtivos(modulos);
-      setCorSelecionada(corLocal);
-      setOnboardingConcluido(true);
-      onComplete();
+      alert(err.response?.data?.detail || 'Erro ao salvar personalização no servidor. Verifique os dados e tente novamente.');
     } finally {
       setSalvando(false);
     }

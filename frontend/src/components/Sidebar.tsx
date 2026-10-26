@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, ShoppingCart, Wallet, Package, Users, 
   Wrench, BarChart3, Settings, LogOut, X, Shield, Sparkles, Clock, Bell 
@@ -33,6 +33,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { modulosAtivos, temaAtual, empresa } = useEmpresa();
   const nomeExibicao = empresa.nome_fantasia || empresaNome;
+
+  const [logoFalhou, setLogoFalhou] = useState(false);
+  useEffect(() => {
+    setLogoFalhou(false);
+  }, [empresa.logo_url]);
 
   const isEstoquista = userPerfil === 'ESTOQUISTA';
   const isOperador = userPerfil === 'OPERADOR_CAIXA';
@@ -94,14 +99,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Header da Sidebar com Tema do Segmento */}
         <div className="p-4 border-b border-slate-800/80 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
-            {empresa.logo_url ? (
+            {empresa.logo_url && !logoFalhou ? (
               <img
                 src={resolveImageUrl(empresa.logo_url)}
                 alt={nomeExibicao}
-                onError={(e) => { 
-                  // Em caso de falha de carregamento, faz fallback para o ícone temático
-                  (e.currentTarget as HTMLElement).style.display = 'none'; 
-                }}
+                onError={() => setLogoFalhou(true)}
                 className="w-10 h-10 rounded-xl object-contain border border-slate-700/80 shadow-md shrink-0 bg-white p-0.5"
               />
             ) : (

@@ -157,8 +157,8 @@ def update_empresa(
     db.refresh(empresa)
     return empresa
 
-@router.put("/onboarding")
-async def salvar_onboarding(
+@router.put("/onboarding", response_model=EmpresaResponse)
+def salvar_onboarding(
     data: dict,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
@@ -189,7 +189,10 @@ async def salvar_onboarding(
     if "perfil_negocio" in data and data["perfil_negocio"]:
         empresa.perfil_negocio = data["perfil_negocio"]
     if "modulos_ativos" in data:
-        empresa.modulos_ativos = json.dumps(data["modulos_ativos"])
+        if isinstance(data["modulos_ativos"], (list, dict)):
+            empresa.modulos_ativos = json.dumps(data["modulos_ativos"])
+        else:
+            empresa.modulos_ativos = str(data["modulos_ativos"])
     
     empresa.onboarding_concluido = True
     db.commit()
@@ -203,7 +206,7 @@ async def salvar_onboarding(
         if qtd_produtos == 0 or data.get("forcar_substituicao_demo", False):
             aplicar_preset_no_banco(empresa.id, empresa.perfil_negocio, db)
 
-    return {"ok": True, "empresa": empresa}
+    return empresa
 
 @router.post("/aplicar-preset-segmento")
 def aplicar_preset_segmento(
@@ -231,7 +234,9 @@ def aplicar_preset_segmento(
         empresa.perfil_negocio = perfil
         if perfil in nomes_segmentos:
             nome_sugerido, cor_sugerida = nomes_segmentos[perfil]
-            empresa.nome_fantasia = nome_sugerido
+            # Preserva o nome fantasia se o usuário já tiver configurado um nome próprio
+            if not empresa.nome_fantasia or empresa.nome_fantasia in ["Gestão PME", "Minha Empresa"]:
+                empresa.nome_fantasia = nome_sugerido
             if not empresa.cor_primaria:
                 empresa.cor_primaria = cor_sugerida
         db.commit()

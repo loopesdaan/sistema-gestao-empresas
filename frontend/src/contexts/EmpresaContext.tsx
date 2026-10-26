@@ -283,19 +283,67 @@ interface EmpresaContextType {
 const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined);
 
 export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [empresa, setEmpresa] = useState<Partial<Empresa>>({});
-  const [modulosAtivos, setModulosAtivos] = useState<string[]>([
-    'pdv', 'caixa', 'produtos', 'estoque', 'clientes', 'os', 'relatorios', 'empresa', 'usuarios'
-  ]);
-  const [perfilNegocio, setPerfilNegocio] = useState<string>('personalizado');
-  const [corSelecionada, setCorSelecionada] = useState<string>('sky');
-  const [onboardingConcluido, setOnboardingConcluido] = useState(false);
+  // Inicialização inteligente com cache local para evitar "flashes" de dados divergentes
+  const [empresa, setEmpresa] = useState<Partial<Empresa>>(() => {
+    try {
+      const salvo = localStorage.getItem('gestao_empresa_cache');
+      return salvo ? JSON.parse(salvo) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [perfilNegocio, setPerfilNegocio] = useState<string>(() => {
+    try {
+      const salvo = localStorage.getItem('gestao_empresa_cache');
+      const parsed = salvo ? JSON.parse(salvo) : null;
+      return parsed?.perfil_negocio || 'personalizado';
+    } catch {
+      return 'personalizado';
+    }
+  });
+
+  const [corSelecionada, setCorSelecionada] = useState<string>(() => {
+    try {
+      const salvo = localStorage.getItem('gestao_empresa_cache');
+      const parsed = salvo ? JSON.parse(salvo) : null;
+      return parsed?.cor_primaria || 'sky';
+    } catch {
+      return 'sky';
+    }
+  });
+
+  const [modulosAtivos, setModulosAtivos] = useState<string[]>(() => {
+    try {
+      const salvo = localStorage.getItem('gestao_empresa_cache');
+      const parsed = salvo ? JSON.parse(salvo) : null;
+      if (parsed?.modulos_ativos) {
+        const m = typeof parsed.modulos_ativos === 'string' ? JSON.parse(parsed.modulos_ativos) : parsed.modulos_ativos;
+        if (Array.isArray(m) && m.length > 0) return m;
+      }
+    } catch {}
+    return ['pdv', 'caixa', 'produtos', 'estoque', 'clientes', 'os', 'relatorios', 'empresa', 'usuarios'];
+  });
+
+  const [onboardingConcluido, setOnboardingConcluido] = useState<boolean>(() => {
+    try {
+      const salvo = localStorage.getItem('gestao_empresa_cache');
+      const parsed = salvo ? JSON.parse(salvo) : null;
+      return !!parsed?.onboarding_concluido;
+    } catch {
+      return false;
+    }
+  });
 
   const carregarDadosEmpresa = async () => {
     try {
       const dados = await apiService.getEmpresa();
       if (dados) {
         setEmpresa(dados);
+        try {
+          localStorage.setItem('gestao_empresa_cache', JSON.stringify(dados));
+        } catch {}
+
         if (dados.perfil_negocio) {
           setPerfilNegocio(dados.perfil_negocio);
         }

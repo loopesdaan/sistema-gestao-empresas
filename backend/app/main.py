@@ -35,6 +35,8 @@ def migrar_colunas():
                     conn.execute(text("ALTER TABLE empresas ADD COLUMN cor_primaria VARCHAR(30)"))
                 if "logo_url" not in empresa_cols:
                     conn.execute(text("ALTER TABLE empresas ADD COLUMN logo_url TEXT"))
+                if "bypass_ponto_teste" not in empresa_cols:
+                    conn.execute(text("ALTER TABLE empresas ADD COLUMN bypass_ponto_teste BOOLEAN DEFAULT FALSE"))
                 conn.commit()
 
         if "usuarios" in inspector.get_table_names():
@@ -125,6 +127,7 @@ def inicializar_banco_dados():
                 db.add(novo_admin)
                 logger.info(f"Administrador oficial cadastrado com sucesso: {email_admin}")
             else:
+                u_admin.empresa_id = empresa.id
                 u_admin.perfil = PerfilUsuario.ADMIN
                 u_admin.ativo = True
                 u_admin.hashed_password = get_password_hash(senha)

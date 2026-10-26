@@ -30,7 +30,7 @@ const AppContent: React.FC = () => {
   });
 
   const isAdmin = usuario?.perfil === 'ADMIN';
-  const { modulosAtivos } = useEmpresa();
+  const { modulosAtivos, carregarDadosEmpresa } = useEmpresa();
 
   const [activeTab, setActiveTab] = useState(() => {
     const salvo = localStorage.getItem('gestao_user') || sessionStorage.getItem('gestao_user');
@@ -48,8 +48,11 @@ const AppContent: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
-  // Verifica onboarding assim que o usuário loga ou entra na página
+  // Sincroniza dados da empresa e verifica onboarding assim que o usuário loga ou entra na página
   useEffect(() => {
+    if (usuario) {
+      carregarDadosEmpresa();
+    }
     if (usuario?.perfil === 'ADMIN') {
       apiService.getEmpresa().then((empresa) => {
         if (!empresa.onboarding_concluido) {
@@ -92,6 +95,8 @@ const AppContent: React.FC = () => {
 
   const handleLoginSuccess = async (u: Usuario) => {
     setUsuario(u);
+    await carregarDadosEmpresa();
+
     if (u.perfil === 'ADMIN') {
       setActiveTab('dashboard');
     } else if (u.perfil === 'ESTOQUISTA') {
@@ -115,6 +120,9 @@ const AppContent: React.FC = () => {
 
   const handleLogout = () => {
     apiService.logout();
+    try {
+      localStorage.removeItem('gestao_empresa_cache');
+    } catch {}
     setUsuario(null);
     setShowOnboarding(false);
   };
