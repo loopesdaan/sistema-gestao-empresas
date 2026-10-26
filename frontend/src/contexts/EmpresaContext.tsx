@@ -313,7 +313,7 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   });
 
-  const [modulosAtivos, setModulosAtivos] = useState<string[]>(() => {
+  const [modulosAtivos, setModulosAtivosState] = useState<string[]>(() => {
     try {
       const salvo = localStorage.getItem('gestao_empresa_cache');
       const parsed = salvo ? JSON.parse(salvo) : null;
@@ -324,6 +324,19 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch {}
     return ['pdv', 'caixa', 'produtos', 'estoque', 'clientes', 'os', 'relatorios', 'empresa', 'usuarios'];
   });
+
+  const setModulosAtivos = (modulos: string[]) => {
+    setModulosAtivosState(modulos);
+    setEmpresa(prev => ({ ...prev, modulos_ativos: JSON.stringify(modulos) }));
+    try {
+      const salvo = localStorage.getItem('gestao_empresa_cache');
+      if (salvo) {
+        const parsed = JSON.parse(salvo);
+        parsed.modulos_ativos = JSON.stringify(modulos);
+        localStorage.setItem('gestao_empresa_cache', JSON.stringify(parsed));
+      }
+    } catch {}
+  };
 
   const [onboardingConcluido, setOnboardingConcluido] = useState<boolean>(() => {
     try {
@@ -367,7 +380,7 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
               ? JSON.parse(dados.modulos_ativos)
               : dados.modulos_ativos;
             if (Array.isArray(parsed) && parsed.length > 0) {
-              setModulosAtivos(parsed);
+              setModulosAtivosState(parsed);
             }
           } catch (e) {
             console.warn('Erro ao decodificar modulos_ativos:', e);

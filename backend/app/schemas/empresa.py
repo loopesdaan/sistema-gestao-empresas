@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -27,14 +27,14 @@ class EmpresaUpdate(BaseModel):
     cor_primaria: Optional[str] = None
     logo_url: Optional[str] = None
     perfil_negocio: Optional[str] = None
-    modulos_ativos: Optional[str] = None
+    modulos_ativos: Optional[Union[str, List[str]]] = None
     onboarding_concluido: Optional[bool] = None
 
 class EmpresaResponse(EmpresaBase):
     id: int
     created_at: datetime
     perfil_negocio: Optional[str] = None
-    modulos_ativos: Optional[str] = None  # JSON string
+    modulos_ativos: Optional[Union[str, List[str]]] = None  # JSON string
     onboarding_concluido: bool = False
     cep: Optional[str] = None
     cor_primaria: Optional[str] = None

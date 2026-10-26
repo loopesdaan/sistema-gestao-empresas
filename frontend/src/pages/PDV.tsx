@@ -76,7 +76,7 @@ export const PDV: React.FC = () => {
   const [carregandoOS, setCarregandoOS] = useState(false);
   const [osVinculadaId, setOsVinculadaId] = useState<number | null>(null);
 
-  const { temaAtual } = useEmpresa();
+  const { temaAtual, modulosAtivos } = useEmpresa();
   const [modalComprovanteAberto, setModalComprovanteAberto] = useState(false);
   const [statusPonto, setStatusPonto] = useState<StatusJornada | null>(null);
 
@@ -149,7 +149,7 @@ export const PDV: React.FC = () => {
 
   const handleCarregarOSParaCarrinho = (os: any) => {
     // Vincula o cliente da OS
-    const cli = clientes.find(c => c.id === os.cliente_id) || null;
+    const cli = clientes.find(c => String(c.id) === String(os.cliente_id)) || null;
     if (cli) {
       setClienteSelecionado(cli);
     }
@@ -709,15 +709,17 @@ export const PDV: React.FC = () => {
               <h3 className="font-bold text-slate-800 text-sm">Itens da Venda</h3>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleAbrirModalImportarOS}
-                className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors border border-sky-200"
-                title="Cobrar Ordem de Serviço em aberto"
-              >
-                <Wrench size={12} />
-                <span>Cobrar OS</span>
-              </button>
+              {modulosAtivos.includes('os') && (
+                <button
+                  type="button"
+                  onClick={handleAbrirModalImportarOS}
+                  className="px-2.5 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors border border-sky-200"
+                  title="Cobrar Ordem de Serviço em aberto"
+                >
+                  <Wrench size={12} />
+                  <span>Cobrar OS</span>
+                </button>
+              )}
               <span className="text-xs bg-sky-100 text-sky-700 font-semibold px-2 py-0.5 rounded-full">
                 {carrinho.reduce((acc, it) => acc + it.quantidade, 0)} itens
               </span>

@@ -5,8 +5,60 @@ import { useEmpresa, PALETAS_CORES } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
 import { 
   Building, Phone, Mail, MapPin, Share2, Copy, 
-  MessageCircle, ExternalLink, Edit, CheckCircle2, Save, X, Sparkles, RefreshCw, Palette, Camera, Upload
+  MessageCircle, ExternalLink, Edit, CheckCircle2, Save, X, Sparkles, RefreshCw, Palette, Camera, Upload,
+  Layers, ShoppingCart, Wallet, Wrench, Package, Users, BarChart3, Power
 } from 'lucide-react';
+
+const MODULOS_SISTEMA = [
+  {
+    id: 'pdv',
+    label: 'Frente de Caixa (PDV)',
+    desc: 'Vendas rápidas no balcão, recebimento em dinheiro, PIX, cartões e crediário.',
+    icon: ShoppingCart,
+    tag: 'Operacional',
+    bgIcon: 'bg-sky-100 text-sky-700'
+  },
+  {
+    id: 'caixa',
+    label: 'Controle de Caixa',
+    desc: 'Abertura, fechamento, suprimentos, sangrias e auditoria de gaveta.',
+    icon: Wallet,
+    tag: 'Financeiro',
+    bgIcon: 'bg-indigo-100 text-indigo-700'
+  },
+  {
+    id: 'os',
+    label: 'Ordens de Serviço (OS)',
+    desc: 'Abertura técnica, peças, serviços, laudo e cobrança no PDV.',
+    icon: Wrench,
+    tag: 'Serviços & Oficina',
+    bgIcon: 'bg-amber-100 text-amber-700'
+  },
+  {
+    id: 'produtos',
+    label: 'Produtos & Estoque',
+    desc: 'Catálogo de itens, código de barras e estoque mínimo de reposição.',
+    icon: Package,
+    tag: 'Estoque',
+    bgIcon: 'bg-emerald-100 text-emerald-700'
+  },
+  {
+    id: 'clientes',
+    label: 'Clientes & Crediário',
+    desc: 'Cadastro de clientes, limite de crédito e contas a receber.',
+    icon: Users,
+    tag: 'Comercial',
+    bgIcon: 'bg-cyan-100 text-cyan-700'
+  },
+  {
+    id: 'relatorios',
+    label: 'Relatórios de Vendas',
+    desc: 'Desempenho de faturamento, vendas e fechamentos por período.',
+    icon: BarChart3,
+    tag: 'Gerencial',
+    bgIcon: 'bg-purple-100 text-purple-700'
+  },
+];
 
 interface EmpresaProps {
   isAdmin?: boolean;
@@ -14,16 +66,48 @@ interface EmpresaProps {
 }
 
 export const Empresa: React.FC<EmpresaProps> = ({ isAdmin = false, onOpenOnboarding }) => {
-  const { corSelecionada, setCorSelecionada, setPerfilNegocio, carregarDadosEmpresa } = useEmpresa();
+  const { corSelecionada, setCorSelecionada, setPerfilNegocio, carregarDadosEmpresa, modulosAtivos, setModulosAtivos } = useEmpresa();
   const { toast, confirmar } = useToast();
   const [empresa, setEmpresa] = useState<Partial<EmpresaType>>({});
   const [loading, setLoading] = useState(true);
   const [modoEdicao, setModoEdicao] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [salvandoModulos, setSalvandoModulos] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [aplicandoPreset, setAplicandoPreset] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const handleToggleModulo = async (moduloId: string) => {
+    if (!isAdmin) return;
+    const jaAtivo = modulosAtivos.includes(moduloId);
+    let novos: string[];
+    if (jaAtivo) {
+      if (modulosAtivos.length <= 1) {
+        toast.aviso('Pelo menos um módulo operacional deve permanecer ativo.');
+        return;
+      }
+      novos = modulosAtivos.filter(m => m !== moduloId);
+    } else {
+      novos = [...modulosAtivos, moduloId];
+    }
+
+    setSalvandoModulos(true);
+    try {
+      setModulosAtivos(novos);
+      const atualizado = await apiService.updateEmpresa({
+        ...empresa,
+        modulos_ativos: JSON.stringify(novos)
+      });
+      setEmpresa(atualizado);
+      await carregarDadosEmpresa();
+      toast.sucesso(`Módulo ${!jaAtivo ? 'ativado' : 'desativado'} com sucesso!`);
+    } catch (err: any) {
+      toast.erro(err.response?.data?.detail || 'Erro ao atualizar módulos do sistema');
+    } finally {
+      setSalvandoModulos(false);
+    }
+  };
 
   const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -542,6 +626,104 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
             </div>
           </form>
         )}
+      </div>
+
+      {/* Card de Gestão de Módulos & Ferramentas do Sistema */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-slate-50 to-white">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+              <Layers size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                <span>Módulos & Ferramentas do Sistema</span>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                  {modulosAtivos.length} ativos
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isAdmin
+                  ? 'Ative ou desative ferramentas operacionais com um clique. A barra lateral e os operadores atualizarão imediatamente.'
+                  : 'Módulos operacionais atualmente liberados pela administração para sua empresa.'}
+              </p>
+            </div>
+          </div>
+          {isAdmin && (
+            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full shrink-0 flex items-center gap-1.5 self-start sm:self-auto">
+              <CheckCircle2 size={13} />
+              <span>Controle do Administrador</span>
+            </span>
+          )}
+        </div>
+
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {MODULOS_SISTEMA.map((mod) => {
+            const ativo = modulosAtivos.includes(mod.id);
+            const Icon = mod.icon;
+
+            return (
+              <div
+                key={mod.id}
+                className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                  ativo
+                    ? 'border-slate-200 bg-white hover:border-sky-300 shadow-2xs'
+                    : 'border-slate-200/60 bg-slate-50/70 opacity-75'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${mod.bgIcon}`}>
+                      <Icon size={18} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-bold text-slate-800">{mod.label}</h4>
+                        <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                          {mod.tag}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                        {mod.desc}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100/80">
+                  <span className={`text-[11px] font-bold flex items-center gap-1.5 ${
+                    ativo ? 'text-emerald-700' : 'text-slate-400'
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${ativo ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                    <span>{ativo ? 'Módulo Ativo' : 'Módulo Inativo'}</span>
+                  </span>
+
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      disabled={salvandoModulos}
+                      onClick={() => handleToggleModulo(mod.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 ${
+                        ativo
+                          ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300/60'
+                          : 'bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-300'
+                      }`}
+                    >
+                      <Power size={13} className={ativo ? 'text-emerald-700' : 'text-slate-500'} />
+                      <span>{ativo ? 'Ativado' : 'Desativado'}</span>
+                    </button>
+                  ) : (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      ativo ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      {ativo ? 'Liberado' : 'Indisponível'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
