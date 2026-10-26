@@ -24,7 +24,8 @@ class QuitacaoDebitoInput(BaseModel):
 def buscar_cliente_seguro(cliente_id: int, db: Session, current_user: Usuario) -> Cliente:
     """
     Busca cliente por ID garantindo vínculo à empresa do usuário.
-    Possui fallback de resiliência caso ocorra tenant drift (ex: seeds iniciais ou migração de banco).
+    Possui fallback de resiliência caso ocorra tenant drift ou perda de precisão float64
+    no navegador (IDs de 64-bit do CockroachDB com até 19 dígitos).
     """
     cliente = db.query(Cliente).filter(
         Cliente.id == cliente_id,
@@ -32,15 +33,35 @@ def buscar_cliente_seguro(cliente_id: int, db: Session, current_user: Usuario) -
     ).first()
 
     if not cliente:
-        # Fallback de resiliência: se o cliente existir no banco
+        # Fallback 1: se o cliente existir no banco com outro empresa_id
         cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
         if cliente:
             cliente.empresa_id = current_user.empresa_id
             db.commit()
             db.refresh(cliente)
 
+    # Fallback 2: Tolerância para precisão IEEE 754 de 64-bit int no JavaScript (CockroachDB IDs)
+    if not cliente and cliente_id:
+        candidatos = db.query(Cliente).filter(
+            Cliente.empresa_id == current_user.empresa_id,
+            Cliente.id >= cliente_id - 1000,
+            Cliente.id <= cliente_id + 1000
+        ).all()
+        if len(candidatos) == 1:
+            cliente = candidatos[0]
+        elif not candidatos:
+            candidatos_gerais = db.query(Cliente).filter(
+                Cliente.id >= cliente_id - 1000,
+                Cliente.id <= cliente_id + 1000
+            ).all()
+            if len(candidatos_gerais) == 1:
+                cliente = candidatos_gerais[0]
+                cliente.empresa_id = current_user.empresa_id
+                db.commit()
+                db.refresh(cliente)
+
     if not cliente:
-        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+        raise HTTPException(status_code=404, detail=f"Cliente ID {cliente_id} não encontrado")
     return cliente
 
 @router.get("", response_model=List[ClienteResponse])

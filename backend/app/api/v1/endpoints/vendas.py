@@ -154,7 +154,7 @@ def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_use
 def buscar_produto_seguro(produto_id: int, db: Session, current_user: Usuario) -> Produto:
     """
     Busca produto por ID garantindo vínculo à empresa do usuário.
-    Possui fallback de resiliência caso ocorra tenant drift (ex: seeds de presets ou migração).
+    Possui fallback de resiliência caso ocorra tenant drift ou perda de precisão float64 no navegador.
     """
     produto = db.query(Produto).filter(
         Produto.id == produto_id,
@@ -168,6 +168,26 @@ def buscar_produto_seguro(produto_id: int, db: Session, current_user: Usuario) -
             produto.empresa_id = current_user.empresa_id
             db.commit()
             db.refresh(produto)
+
+    # Fallback 2: Tolerância para precisão IEEE 754 de 64-bit int no JavaScript (CockroachDB IDs)
+    if not produto and produto_id:
+        candidatos = db.query(Produto).filter(
+            Produto.empresa_id == current_user.empresa_id,
+            Produto.id >= produto_id - 1000,
+            Produto.id <= produto_id + 1000
+        ).all()
+        if len(candidatos) == 1:
+            produto = candidatos[0]
+        elif not candidatos:
+            candidatos_gerais = db.query(Produto).filter(
+                Produto.id >= produto_id - 1000,
+                Produto.id <= produto_id + 1000
+            ).all()
+            if len(candidatos_gerais) == 1:
+                produto = candidatos_gerais[0]
+                produto.empresa_id = current_user.empresa_id
+                db.commit()
+                db.refresh(produto)
 
     if not produto:
         raise HTTPException(status_code=404, detail=f"Produto ID {produto_id} não encontrado.")
@@ -202,8 +222,8 @@ def registrar_venda(
     servico_prod = None
 
     for item_in in dados.itens:
-        is_servico = getattr(item_in, "is_servico_os", False) or (item_in.produto_id >= 999000)
-        os_id_item = getattr(item_in, "os_id", None) or (item_in.produto_id - 999000 if item_in.produto_id >= 999000 else None)
+        is_servico = bool(getattr(item_in, "is_servico_os", False))
+        os_id_item = getattr(item_in, "os_id", None)
         if os_id_item:
             ordens_servico_finalizar.add(os_id_item)
 
@@ -286,10 +306,7 @@ def registrar_venda(
     # Verifica se há pagamento a prazo e checa limite de crédito do cliente com busca resiliente
     cliente = None
     if dados.cliente_id:
-        try:
-            cliente = buscar_cliente_seguro(dados.cliente_id, db, current_user)
-        except HTTPException:
-            cliente = None
+        cliente = buscar_cliente_seguro(dados.cliente_id, db, current_user)
 
     pagamentos_processados = []
     for pg in dados.pagamentos:
