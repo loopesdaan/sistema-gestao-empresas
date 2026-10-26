@@ -315,8 +315,14 @@ export const PDV: React.FC = () => {
     return true;
   })();
 
-  const abrirModalPagamento = () => {
+  const abrirModalPagamento = async () => {
     if (carrinho.length === 0) return;
+    try {
+      const c = await apiService.getCaixaAtual().catch(() => null);
+      if (c) {
+        setCaixa(c);
+      }
+    } catch {}
     setValorRecebido('');
     setPixData(null);
     setPointData(null);
@@ -400,13 +406,25 @@ export const PDV: React.FC = () => {
   };
 
   const handleFinalizarVenda = async () => {
-    if (!caixa) return;
+    let caixaAtivo = caixa;
+    try {
+      const c = await apiService.getCaixaAtual().catch(() => null);
+      if (c) {
+        caixaAtivo = c;
+        setCaixa(c);
+      }
+    } catch {}
+
+    if (!caixaAtivo) {
+      setErroCheckout('Nenhum caixa aberto encontrado para registrar a venda. Abra o caixa antes de continuar.');
+      return;
+    }
     setFinalizando(true);
     setErroCheckout(null);
 
     try {
       const dadosVenda = {
-        caixa_id: caixa.id,
+        caixa_id: caixaAtivo.id,
         cliente_id: clienteSelecionado?.id || null,
         desconto: Number(desconto) || 0,
         acrescimo: Number(acrescimo) || 0,

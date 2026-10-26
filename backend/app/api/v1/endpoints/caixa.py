@@ -93,7 +93,7 @@ def obter_caixa_atual(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Busca o caixa aberto atualmente para o usuário logado"""
+    """Busca o caixa aberto atualmente para o usuário logado com resiliência a tenant drift"""
     if current_user.perfil == PerfilUsuario.ESTOQUISTA:
         return None
 
@@ -102,6 +102,18 @@ def obter_caixa_atual(
         Caixa.usuario_id == current_user.id,
         Caixa.status == StatusCaixa.ABERTO
     ).order_by(Caixa.data_abertura.desc()).first()
+
+    if not caixa:
+        # Fallback de resiliência: se o usuário tiver caixa aberto ativo no banco
+        caixa = db.query(Caixa).filter(
+            Caixa.usuario_id == current_user.id,
+            Caixa.status == StatusCaixa.ABERTO
+        ).order_by(Caixa.data_abertura.desc()).first()
+        if caixa:
+            caixa.empresa_id = current_user.empresa_id
+            db.commit()
+            db.refresh(caixa)
+
     return serialize_caixa(caixa) if caixa else None
 
 @router.get("/abertos", response_model=List[CaixaResponse])
