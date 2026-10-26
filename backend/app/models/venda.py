@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -18,11 +18,11 @@ class FormaPagamento(str, enum.Enum):
 class Venda(Base):
     __tablename__ = "vendas"
 
-    id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
-    caixa_id = Column(Integer, ForeignKey("caixas.id"), nullable=False)
-    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=True)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
+    caixa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("caixas.id"), nullable=False)
+    cliente_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("clientes.id"), nullable=True)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
     
     valor_bruto = Column(Numeric(10, 2), default=0.00, nullable=False)
     desconto = Column(Numeric(10, 2), default=0.00, nullable=False)
@@ -42,9 +42,9 @@ class Venda(Base):
 class ItemVenda(Base):
     __tablename__ = "itens_venda"
 
-    id = Column(Integer, primary_key=True, index=True)
-    venda_id = Column(Integer, ForeignKey("vendas.id"), nullable=False)
-    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    venda_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("vendas.id"), nullable=False)
+    produto_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("produtos.id"), nullable=False)
     quantidade = Column(Numeric(10, 2), default=1.00, nullable=False)
     valor_unitario = Column(Numeric(10, 2), nullable=False)
     subtotal = Column(Numeric(10, 2), nullable=False)
@@ -55,8 +55,8 @@ class ItemVenda(Base):
 class PagamentoVenda(Base):
     __tablename__ = "pagamentos_venda"
 
-    id = Column(Integer, primary_key=True, index=True)
-    venda_id = Column(Integer, ForeignKey("vendas.id"), nullable=False)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    venda_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("vendas.id"), nullable=False)
     forma_pagamento = Column(Enum(FormaPagamento), nullable=False)
     valor = Column(Numeric(10, 2), nullable=False)
     troco = Column(Numeric(10, 2), default=0.00, nullable=False)

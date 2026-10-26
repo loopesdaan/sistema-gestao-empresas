@@ -232,7 +232,9 @@ def registrar_venda(
             if not produto.ativo:
                 raise HTTPException(status_code=400, detail=f"Produto '{produto.nome}' está inativo.")
 
-        subtotal = item_in.quantidade * item_in.valor_unitario
+        qtd = Decimal(str(item_in.quantidade)).quantize(Decimal("0.01"))
+        v_unit = Decimal(str(item_in.valor_unitario)).quantize(Decimal("0.01"))
+        subtotal = (qtd * v_unit).quantize(Decimal("0.01"))
         valor_bruto += subtotal
 
         # Dá baixa no estoque apenas para produtos normais que não sejam serviços ou peças já baixadas na OS
@@ -243,9 +245,9 @@ def registrar_venda(
             deve_baixar_estoque = False
 
         if deve_baixar_estoque:
-            if produto.estoque_atual < item_in.quantidade:
+            if produto.estoque_atual < qtd:
                 raise HTTPException(status_code=400, detail=f"Estoque insuficiente para '{produto.nome}'. Disponível: {produto.estoque_atual} {produto.unidade}")
-            produto.estoque_atual -= item_in.quantidade
+            produto.estoque_atual -= qtd
 
             # Registra movimentação de estoque
             mov = MovimentacaoEstoque(
@@ -253,7 +255,7 @@ def registrar_venda(
                 produto_id=produto.id,
                 usuario_id=current_user.id,
                 tipo=TipoMovimentacaoEstoque.VENDA,
-                quantidade=item_in.quantidade,
+                quantidade=qtd,
                 motivo="Venda no PDV"
             )
             db.add(mov)
@@ -261,13 +263,15 @@ def registrar_venda(
         itens_processados.append(
             ItemVenda(
                 produto_id=produto.id,
-                quantidade=item_in.quantidade,
-                valor_unitario=item_in.valor_unitario,
+                quantidade=qtd,
+                valor_unitario=v_unit,
                 subtotal=subtotal
             )
         )
 
-    valor_liquido = valor_bruto - dados.desconto + dados.acrescimo
+    v_desconto = Decimal(str(dados.desconto or 0)).quantize(Decimal("0.01"))
+    v_acrescimo = Decimal(str(dados.acrescimo or 0)).quantize(Decimal("0.01"))
+    valor_liquido = (valor_bruto - v_desconto + v_acrescimo).quantize(Decimal("0.01"))
     if valor_liquido < 0:
         raise HTTPException(status_code=400, detail="O valor total líquido não pode ser negativo.")
 
@@ -275,7 +279,7 @@ def registrar_venda(
     if not dados.pagamentos:
         raise HTTPException(status_code=400, detail="Informe ao menos uma forma de pagamento.")
 
-    total_pago = sum([p.valor for p in dados.pagamentos], Decimal("0.00"))
+    total_pago = sum([Decimal(str(p.valor)).quantize(Decimal("0.01")) for p in dados.pagamentos], Decimal("0.00"))
     if total_pago < valor_liquido:
         raise HTTPException(status_code=400, detail=f"Valor pago (R$ {total_pago}) é menor que o total da venda (R$ {valor_liquido}).")
 
@@ -289,22 +293,24 @@ def registrar_venda(
 
     pagamentos_processados = []
     for pg in dados.pagamentos:
+        v_pg = Decimal(str(pg.valor)).quantize(Decimal("0.01"))
+        v_troco = Decimal(str(pg.troco or 0)).quantize(Decimal("0.01"))
         if pg.forma_pagamento == FormaPagamento.A_PRAZO:
             if not cliente:
                 raise HTTPException(status_code=400, detail="Vendas a prazo necessitam de um cliente cadastrado selecionado.")
-            novo_saldo = cliente.saldo_devedor + pg.valor
+            novo_saldo = (cliente.saldo_devedor + v_pg).quantize(Decimal("0.01"))
             if cliente.limite_credito > 0 and novo_saldo > cliente.limite_credito:
                 raise HTTPException(
                     status_code=400, 
-                    detail=f"Limite de crédito excedido para {cliente.nome}. Limite: R$ {cliente.limite_credito}, Atual devedor: R$ {cliente.saldo_devedor}, Tentativa: R$ {pg.valor}."
+                    detail=f"Limite de crédito excedido para {cliente.nome}. Limite: R$ {cliente.limite_credito}, Atual devedor: R$ {cliente.saldo_devedor}, Tentativa: R$ {v_pg}."
                 )
             cliente.saldo_devedor = novo_saldo
 
         pagamentos_processados.append(
             PagamentoVenda(
                 forma_pagamento=pg.forma_pagamento,
-                valor=pg.valor,
-                troco=pg.troco
+                valor=v_pg,
+                troco=v_troco
             )
         )
 
@@ -314,18 +320,27 @@ def registrar_venda(
         caixa_id=caixa.id,
         cliente_id=cliente.id if cliente else None,
         usuario_id=current_user.id,
-        valor_bruto=valor_bruto,
-        desconto=dados.desconto,
-        acrescimo=dados.acrescimo,
+        valor_bruto=valor_bruto.quantize(Decimal("0.01")),
+        desconto=v_desconto,
+        acrescimo=v_acrescimo,
         valor_liquido=valor_liquido,
         status=StatusVenda.CONCLUIDA,
-        observacoes=dados.observacoes,
-        itens=itens_processados,
-        pagamentos=pagamentos_processados
+        observacoes=dados.observacoes
     )
 
     try:
         db.add(nova_venda)
+        db.flush()
+
+        for it in itens_processados:
+            it.venda_id = nova_venda.id
+            db.add(it)
+        db.flush()
+
+        for pg in pagamentos_processados:
+            pg.venda_id = nova_venda.id
+            db.add(pg)
+        db.flush()
 
         # 5. Se a venda finalizou Ordens de Serviço, atualiza seu status para ENTREGUE
         for os_id in ordens_servico_finalizar:

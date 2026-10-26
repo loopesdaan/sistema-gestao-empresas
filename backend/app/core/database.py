@@ -38,13 +38,16 @@ if db_url.startswith("sqlite"):
 else:
     try:
         # Tenta conectar ao banco relacional com pool otimizado para nuvem
+        # use_insertmanyvalues=False previne o erro (psycopg2.errors.DatatypeMismatch) no CockroachDB
+        # que ocorre em INSERTs multi-row com VALUES quando há variação entre tipos numéricos/decimais
         engine = create_engine(
             db_url,
             pool_pre_ping=True,
             pool_recycle=300,
             pool_size=10,
             max_overflow=20,
-            connect_args={"connect_timeout": 5}
+            connect_args={"connect_timeout": 5},
+            use_insertmanyvalues=False
         )
         with engine.connect() as conn:
             pass
