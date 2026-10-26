@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { useEmpresa, TEMAS_SEGMENTO, TemaSegmento, PALETAS_CORES } from '../contexts/EmpresaContext';
+import { useToast } from '../contexts/ToastContext';
 import { 
   Building2, CheckCircle2, ChevronRight, ChevronLeft, Wrench, 
   Car, Wine, HardHat, Shirt, Settings, ToggleLeft, ToggleRight, 
@@ -92,6 +93,7 @@ const MODULOS_DISPONIVEIS = [
 ];
 
 export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
+  const { toast } = useToast();
   const { 
     empresa, 
     setModulosAtivos, 
@@ -260,10 +262,11 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       setCorSelecionada(corLocal);
       setOnboardingConcluido(true);
       await carregarDadosEmpresa();
+      toast.sucesso('Configurações da empresa salvas com sucesso!');
       onComplete();
     } catch (err: any) {
       console.error('Erro ao salvar onboarding:', err);
-      alert(err.response?.data?.detail || 'Erro ao salvar personalização no servidor. Verifique os dados e tente novamente.');
+      toast.erro(err.response?.data?.detail || 'Erro ao salvar personalização no servidor. Verifique os dados e tente novamente.');
     } finally {
       setSalvando(false);
     }

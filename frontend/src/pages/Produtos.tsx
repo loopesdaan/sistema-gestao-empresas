@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../services/api';
 import { Produto } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
+import { useToast } from '../contexts/ToastContext';
 import { 
   Package, Search, Plus, FileSpreadsheet, AlertTriangle, 
   ArrowUpDown, Edit, Check, X, Upload, BarChart3, History,
@@ -45,6 +46,7 @@ interface MetricasEstoque {
 
 export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
   const { temaAtual } = useEmpresa();
+  const { toast } = useToast();
   const usuarioSalvo = localStorage.getItem('gestao_user') || sessionStorage.getItem('gestao_user');
   const usuarioLogado = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
   const podeMovimentarEstoque = isAdmin ?? (usuarioLogado?.perfil === 'ADMIN' || usuarioLogado?.perfil === 'ESTOQUISTA');
@@ -118,14 +120,16 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
     try {
       if (modalProduto.id) {
         await apiService.atualizarProduto(modalProduto.id, modalProduto);
+        toast.sucesso('Produto atualizado com sucesso!');
       } else {
         await apiService.criarProduto(modalProduto);
+        toast.sucesso('Produto cadastrado com sucesso!');
       }
       setModalProduto(null);
       carregarProdutos();
       if (abaAtiva === 'dashboard') carregarMetricasEstoque();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao salvar produto');
+      toast.erro(err.response?.data?.detail || 'Erro ao salvar produto');
     }
   };
 
@@ -140,11 +144,12 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
         quantidade: modalMov.qtd,
         motivo: modalMov.motivo
       });
+      toast.sucesso(`Movimentação de ${modalMov.tipo} registrada com sucesso!`);
       setModalMov(null);
       carregarProdutos();
       carregarMetricasEstoque();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao movimentar estoque');
+      toast.erro(err.response?.data?.detail || 'Erro ao movimentar estoque');
     }
   };
 
@@ -157,10 +162,11 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
     try {
       const res = await apiService.importarPlanilha(arquivoUpload);
       setResultadoUpload(res);
+      toast.sucesso(`Planilha importada com sucesso: ${res.sucessos || 0} produtos processados!`);
       carregarProdutos();
       carregarMetricasEstoque();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao importar planilha');
+      toast.erro(err.response?.data?.detail || 'Erro ao importar planilha');
     } finally {
       setUploading(false);
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiService, resolveImageUrl } from '../services/api';
 import { Empresa as EmpresaType } from '../types';
 import { useEmpresa, PALETAS_CORES } from '../contexts/EmpresaContext';
+import { useToast } from '../contexts/ToastContext';
 import { 
   Building, Phone, Mail, MapPin, Share2, Copy, 
   MessageCircle, ExternalLink, Edit, CheckCircle2, Save, X, Sparkles, RefreshCw, Palette, Camera, Upload
@@ -14,6 +15,7 @@ interface EmpresaProps {
 
 export const Empresa: React.FC<EmpresaProps> = ({ isAdmin = false, onOpenOnboarding }) => {
   const { corSelecionada, setCorSelecionada, setPerfilNegocio, carregarDadosEmpresa } = useEmpresa();
+  const { toast, confirmar } = useToast();
   const [empresa, setEmpresa] = useState<Partial<EmpresaType>>({});
   const [loading, setLoading] = useState(true);
   const [modoEdicao, setModoEdicao] = useState(false);
@@ -34,9 +36,10 @@ export const Empresa: React.FC<EmpresaProps> = ({ isAdmin = false, onOpenOnboard
         logo_url: res.url
       });
       setEmpresa(atualizado);
-      alert('Logotipo atualizado com sucesso!');
+      await carregarDadosEmpresa();
+      toast.sucesso('Logotipo atualizado com sucesso!');
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao enviar logotipo da empresa');
+      toast.erro(err.response?.data?.detail || 'Erro ao enviar logotipo da empresa');
     } finally {
       setUploadingLogo(false);
     }
@@ -94,28 +97,35 @@ export const Empresa: React.FC<EmpresaProps> = ({ isAdmin = false, onOpenOnboard
       }
       await carregarDadosEmpresa();
       setModoEdicao(false);
+      toast.sucesso('Dados da empresa salvos com sucesso!');
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao atualizar dados da empresa');
+      toast.erro(err.response?.data?.detail || 'Erro ao atualizar dados da empresa');
     } finally {
       setSalvando(false);
     }
   };
 
-  const handleAplicarPreset = async () => {
-    if (!window.confirm(`Deseja carregar o catálogo de produtos e clientes modelo para o segmento "${empresa.perfil_negocio || 'personalizado'}"? Isso preencherá itens coerentes com seu ramo.`)) {
-      return;
-    }
-    setAplicandoPreset(true);
-    try {
-      const res = await apiService.aplicarPresetSegmento(empresa.perfil_negocio || 'personalizado');
-      await carregarDadosEmpresa();
-      await carregarEmpresa();
-      alert(`Catálogo modelo aplicado com sucesso! ${res.produtos_cadastrados || 0} produtos e serviços e ${res.clientes_cadastrados || 0} clientes adicionados.`);
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao carregar dados modelo.');
-    } finally {
-      setAplicandoPreset(false);
-    }
+  const handleAplicarPreset = () => {
+    confirmar({
+      titulo: 'Carregar Catálogo Modelo',
+      mensagem: `Deseja carregar o catálogo de produtos e clientes modelo para o segmento "${empresa.perfil_negocio || 'personalizado'}"? Isso preencherá itens coerentes com seu ramo sem apagar clientes existentes.`,
+      tipo: 'aviso',
+      textoConfirmar: 'Sim, Carregar Catálogo',
+      textoCancelar: 'Cancelar',
+      onConfirmar: async () => {
+        setAplicandoPreset(true);
+        try {
+          const res = await apiService.aplicarPresetSegmento(empresa.perfil_negocio || 'personalizado');
+          await carregarDadosEmpresa();
+          await carregarEmpresa();
+          toast.sucesso(`Catálogo modelo aplicado com sucesso! ${res.produtos_cadastrados || 0} produtos e serviços e ${res.clientes_cadastrados || 0} clientes adicionados.`);
+        } catch (err: any) {
+          toast.erro(err.response?.data?.detail || 'Erro ao carregar dados modelo.');
+        } finally {
+          setAplicandoPreset(false);
+        }
+      }
+    });
   };
 
   const getTextoCompartilhamento = () => {

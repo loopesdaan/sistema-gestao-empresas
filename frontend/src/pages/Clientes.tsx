@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../services/api';
 import { Cliente } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
+import { useToast } from '../contexts/ToastContext';
 import { 
   Users, Search, Plus, Phone, Mail, MapPin, DollarSign, 
   AlertCircle, Edit, Car, Sparkles, CheckCircle2,
@@ -17,6 +18,7 @@ interface ModalQuitacaoState {
 
 export const Clientes: React.FC = () => {
   const { perfilNegocio, temaAtual } = useEmpresa();
+  const { toast, confirmar } = useToast();
   const ehAutomotivo = perfilNegocio === 'lava_rapido' || perfilNegocio === 'mecanica';
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -43,19 +45,26 @@ export const Clientes: React.FC = () => {
     }
   };
 
-  const handleExcluirCliente = async (id: number, nome: string) => {
-    if (!window.confirm(`Deseja realmente excluir o cliente "${nome}"?`)) return;
-
-    try {
-      const res = await apiService.excluirCliente(id);
-      alert(res.mensagem || 'Cliente excluído com sucesso.');
-      if (modalCliente?.id === id) {
-        setModalCliente(null);
+  const handleExcluirCliente = (id: number, nome: string) => {
+    confirmar({
+      titulo: 'Excluir Cliente',
+      mensagem: `Deseja realmente excluir o cliente "${nome}"? Esta operação é irreversível.`,
+      tipo: 'perigo',
+      textoConfirmar: 'Sim, Excluir',
+      textoCancelar: 'Cancelar',
+      onConfirmar: async () => {
+        try {
+          const res = await apiService.excluirCliente(id);
+          toast.sucesso(res.mensagem || 'Cliente excluído com sucesso.');
+          if (modalCliente?.id === id) {
+            setModalCliente(null);
+          }
+          carregarClientes();
+        } catch (err: any) {
+          toast.erro(err.response?.data?.detail || 'Erro ao excluir cliente.');
+        }
       }
-      carregarClientes();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao excluir cliente.');
-    }
+    });
   };
 
   useEffect(() => {
@@ -104,13 +113,15 @@ export const Clientes: React.FC = () => {
     try {
       if (modalCliente.id) {
         await apiService.atualizarCliente(modalCliente.id, modalCliente);
+        toast.sucesso('Dados do cliente atualizados com sucesso!');
       } else {
         await apiService.criarCliente(modalCliente);
+        toast.sucesso('Cliente cadastrado com sucesso!');
       }
       setModalCliente(null);
       carregarClientes();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao salvar cliente');
+      toast.erro(err.response?.data?.detail || 'Erro ao salvar cliente.');
     }
   };
 
@@ -120,45 +131,28 @@ export const Clientes: React.FC = () => {
 
     const valorPago = Number(modalQuitacao.valor);
     if (isNaN(valorPago) || valorPago <= 0) {
-      alert('Informe um valor válido para quitação.');
+      toast.aviso('Informe um valor válido para quitação.');
       return;
     }
 
     setSalvandoQuitacao(true);
     try {
-      const saldoAtual = Number(modalQuitacao.cliente.saldo_devedor || 0);
-      const novoSaldo = Math.max(0, saldoAtual - valorPago);
-
-      // 1. Atualiza o saldo devedor do cliente no banco
-      await apiService.atualizarCliente(modalQuitacao.cliente.id, {
-        saldo_devedor: novoSaldo
+      // 1. Quitação transacional atômica no backend (abate saldo e lança no caixa)
+      const res = await apiService.quitarDebitoCliente(modalQuitacao.cliente.id, {
+        valor: valorPago,
+        forma_pagamento: modalQuitacao.formaPagamento,
+        lancar_caixa: modalQuitacao.lancarCaixa
       });
 
-      // 2. Se marcado para lançar no caixa, registra a entrada financeira
-      if (modalQuitacao.lancarCaixa) {
-        try {
-          const caixaAtivo = await apiService.getCaixaAtual().catch(() => null);
-          if (caixaAtivo) {
-            await apiService.movimentarCaixa(
-              'SUPRIMENTO',
-              valorPago,
-              `Recebimento de Débito (${modalQuitacao.formaPagamento}) - Cliente: ${modalQuitacao.cliente.nome}`,
-              caixaAtivo.id
-            );
-          }
-        } catch (caixaErr) {
-          console.warn('Aviso ao lançar no caixa:', caixaErr);
-        }
-      }
-
-      setFeedbackQuitacao(`Recebimento de ${formatMoney(valorPago)} de ${modalQuitacao.cliente.nome} registrado com sucesso!`);
+      setFeedbackQuitacao(res.mensagem || `Recebimento de ${formatMoney(valorPago)} de ${modalQuitacao.cliente.nome} registrado com sucesso!`);
+      toast.sucesso(res.mensagem || 'Recebimento de débito concluído com sucesso!');
       setTimeout(() => {
         setFeedbackQuitacao(null);
         setModalQuitacao(null);
         carregarClientes();
-      }, 1400);
+      }, 1200);
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao registrar quitação do débito.');
+      toast.erro(err.response?.data?.detail || 'Erro ao registrar quitação do débito.');
     } finally {
       setSalvandoQuitacao(false);
     }
