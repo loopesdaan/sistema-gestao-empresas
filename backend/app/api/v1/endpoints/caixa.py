@@ -103,7 +103,14 @@ def obter_caixa_atual(
     ).order_by(Caixa.data_abertura.desc()).first()
 
     if not caixa:
-        # Fallback de resiliência: se o usuário tiver caixa aberto ativo no banco
+        # Fallback de resiliência: se houver outro caixa aberto ativo na mesma empresa (compartilhado na loja)
+        caixa = db.query(Caixa).filter(
+            Caixa.empresa_id == current_user.empresa_id,
+            Caixa.status == StatusCaixa.ABERTO
+        ).order_by(Caixa.data_abertura.desc()).first()
+
+    if not caixa:
+        # Fallback de resiliência: se o usuário tiver caixa aberto ativo no banco com tenant drift
         caixa = db.query(Caixa).filter(
             Caixa.usuario_id == current_user.id,
             Caixa.status == StatusCaixa.ABERTO

@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum, Boolean
+from sqlalchemy import Column, Integer, BigInteger, String, Text, DateTime, ForeignKey, Enum, Boolean
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -13,9 +13,9 @@ class StatusJornada(str, enum.Enum):
 class RegistroPonto(Base):
     __tablename__ = "registros_ponto"
 
-    id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
     data = Column(String(10), nullable=False, index=True)  # YYYY-MM-DD
     
     # 4 Batidas regulamentadas CLT
@@ -41,9 +41,9 @@ class RegistroPonto(Base):
 class ConfiguracaoPonto(Base):
     __tablename__ = "configuracoes_ponto"
 
-    id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=True)
     perfil = Column(String(50), nullable=True) # PerfilUsuario: ADMIN, OPERADOR_CAIXA, ESTOQUISTA
     
     horario_entrada = Column(String(5), default="09:00", nullable=False)

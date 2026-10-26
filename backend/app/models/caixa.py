@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -26,9 +26,9 @@ class TipoSolicitacaoCaixa(str, enum.Enum):
 class Caixa(Base):
     __tablename__ = "caixas"
 
-    id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
     data_abertura = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     data_fechamento = Column(DateTime, nullable=True)
     saldo_inicial = Column(Numeric(10, 2), default=0.00, nullable=False)
@@ -47,9 +47,9 @@ class Caixa(Base):
 class MovimentacaoCaixa(Base):
     __tablename__ = "movimentacoes_caixa"
 
-    id = Column(Integer, primary_key=True, index=True)
-    caixa_id = Column(Integer, ForeignKey("caixas.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    caixa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("caixas.id"), nullable=False)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
     tipo = Column(Enum(TipoMovimentacaoCaixa), nullable=False)
     valor = Column(Numeric(10, 2), nullable=False)
     motivo = Column(String(255), nullable=True)
@@ -60,10 +60,10 @@ class MovimentacaoCaixa(Base):
 class SolicitacaoCaixa(Base):
     __tablename__ = "solicitacoes_caixa"
 
-    id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
-    caixa_id = Column(Integer, ForeignKey("caixas.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
+    caixa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("caixas.id"), nullable=False)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
     tipo = Column(Enum(TipoSolicitacaoCaixa), nullable=False)
     valor_solicitado = Column(Numeric(10, 2), nullable=True)
     valor_aprovado = Column(Numeric(10, 2), nullable=True)
@@ -71,7 +71,7 @@ class SolicitacaoCaixa(Base):
     status = Column(Enum(StatusSolicitacaoCaixa), default=StatusSolicitacaoCaixa.PENDENTE, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     respondido_em = Column(DateTime, nullable=True)
-    respondido_por_id = Column(Integer, nullable=True)
+    respondido_por_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True)
 
     caixa = relationship("Caixa", back_populates="solicitacoes")
 
