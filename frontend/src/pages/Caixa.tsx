@@ -94,10 +94,16 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
       setCaixasFechados(fechados);
 
       if (c) {
-        const r = await apiService.getResumoCaixa(c.id).catch(() => null);
+        // Busca o resumo pelo endpoint dedicado atual (sem depender de ID) e com fallback por ID
+        let r = await apiService.getResumoCaixaAtual().catch(() => null);
+        if (!r && c.id) {
+          r = await apiService.getResumoCaixa(c.id).catch(() => null);
+        }
         setResumo(r);
         if (r) {
           setSaldoFechamentoInformado(Number(r.saldo_esperado_dinheiro) || 0);
+        } else {
+          setSaldoFechamentoInformado(Number(c.saldo_inicial) || 0);
         }
       } else {
         setResumo(null);
@@ -825,65 +831,81 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
           </div>
 
           {/* Resumo do Caixa Pessoal Aberto */}
-          {caixaAtual && resumo && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Card Principal: Dinheiro Físico no Caixa */}
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-sm flex flex-col justify-between">
-                <div>
-                  <span className="text-xs uppercase font-semibold text-slate-400 tracking-wider">
-                    Saldo Esperado em Dinheiro Físico
-                  </span>
-                  <h3 className="text-3xl font-extrabold mt-2 text-emerald-400">
-                    {formatMoney(resumo.saldo_esperado_dinheiro)}
+          {caixaAtual && (() => {
+            const resumoEfetivo: ResumoCaixa = resumo || {
+              caixa: caixaAtual,
+              saldo_inicial: Number(caixaAtual.saldo_inicial || 0),
+              saldo_esperado_dinheiro: Number(caixaAtual.saldo_inicial || 0),
+              total_suprimentos: 0,
+              total_sangrias: 0,
+              total_vendas_dinheiro: 0,
+              total_vendas_pix: 0,
+              total_vendas_cartao_credito: 0,
+              total_vendas_cartao_debito: 0,
+              total_vendas_a_prazo: 0,
+              quantidade_vendas: 0
+            };
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Card Principal: Dinheiro Físico no Caixa */}
+                <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-sm flex flex-col justify-between">
+                  <div>
+                    <span className="text-xs uppercase font-semibold text-slate-400 tracking-wider">
+                      Saldo Esperado em Dinheiro Físico
+                    </span>
+                    <h3 className="text-3xl font-extrabold mt-2 text-emerald-400">
+                      {formatMoney(resumoEfetivo.saldo_esperado_dinheiro)}
+                    </h3>
+                    <p className="text-xs text-slate-300 mt-2">
+                      Fundo de Troco: <span className="font-semibold text-white">{formatMoney(resumoEfetivo.saldo_inicial)}</span>
+                    </p>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-slate-400">Suprimentos:</span>
+                      <p className="font-semibold text-emerald-300">+{formatMoney(resumoEfetivo.total_suprimentos)}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Sangrias:</span>
+                      <p className="font-semibold text-rose-300">-{formatMoney(resumoEfetivo.total_sangrias)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quebra das Vendas por Método de Pagamento */}
+                <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                    Totalizadores por Forma de Pagamento
                   </h3>
-                  <p className="text-xs text-slate-300 mt-2">
-                    Fundo de Troco: <span className="font-semibold text-white">{formatMoney(resumo.saldo_inicial)}</span>
-                  </p>
-                </div>
 
-                <div className="mt-6 pt-4 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-slate-400">Suprimentos:</span>
-                    <p className="font-semibold text-emerald-300">+{formatMoney(resumo.total_suprimentos)}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Sangrias:</span>
-                    <p className="font-semibold text-rose-300">-{formatMoney(resumo.total_sangrias)}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quebra das Vendas por Método de Pagamento */}
-              <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-                  Totalizadores por Forma de Pagamento
-                </h3>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-xs text-slate-500 font-medium">Dinheiro</span>
-                    <p className="text-base font-bold text-slate-800 mt-0.5">{formatMoney(resumo.total_vendas_dinheiro)}</p>
-                  </div>
-                  <div className="p-3 bg-sky-50/50 rounded-xl border border-sky-100">
-                    <span className="text-xs text-sky-700 font-medium">PIX</span>
-                    <p className="text-base font-bold text-sky-900 mt-0.5">{formatMoney(resumo.total_vendas_pix)}</p>
-                  </div>
-                  <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-100">
-                    <span className="text-xs text-purple-700 font-medium">Cartão de Crédito</span>
-                    <p className="text-base font-bold text-purple-900 mt-0.5">{formatMoney(resumo.total_vendas_cartao_credito)}</p>
-                  </div>
-                  <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
-                    <span className="text-xs text-indigo-700 font-medium">Cartão de Débito</span>
-                    <p className="text-base font-bold text-indigo-900 mt-0.5">{formatMoney(resumo.total_vendas_cartao_debito)}</p>
-                  </div>
-                  <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-100">
-                    <span className="text-xs text-amber-700 font-medium">A Prazo (Crediário)</span>
-                    <p className="text-base font-bold text-amber-900 mt-0.5">{formatMoney(resumo.total_vendas_a_prazo)}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-xs text-slate-500 font-medium">Dinheiro</span>
+                      <p className="text-base font-bold text-slate-800 mt-0.5">{formatMoney(resumoEfetivo.total_vendas_dinheiro)}</p>
+                    </div>
+                    <div className="p-3 bg-sky-50/50 rounded-xl border border-sky-100">
+                      <span className="text-xs text-sky-700 font-medium">PIX</span>
+                      <p className="text-base font-bold text-sky-900 mt-0.5">{formatMoney(resumoEfetivo.total_vendas_pix)}</p>
+                    </div>
+                    <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-100">
+                      <span className="text-xs text-purple-700 font-medium">Cartão de Crédito</span>
+                      <p className="text-base font-bold text-purple-900 mt-0.5">{formatMoney(resumoEfetivo.total_vendas_cartao_credito)}</p>
+                    </div>
+                    <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                      <span className="text-xs text-indigo-700 font-medium">Cartão de Débito</span>
+                      <p className="text-base font-bold text-indigo-900 mt-0.5">{formatMoney(resumoEfetivo.total_vendas_cartao_debito)}</p>
+                    </div>
+                    <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-100">
+                      <span className="text-xs text-amber-700 font-medium">A Prazo (Crediário)</span>
+                      <p className="text-base font-bold text-amber-900 mt-0.5">{formatMoney(resumoEfetivo.total_vendas_a_prazo)}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </>
       )}
 
