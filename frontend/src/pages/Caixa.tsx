@@ -181,6 +181,11 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
 
   const handleMovimentacao = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) {
+      toast.aviso('Apenas Administradores podem registrar movimentações avulsas diretamente. Colaboradores devem solicitar via ticket.');
+      setModalMov(null);
+      return;
+    }
     if (!modalMov || valorMov <= 0) return;
     try {
       await apiService.movimentarCaixa(modalMov, valorMov, motivoMov, caixaAtual?.id);
@@ -747,27 +752,45 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                 </button>
               ) : (
                 <>
-                  <button
-                    onClick={() => setModalMov('SUPRIMENTO')}
-                    className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
-                  >
-                    <ArrowDownCircle size={16} />
-                    <span>+ Suprimento</span>
-                  </button>
-                  <button
-                    onClick={() => setModalMov('SANGRIA')}
-                    className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
-                  >
-                    <ArrowUpCircle size={16} />
-                    <span>- Sangria</span>
-                  </button>
-                  <button
-                    onClick={() => setModalTicket({ aberto: true, tipo: 'SUPRIMENTO', valor: 50, motivo: '' })}
-                    className="flex items-center gap-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
-                  >
-                    <Send size={15} />
-                    <span>Solicitar Ticket</span>
-                  </button>
+                  {isAdmin ? (
+                    <>
+                      <button
+                        onClick={() => setModalMov('SUPRIMENTO')}
+                        className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
+                        title="Registrar entrada imediata de dinheiro (Apenas Administrador)"
+                      >
+                        <ArrowDownCircle size={16} />
+                        <span>+ Suprimento</span>
+                      </button>
+                      <button
+                        onClick={() => setModalMov('SANGRIA')}
+                        className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
+                        title="Registrar retirada imediata de dinheiro (Apenas Administrador)"
+                      >
+                        <ArrowUpCircle size={16} />
+                        <span>- Sangria</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setModalTicket({ aberto: true, tipo: 'SUPRIMENTO', valor: 50, motivo: '' })}
+                        className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
+                        title="Solicitar reforço de troco para aprovação do Administrador"
+                      >
+                        <ArrowDownCircle size={16} />
+                        <span>Solicitar Entrada (+ Troco)</span>
+                      </button>
+                      <button
+                        onClick={() => setModalTicket({ aberto: true, tipo: 'SANGRIA', valor: 100, motivo: '' })}
+                        className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
+                        title="Solicitar sangria para aprovação do Administrador"
+                      >
+                        <ArrowUpCircle size={16} />
+                        <span>Solicitar Sangria (- Retirada)</span>
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={() => setModalFechamento(true)}
                     className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors"
@@ -968,8 +991,8 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
         </div>
       )}
 
-      {/* Modal Movimentação (Sangria / Suprimento) com Fechamento ao Clicar Fora */}
-      {modalMov && (
+      {/* Modal Movimentação Direta (Sangria / Suprimento) - Apenas Administrador */}
+      {modalMov && isAdmin && (
         <div 
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setModalMov(null)}
