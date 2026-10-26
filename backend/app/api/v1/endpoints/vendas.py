@@ -101,15 +101,35 @@ def obter_venda(
 
 def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_user: Usuario) -> Caixa:
     """
-    Busca o caixa aberto para registro de venda com resiliência contra tenant drift e IDs desatualizados.
-    Garante que se o usuário possuir um caixa aberto ativo, a venda seja registrada nele.
+    Busca o caixa aberto para registro de venda com resiliência contra tenant drift, IDs desatualizados
+    e arredondamentos de precisão float64 (IEEE 754) típicos de browsers em inteiros de 64 bits.
+    Garante que se a empresa ou o usuário possuir um caixa aberto ativo, a venda seja registrada nele.
     """
+    def _is_aberto(c: Optional[Caixa]) -> bool:
+        if not c or not c.status:
+            return False
+        return c.status == StatusCaixa.ABERTO or getattr(c.status, "value", str(c.status)) == "ABERTO"
+
     caixa = None
     if caixa_id:
         caixa = db.query(Caixa).filter(
             Caixa.id == caixa_id,
             Caixa.empresa_id == current_user.empresa_id
         ).first()
+
+        # Tolerância a float64 caso o ID do CockroachDB tenha sofrido perda de precisão no frontend
+        if not caixa:
+            candidatos = db.query(Caixa).filter(
+                Caixa.empresa_id == current_user.empresa_id,
+                Caixa.id >= caixa_id - 1000,
+                Caixa.id <= caixa_id + 1000
+            ).all()
+            if len(candidatos) == 1:
+                caixa = candidatos[0]
+            elif len(candidatos) > 1:
+                abertos = [c for c in candidatos if _is_aberto(c)]
+                if abertos:
+                    caixa = abertos[0]
 
         if not caixa:
             caixa = db.query(Caixa).filter(Caixa.id == caixa_id).first()
@@ -119,7 +139,7 @@ def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_use
                 db.refresh(caixa)
 
     # Se o caixa_id enviado não estiver aberto ou não existir, busca o caixa aberto atual do usuário
-    if not caixa or caixa.status != StatusCaixa.ABERTO:
+    if not _is_aberto(caixa):
         caixa = db.query(Caixa).filter(
             Caixa.empresa_id == current_user.empresa_id,
             Caixa.usuario_id == current_user.id,
@@ -127,14 +147,14 @@ def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_use
         ).order_by(Caixa.data_abertura.desc()).first()
 
     # Se ainda assim não encontrou, busca qualquer caixa aberto ativo da empresa
-    if not caixa or caixa.status != StatusCaixa.ABERTO:
+    if not _is_aberto(caixa):
         caixa = db.query(Caixa).filter(
             Caixa.empresa_id == current_user.empresa_id,
             Caixa.status == StatusCaixa.ABERTO
         ).order_by(Caixa.data_abertura.desc()).first()
 
     # Fallback amplo caso haja tenant drift no registro do caixa
-    if not caixa or caixa.status != StatusCaixa.ABERTO:
+    if not _is_aberto(caixa):
         caixa = db.query(Caixa).filter(
             Caixa.status == StatusCaixa.ABERTO
         ).order_by(Caixa.data_abertura.desc()).first()
@@ -143,7 +163,7 @@ def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_use
             db.commit()
             db.refresh(caixa)
 
-    if not caixa or caixa.status != StatusCaixa.ABERTO:
+    if not _is_aberto(caixa):
         raise HTTPException(
             status_code=400,
             detail="O caixa informado não está aberto ou não existe. Por favor, abra o caixa antes de realizar vendas."

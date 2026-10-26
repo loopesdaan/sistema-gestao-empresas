@@ -172,7 +172,7 @@ export const ChatbotIA: React.FC<ChatbotIAProps> = ({ onNavigateTab, onOpenTour 
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-40">
+    <div className="fixed bottom-6 left-6 lg:left-76 z-40">
       {/* Botão Flutuante Circular Minimalista */}
       {!aberto && (
         <button

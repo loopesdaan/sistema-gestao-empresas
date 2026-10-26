@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Numeric, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 class Produto(Base):
     __tablename__ = "produtos"
 
-    id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
     nome = Column(String(200), nullable=False, index=True)
     codigo_barras = Column(String(50), index=True, nullable=True)
     categoria = Column(String(100), nullable=True)

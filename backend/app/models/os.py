@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -15,10 +15,10 @@ class StatusOS(str, enum.Enum):
 class OrdemServico(Base):
     __tablename__ = "ordens_servico"
 
-    id = Column(Integer, primary_key=True, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=False)
-    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
+    cliente_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("clientes.id"), nullable=False)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
     
     titulo = Column(String(200), nullable=False)
     equipamento = Column(String(200), nullable=True)
@@ -34,7 +34,7 @@ class OrdemServico(Base):
     data_finalizacao = Column(DateTime, nullable=True)
     motivo_cancelamento = Column(Text, nullable=True)
     data_cancelamento = Column(DateTime, nullable=True)
-    usuario_cancelamento_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    usuario_cancelamento_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -47,9 +47,9 @@ class OrdemServico(Base):
 class ItemOS(Base):
     __tablename__ = "itens_os"
 
-    id = Column(Integer, primary_key=True, index=True)
-    os_id = Column(Integer, ForeignKey("ordens_servico.id"), nullable=False)
-    produto_id = Column(Integer, ForeignKey("produtos.id"), nullable=False)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
+    os_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("ordens_servico.id"), nullable=False)
+    produto_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("produtos.id"), nullable=False)
     quantidade = Column(Numeric(10, 2), default=1.00, nullable=False)
     valor_unitario = Column(Numeric(10, 2), nullable=False)
     subtotal = Column(Numeric(10, 2), nullable=False)
