@@ -321,9 +321,9 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
     if (!isoStr) return '--:--';
     try {
       if (typeof isoStr === 'string' && isoStr.length === 5 && isoStr.includes(':')) return isoStr;
-      return new Date(isoStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return new Date(isoStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
     } catch {
-      return '--:--';
+      return (isoStr && isoStr.slice(11, 16)) || '--:--';
     }
   };
 
