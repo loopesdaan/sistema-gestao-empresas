@@ -203,6 +203,10 @@ export const apiService = {
     const res = await api.get(`/caixa/resumo/${caixaId}`);
     return res.data;
   },
+  getResumoCaixaAtual: async (): Promise<ResumoCaixa | null> => {
+    const res = await api.get('/caixa/resumo-atual');
+    return res.data;
+  },
   fecharCaixa: async (caixaId: number, saldoFinalInformado: number, observacoes?: string): Promise<ResumoCaixa> => {
     const res = await api.post(`/caixa/fechar/${caixaId}`, { saldo_final_informado: saldoFinalInformado, observacoes });
     return res.data;

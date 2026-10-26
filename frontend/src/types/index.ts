@@ -107,6 +107,7 @@ export interface ResumoCaixa {
   total_sangrias: number;
   saldo_esperado_dinheiro: number;
   diferenca?: number;
+  quantidade_vendas?: number;
 }
 
 export type FormaPagamento = 'DINHEIRO' | 'PIX' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO' | 'A_PRAZO';

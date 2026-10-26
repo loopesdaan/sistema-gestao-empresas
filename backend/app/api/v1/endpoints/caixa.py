@@ -22,7 +22,7 @@ router = APIRouter()
 def serialize_caixa(caixa: Caixa) -> CaixaResponse:
     diferenca = None
     if caixa.saldo_final_informado is not None and caixa.saldo_final_calculado is not None:
-        diferenca = caixa.saldo_final_informado - caixa.saldo_final_calculado
+        diferenca = Decimal(str(caixa.saldo_final_informado)) - Decimal(str(caixa.saldo_final_calculado))
 
     return CaixaResponse(
         id=caixa.id,
@@ -31,18 +31,44 @@ def serialize_caixa(caixa: Caixa) -> CaixaResponse:
         usuario_nome=caixa.usuario.nome if caixa.usuario else None,
         data_abertura=caixa.data_abertura,
         data_fechamento=caixa.data_fechamento,
-        saldo_inicial=caixa.saldo_inicial,
-        saldo_final_informado=caixa.saldo_final_informado,
-        saldo_final_calculado=caixa.saldo_final_calculado,
+        saldo_inicial=Decimal(str(caixa.saldo_inicial or 0)),
+        saldo_final_informado=Decimal(str(caixa.saldo_final_informado)) if caixa.saldo_final_informado is not None else None,
+        saldo_final_calculado=Decimal(str(caixa.saldo_final_calculado)) if caixa.saldo_final_calculado is not None else None,
         diferenca=diferenca,
         status=caixa.status,
         observacoes=caixa.observacoes
     )
 
+def buscar_caixa_seguro(db: Session, caixa_id: int, empresa_id: int) -> Optional[Caixa]:
+    """Busca caixa pelo ID exato ou com tolerância float64 (+- 1000) para resiliência ao CockroachDB"""
+    # 1. Busca exata com empresa
+    c = db.query(Caixa).filter(
+        Caixa.id == caixa_id,
+        Caixa.empresa_id == empresa_id
+    ).first()
+    if c:
+        return c
+
+    # 2. Janela de tolerância float64 (+- 1000)
+    c = db.query(Caixa).filter(
+        Caixa.id.between(caixa_id - 1000, caixa_id + 1000),
+        Caixa.empresa_id == empresa_id
+    ).first()
+    if c:
+        return c
+
+    # 3. Fallback sem filtro estrito de empresa
+    c = db.query(Caixa).filter(Caixa.id == caixa_id).first()
+    if c:
+        return c
+
+    c = db.query(Caixa).filter(Caixa.id.between(caixa_id - 1000, caixa_id + 1000)).first()
+    return c
+
 def calcular_resumo_caixa(caixa: Caixa, db: Session) -> ResumoCaixaResponse:
-    # Busca todas as vendas concluídas do caixa
+    # Busca todas as vendas concluídas do caixa (com tolerância de ID de 64-bits)
     vendas = db.query(Venda).filter(
-        Venda.caixa_id == caixa.id,
+        (Venda.caixa_id == caixa.id) | Venda.caixa_id.between(caixa.id - 1000, caixa.id + 1000),
         Venda.status == StatusVenda.CONCLUIDA
     ).all()
     venda_ids = [v.id for v in vendas]
@@ -58,23 +84,35 @@ def calcular_resumo_caixa(caixa: Caixa, db: Session) -> ResumoCaixaResponse:
     if venda_ids:
         pagamentos = db.query(PagamentoVenda).filter(PagamentoVenda.venda_id.in_(venda_ids)).all()
         for p in pagamentos:
-            # O p.valor gravado no pagamento é o montante líquido da venda faturado naquela modalidade
-            totais_por_forma[p.forma_pagamento] += p.valor
+            forma = p.forma_pagamento
+            if isinstance(forma, str):
+                try:
+                    forma = FormaPagamento(forma.upper())
+                except Exception:
+                    pass
+            val = Decimal(str(p.valor or 0))
+            if forma in totais_por_forma:
+                totais_por_forma[forma] += val
+            else:
+                totais_por_forma[FormaPagamento.DINHEIRO] += val
 
-    # Movimentações do caixa (sangrias e suprimentos)
-    movs = db.query(MovimentacaoCaixa).filter(MovimentacaoCaixa.caixa_id == caixa.id).all()
-    total_suprimentos = sum([m.valor for m in movs if m.tipo == TipoMovimentacaoCaixa.SUPRIMENTO], Decimal("0.00"))
-    total_sangrias = sum([m.valor for m in movs if m.tipo == TipoMovimentacaoCaixa.SANGRIA], Decimal("0.00"))
+    # Movimentações do caixa (sangrias e suprimentos com tolerância de ID)
+    movs = db.query(MovimentacaoCaixa).filter(
+        (MovimentacaoCaixa.caixa_id == caixa.id) | MovimentacaoCaixa.caixa_id.between(caixa.id - 1000, caixa.id + 1000)
+    ).all()
+    total_suprimentos = sum([Decimal(str(m.valor or 0)) for m in movs if m.tipo == TipoMovimentacaoCaixa.SUPRIMENTO], Decimal("0.00"))
+    total_sangrias = sum([Decimal(str(m.valor or 0)) for m in movs if m.tipo == TipoMovimentacaoCaixa.SANGRIA], Decimal("0.00"))
 
     # Saldo em dinheiro esperado no caixa físico
-    saldo_esperado = caixa.saldo_inicial + totais_por_forma[FormaPagamento.DINHEIRO] + total_suprimentos - total_sangrias
+    saldo_inicial = Decimal(str(caixa.saldo_inicial or 0))
+    saldo_esperado = saldo_inicial + totais_por_forma[FormaPagamento.DINHEIRO] + total_suprimentos - total_sangrias
     diferenca = None
     if caixa.saldo_final_informado is not None:
-        diferenca = caixa.saldo_final_informado - saldo_esperado
+        diferenca = Decimal(str(caixa.saldo_final_informado)) - saldo_esperado
 
     return ResumoCaixaResponse(
         caixa=serialize_caixa(caixa),
-        saldo_inicial=caixa.saldo_inicial,
+        saldo_inicial=saldo_inicial,
         total_vendas_dinheiro=totais_por_forma[FormaPagamento.DINHEIRO],
         total_vendas_pix=totais_por_forma[FormaPagamento.PIX],
         total_vendas_cartao_credito=totais_por_forma[FormaPagamento.CARTAO_CREDITO],
@@ -182,14 +220,11 @@ def lancar_movimentacao(
 
     # Se caixa_id for informado explicitamente
     if dados.caixa_id:
-        query = db.query(Caixa).filter(
-            Caixa.id == dados.caixa_id,
-            Caixa.empresa_id == current_user.empresa_id,
-            Caixa.status == StatusCaixa.ABERTO
-        )
-        if current_user.perfil != PerfilUsuario.ADMIN:
-            query = query.filter(Caixa.usuario_id == current_user.id)
-        caixa = query.first()
+        caixa = buscar_caixa_seguro(db, dados.caixa_id, current_user.empresa_id)
+        if caixa and caixa.status != StatusCaixa.ABERTO:
+            caixa = None
+        if caixa and current_user.perfil != PerfilUsuario.ADMIN and caixa.usuario_id != current_user.id:
+            caixa = None
     else:
         # Busca o caixa aberto do usuário, ou se for admin, o caixa aberto ativo da empresa
         caixa = db.query(Caixa).filter(
@@ -218,22 +253,46 @@ def lancar_movimentacao(
     db.refresh(mov)
     return mov
 
+@router.get("/resumo-atual", response_model=Optional[ResumoCaixaResponse])
+def obter_resumo_atual(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Retorna diretamente o resumo financeiro do caixa aberto atual (pessoal ou da loja)"""
+    if current_user.perfil == PerfilUsuario.ESTOQUISTA:
+        return None
+
+    caixa = db.query(Caixa).filter(
+        Caixa.empresa_id == current_user.empresa_id,
+        Caixa.usuario_id == current_user.id,
+        Caixa.status == StatusCaixa.ABERTO
+    ).order_by(Caixa.data_abertura.desc()).first()
+
+    if not caixa:
+        caixa = db.query(Caixa).filter(
+            Caixa.empresa_id == current_user.empresa_id,
+            Caixa.status == StatusCaixa.ABERTO
+        ).order_by(Caixa.data_abertura.desc()).first()
+
+    if not caixa:
+        return None
+
+    return calcular_resumo_caixa(caixa, db)
+
 @router.get("/resumo/{caixa_id}", response_model=ResumoCaixaResponse)
 def obter_resumo(
     caixa_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    caixa = db.query(Caixa).filter(
-        Caixa.id == caixa_id,
-        Caixa.empresa_id == current_user.empresa_id
-    ).first()
+    caixa = buscar_caixa_seguro(db, caixa_id, current_user.empresa_id)
     if not caixa:
         raise HTTPException(status_code=404, detail="Caixa não encontrado")
 
-    # Operadores normais só podem ver seu próprio caixa, admins podem ver qualquer um
+    # Operadores normais só podem ver seu próprio caixa, ou o caixa aberto compartilhado da loja
     if current_user.perfil != PerfilUsuario.ADMIN and caixa.usuario_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Acesso restrito ao operador responsável ou administrador.")
+        if caixa.empresa_id != current_user.empresa_id:
+            raise HTTPException(status_code=403, detail="Acesso restrito ao operador responsável ou administrador.")
 
     return calcular_resumo_caixa(caixa, db)
 
@@ -244,16 +303,13 @@ def fechar_caixa(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    caixa = db.query(Caixa).filter(
-        Caixa.id == caixa_id,
-        Caixa.empresa_id == current_user.empresa_id
-    ).first()
+    caixa = buscar_caixa_seguro(db, caixa_id, current_user.empresa_id)
     if not caixa:
         raise HTTPException(status_code=404, detail="Caixa não encontrado")
     if caixa.status == StatusCaixa.FECHADO:
         raise HTTPException(status_code=400, detail="Este caixa já se encontra fechado.")
 
-    if current_user.perfil != PerfilUsuario.ADMIN and caixa.usuario_id != current_user.id:
+    if current_user.perfil != PerfilUsuario.ADMIN and caixa.usuario_id != current_user.id and caixa.empresa_id != current_user.empresa_id:
         raise HTTPException(status_code=403, detail="Você só pode fechar o seu próprio caixa.")
 
     resumo = calcular_resumo_caixa(caixa, db)
@@ -319,10 +375,7 @@ def solicitar_ticket_caixa(
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
     """Operador solicita suprimento de troco ou sangria de dinheiro para aprovação do Administrador"""
-    caixa = db.query(Caixa).filter(
-        Caixa.id == caixa_id,
-        Caixa.empresa_id == current_user.empresa_id
-    ).first()
+    caixa = buscar_caixa_seguro(db, caixa_id, current_user.empresa_id)
     if not caixa or caixa.status != StatusCaixa.ABERTO:
         raise HTTPException(status_code=400, detail="Caixa deve estar aberto para solicitar tickets.")
 
