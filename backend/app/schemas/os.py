@@ -66,6 +66,8 @@ class OSResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     itens: List[ItemOSResponse] = []
+    numero_sequencial: Optional[int] = None
+    codigo_identificador: Optional[str] = None
 
     class Config:
         from_attributes = True

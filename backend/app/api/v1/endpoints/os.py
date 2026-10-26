@@ -3,6 +3,7 @@ from typing import Any, List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.core.database import get_db
 from app.models.usuario import Usuario, PerfilUsuario
@@ -29,8 +30,18 @@ TRANSIÇÕES_VALIDAS = {
 }
 
 def formatar_os(os: OrdemServico) -> dict:
+    seq = getattr(os, "numero_sequencial", None)
+    if not seq:
+        if os.id > 1_000_000_000:
+            seq = (os.id % 10000) or 1
+        else:
+            seq = os.id
+    codigo = f"#OS-{seq:04d}" if seq < 10000 else f"#OS-{seq}"
+
     return {
         "id": os.id,
+        "numero_sequencial": seq,
+        "codigo_identificador": codigo,
         "empresa_id": os.empresa_id,
         "cliente_id": os.cliente_id,
         "cliente_nome": os.cliente.nome if os.cliente else "",
@@ -190,10 +201,16 @@ def criar_os(
 
     valor_total = dados.valor_servicos + valor_pecas
 
+    maior_num = db.query(func.max(OrdemServico.numero_sequencial)).filter(
+        OrdemServico.empresa_id == current_user.empresa_id
+    ).scalar() or 0
+    novo_numero_sequencial = maior_num + 1
+
     nova_os = OrdemServico(
         empresa_id=current_user.empresa_id,
         cliente_id=cliente.id,
         usuario_id=current_user.id,
+        numero_sequencial=novo_numero_sequencial,
         titulo=dados.titulo,
         equipamento=dados.equipamento,
         defeito_relatado=dados.defeito_relatado,

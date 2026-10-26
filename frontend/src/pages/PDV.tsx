@@ -6,6 +6,7 @@ import { useNotificacoes } from '../contexts/NotificationContext';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
+import { formatarNumeroVenda, formatarNumeroOS } from '../utils/formatters';
 import { 
   Search, Barcode, Trash2, Plus, Minus, CreditCard, 
   Banknote, QrCode, UserCheck, CheckCircle2, AlertCircle, 
@@ -162,7 +163,7 @@ export const PDV: React.FC = () => {
         produto: {
           id: 999000 + os.id,
           empresa_id: 1,
-          nome: `Serviço OS #${os.id}: ${os.titulo}`,
+          nome: `Serviço ${formatarNumeroOS(os)}: ${os.titulo}`,
           preco_venda: Number(os.valor_servicos),
           preco_custo: 0,
           estoque_atual: 999,
@@ -211,7 +212,7 @@ export const PDV: React.FC = () => {
     addNotificacao({
       tipo: 'sucesso',
       titulo: 'OS Importada',
-      mensagem: `Ordem de Serviço #${os.id} adicionada ao carrinho.`,
+      mensagem: `Ordem de Serviço ${formatarNumeroOS(os)} adicionada ao carrinho.`,
     });
   };
 
@@ -1122,7 +1123,7 @@ export const PDV: React.FC = () => {
             </div>
             <h3 className="text-xl font-bold text-slate-800">Venda Concluída!</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Venda #{sucessoVenda.id} gravada com sucesso no caixa.
+              Venda {formatarNumeroVenda(sucessoVenda)} gravada com sucesso no caixa.
             </p>
 
             <div className="my-5 p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-left text-xs space-y-1">
@@ -1214,7 +1215,7 @@ export const PDV: React.FC = () => {
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-mono font-bold text-xs text-slate-500">#{os.id}</span>
+                        <span className="font-mono font-bold text-xs text-slate-500">{formatarNumeroOS(os)}</span>
                         <span className="font-bold text-slate-800 text-xs">{os.titulo}</span>
                       </div>
                       <p className="text-[11px] text-slate-500">
