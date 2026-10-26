@@ -419,13 +419,21 @@ export const PDV: React.FC = () => {
       setErroCheckout('Nenhum caixa aberto encontrado para registrar a venda. Abra o caixa antes de continuar.');
       return;
     }
+
+    if (formaPagamento === 'A_PRAZO' && !clienteSelecionado) {
+      const msg = 'Selecione um cliente cadastrado para registrar a venda a prazo.';
+      setErroCheckout(msg);
+      toast.aviso(msg);
+      return;
+    }
+
     setFinalizando(true);
     setErroCheckout(null);
 
     try {
       const dadosVenda = {
         caixa_id: caixaAtivo.id,
-        cliente_id: clienteSelecionado?.id || null,
+        cliente_id: clienteSelecionado ? clienteSelecionado.id : null,
         desconto: Number(desconto) || 0,
         acrescimo: Number(acrescimo) || 0,
         os_id: osVinculadaId || undefined,
@@ -718,17 +726,17 @@ export const PDV: React.FC = () => {
           {/* Selecionar Cliente */}
           <div className="relative">
             <select
-              value={clienteSelecionado?.id || ''}
+              value={clienteSelecionado ? String(clienteSelecionado.id) : ''}
               onChange={(e) => {
-                const id = Number(e.target.value);
-                const found = clientes.find(c => c.id === id) || null;
+                const val = e.target.value;
+                const found = clientes.find(c => String(c.id) === String(val)) || null;
                 setClienteSelecionado(found);
               }}
               className="w-full pl-3 pr-8 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-sky-500 focus:outline-none"
             >
               <option value="">Consumidor Final (Sem cadastro)</option>
               {clientes.map(c => (
-                <option key={c.id} value={c.id}>
+                <option key={c.id} value={String(c.id)}>
                   {c.nome} {c.saldo_devedor > 0 ? `(Devedor: ${formatMoney(c.saldo_devedor)})` : ''}
                 </option>
               ))}
@@ -1020,17 +1028,17 @@ export const PDV: React.FC = () => {
                     Cliente Vinculado para Lançamento do Crediário:
                   </label>
                   <select
-                    value={clienteSelecionado?.id || ''}
+                    value={clienteSelecionado ? String(clienteSelecionado.id) : ''}
                     onChange={(e) => {
-                      const id = Number(e.target.value);
-                      const found = clientes.find(c => c.id === id) || null;
+                      const val = e.target.value;
+                      const found = clientes.find(c => String(c.id) === String(val)) || null;
                       setClienteSelecionado(found);
                     }}
                     className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none"
                   >
                     <option value="">Selecione o cliente cadastrado...</option>
                     {clientes.map(c => (
-                      <option key={c.id} value={c.id}>
+                      <option key={c.id} value={String(c.id)}>
                         {c.nome} {c.saldo_devedor > 0 ? `(Devedor: ${formatMoney(c.saldo_devedor)})` : ''}
                       </option>
                     ))}
