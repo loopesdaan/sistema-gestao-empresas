@@ -11,6 +11,19 @@ on:
       - dev
 
 jobs:
+  validate-origin:
+    name: Validar Origem do PR
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.base_ref == 'master'
+    steps:
+      - name: Validar se a origem é estritamente a branch dev
+        run: |
+          if [ "${{ github.head_ref }}" != "dev" ]; then
+            echo "::error::Política de Branches violada: A branch 'master' só pode receber Pull Requests vindos da branch 'dev'! Origem atual detectada: '${{ github.head_ref }}'."
+            exit 1
+          fi
+          echo "Origem autorizada com sucesso: O PR veio estritamente da branch 'dev'."
+
   backend-ci:
     name: Backend Lint & Build Check
     runs-on: ubuntu-latest
