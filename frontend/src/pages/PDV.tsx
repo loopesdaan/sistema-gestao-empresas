@@ -4,6 +4,7 @@ import { apiService } from '../services/api';
 import { Produto, Cliente, Caixa, FormaPagamento, StatusJornada, Venda } from '../types';
 import { useNotificacoes } from '../contexts/NotificationContext';
 import { useEmpresa } from '../contexts/EmpresaContext';
+import { useToast } from '../contexts/ToastContext';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { 
   Search, Barcode, Trash2, Plus, Minus, CreditCard, 
@@ -25,6 +26,7 @@ interface CartItem {
 
 export const PDV: React.FC = () => {
   const { addNotificacao } = useNotificacoes();
+  const { toast } = useToast();
 
   const [caixa, setCaixa] = useState<Caixa | null>(null);
   const [carregandoCaixa, setCarregandoCaixa] = useState(true);
@@ -218,15 +220,16 @@ export const PDV: React.FC = () => {
     try {
       const novoCaixa = await apiService.abrirCaixa(saldoInicialAbertura, 'Abertura rápida no PDV');
       setCaixa(novoCaixa);
+      toast.sucesso('Caixa aberto com sucesso no PDV!');
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao abrir caixa');
+      toast.erro(err.response?.data?.detail || 'Erro ao abrir caixa');
     }
   };
 
   const adicionarAoCarrinho = (produto: Produto) => {
     // Validação de estoque zerado
     if (produto.estoque_atual <= 0) {
-      alert(`Estoque esgotado para '${produto.nome}'. Não é possível adicionar ao carrinho.`);
+      toast.aviso(`Estoque esgotado para '${produto.nome}'. Não é possível adicionar ao carrinho.`);
       addNotificacao({
         tipo: 'erro',
         titulo: 'Estoque Insuficiente',
@@ -238,7 +241,7 @@ export const PDV: React.FC = () => {
     // Validação de quantidade já no carrinho
     const itemExistente = carrinho.find(item => item.produto.id === produto.id);
     if (itemExistente && (itemExistente.quantidade + 1) > produto.estoque_atual) {
-      alert(`Quantidade solicitada supera o estoque disponível (${produto.estoque_atual} disponível)`);
+      toast.aviso(`Quantidade solicitada supera o estoque disponível (${produto.estoque_atual} disponível)`);
       addNotificacao({
         tipo: 'erro',
         titulo: 'Estoque Insuficiente',
@@ -354,7 +357,7 @@ export const PDV: React.FC = () => {
       // Finaliza venda automaticamente
       handleFinalizarVenda();
     } catch (err: any) {
-      alert('Erro ao simular aprovação do PIX');
+      toast.erro('Erro ao simular aprovação do PIX');
     }
   };
 
@@ -392,7 +395,7 @@ export const PDV: React.FC = () => {
       });
       handleFinalizarVenda();
     } catch (err: any) {
-      alert('Erro ao simular aprovação na maquininha');
+      toast.erro('Erro ao simular aprovação na maquininha');
     }
   };
 

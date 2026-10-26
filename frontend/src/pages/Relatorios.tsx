@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../services/api';
 import { Venda, FormaPagamento, RelatorioOLAPResponse, Usuario } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
+import { useToast } from '../contexts/ToastContext';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { 
   BarChart3, Search, Ban, CheckCircle, Calendar, 
@@ -17,6 +18,7 @@ interface RelatoriosProps {
 
 export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuarioAtual }) => {
   const { empresa, temaAtual } = useEmpresa();
+  const { toast, confirmar } = useToast();
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
@@ -100,18 +102,26 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
     }
   }, [periodoOLAP, isAdmin]);
 
-  const handleCancelarVenda = async (id: number) => {
-    if (!window.confirm(`Deseja realmente cancelar a venda #${id}? Os itens retornarão automaticamente ao estoque.`)) return;
-
-    try {
-      await apiService.cancelarVenda(id, 'Cancelado pelo operador no painel de relatórios');
-      carregarVendas();
-      if (vendaDetalhe?.id === id) {
-        setVendaDetalhe(null);
+  const handleCancelarVenda = (id: number) => {
+    confirmar({
+      titulo: 'Cancelar Venda',
+      mensagem: `Deseja realmente cancelar a venda #${id}? Os itens retornarão automaticamente ao estoque.`,
+      tipo: 'perigo',
+      textoConfirmar: 'Sim, Cancelar Venda',
+      textoCancelar: 'Voltar',
+      onConfirmar: async () => {
+        try {
+          await apiService.cancelarVenda(id, 'Cancelado pelo operador no painel de relatórios');
+          toast.sucesso(`Venda #${id} cancelada com sucesso! Itens estornados ao estoque.`);
+          carregarVendas();
+          if (vendaDetalhe?.id === id) {
+            setVendaDetalhe(null);
+          }
+        } catch (err: any) {
+          toast.erro(err.response?.data?.detail || 'Erro ao cancelar venda');
+        }
       }
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao cancelar venda');
-    }
+    });
   };
 
   const formatMoney = (val: number = 0) => {

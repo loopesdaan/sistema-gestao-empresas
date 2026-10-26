@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../services/api';
 import { Caixa as CaixaType, ResumoCaixa, Venda } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
+import { useToast } from '../contexts/ToastContext';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { 
   Wallet, ArrowDownCircle, ArrowUpCircle, Lock, 
@@ -15,6 +16,7 @@ interface CaixaProps {
 
 export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
   const { temaAtual } = useEmpresa();
+  const { toast } = useToast();
   const [caixaAtual, setCaixaAtual] = useState<CaixaType | null>(null);
   const [resumo, setResumo] = useState<ResumoCaixa | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,7 +118,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
       const todas = await apiService.listarVendas();
       const vendasDesteCaixa = todas.filter((v: Venda) => v.caixa_id === caixaId);
       if (vendasDesteCaixa.length === 0) {
-        alert('Nenhuma venda registrada neste turno de caixa.');
+        toast.aviso('Nenhuma venda registrada neste turno de caixa.');
         return;
       }
       setComprovanteModal({
@@ -125,7 +127,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
         indice: 0
       });
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao carregar comprovantes do caixa.');
+      toast.erro(err.response?.data?.detail || 'Erro ao carregar comprovantes do caixa.');
     }
   };
 
@@ -138,21 +140,21 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
         valor: modalTicket.tipo === 'SANGRIA_CEGA' ? undefined : modalTicket.valor,
         justificativa: modalTicket.motivo
       });
-      alert('Solicitação enviada com sucesso para o Administrador!');
+      toast.sucesso('Solicitação enviada com sucesso para o Administrador!');
       setModalTicket(prev => ({ ...prev, aberto: false, motivo: '' }));
       carregarCaixa();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao solicitar ticket');
+      toast.erro(err.response?.data?.detail || 'Erro ao solicitar ticket');
     }
   };
 
   const handleResponderTicket = async (ticketId: number, aprovado: boolean, valorEfetivo?: number) => {
     try {
       await apiService.responderTicketCaixa(ticketId, aprovado, valorEfetivo);
-      alert(aprovado ? 'Solicitação autorizada e movimentação gerada!' : 'Solicitação rejeitada.');
+      toast.sucesso(aprovado ? 'Solicitação autorizada e movimentação gerada!' : 'Solicitação rejeitada.');
       carregarCaixa();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao responder ticket');
+      toast.erro(err.response?.data?.detail || 'Erro ao responder ticket');
     }
   };
 
@@ -161,7 +163,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
       const r = await apiService.getResumoCaixa(caixaId);
       setResumoInspecionado(r);
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao inspecionar caixa do funcionário');
+      toast.erro(err.response?.data?.detail || 'Erro ao inspecionar caixa do funcionário');
     }
   };
 
@@ -170,9 +172,10 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
     try {
       await apiService.abrirCaixa(saldoInicial);
       setModalAbertura(false);
+      toast.sucesso('Caixa aberto com sucesso!');
       carregarCaixa();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao abrir caixa');
+      toast.erro(err.response?.data?.detail || 'Erro ao abrir caixa');
     }
   };
 
@@ -181,12 +184,13 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
     if (!modalMov || valorMov <= 0) return;
     try {
       await apiService.movimentarCaixa(modalMov, valorMov, motivoMov, caixaAtual?.id);
+      toast.sucesso(`Movimentação de ${modalMov} registrada no caixa!`);
       setModalMov(null);
       setValorMov(0);
       setMotivoMov('');
       carregarCaixa();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao lançar movimentação');
+      toast.erro(err.response?.data?.detail || 'Erro ao lançar movimentação');
     }
   };
 
@@ -196,9 +200,10 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
     try {
       await apiService.fecharCaixa(caixaAtual.id, saldoFechamentoInformado);
       setModalFechamento(false);
+      toast.sucesso('Turno de caixa fechado com sucesso!');
       carregarCaixa();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao fechar caixa');
+      toast.erro(err.response?.data?.detail || 'Erro ao fechar caixa');
     }
   };
 
@@ -683,7 +688,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                                 if (!valStr) return;
                                 const val = parseFloat(valStr);
                                 if (isNaN(val) || val <= 0) {
-                                  alert('Valor inválido');
+                                  toast.aviso('Informe um valor numérico válido.');
                                   return;
                                 }
                                 handleResponderTicket(t.id, true, val);

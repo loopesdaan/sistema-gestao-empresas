@@ -157,6 +157,26 @@ export const apiService = {
     const res = await api.put(`/clientes/${id}`, cliente);
     return res.data;
   },
+  quitarDebitoCliente: async (
+    clienteId: number,
+    dados: { valor: number; forma_pagamento?: string; lancar_caixa?: boolean }
+  ): Promise<{
+    ok: boolean;
+    cliente_id: number;
+    cliente_nome: string;
+    valor_pago: number;
+    saldo_devedor_anterior: number;
+    novo_saldo_devedor: number;
+    lancado_caixa: boolean;
+    mensagem: string;
+  }> => {
+    const res = await api.post(`/clientes/${clienteId}/quitar-debito`, {
+      valor: dados.valor,
+      forma_pagamento: dados.forma_pagamento || 'DINHEIRO',
+      lancar_caixa: dados.lancar_caixa !== false
+    });
+    return res.data;
+  },
   excluirCliente: async (id: number): Promise<{ ok: boolean; tipo: string; mensagem: string }> => {
     const res = await api.delete(`/clientes/${id}`);
     return res.data;

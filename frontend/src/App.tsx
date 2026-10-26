@@ -21,6 +21,7 @@ import { Usuario, Caixa as CaixaType, StatusJornada } from './types';
 import { Clock } from 'lucide-react';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { EmpresaProvider, useEmpresa } from './contexts/EmpresaContext';
+import { ToastProvider } from './contexts/ToastContext';
 
 // Componente interno que usa os contextos
 const AppContent: React.FC = () => {
@@ -286,7 +287,9 @@ export const App: React.FC = () => {
   return (
     <NotificationProvider>
       <EmpresaProvider>
-        <AppContent />
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
       </EmpresaProvider>
     </NotificationProvider>
   );

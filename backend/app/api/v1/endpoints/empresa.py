@@ -110,18 +110,12 @@ def aplicar_preset_no_banco(empresa_id: int, perfil_negocio: str, db: Session):
                 p = Produto(empresa_id=empresa_id, **prod_data)
                 db.add(p)
 
-        # Preserva clientes vinculados a vendas existentes
-        clientes_com_vendas = {row[0] for row in db.query(Venda.cliente_id).distinct().all() if row[0]}
-        clientes_para_deletar = db.query(Cliente).filter(
-            Cliente.empresa_id == empresa_id,
-            ~Cliente.id.in_(clientes_com_vendas) if clientes_com_vendas else True
-        ).all()
-        for c in clientes_para_deletar:
-            db.delete(c)
-
+        # Preserva integralmente clientes existentes (com ou sem débito) e apenas adiciona os novos do segmento
+        nomes_existentes = {c[0].lower() for c in db.query(Cliente.nome).filter(Cliente.empresa_id == empresa_id).all() if c[0]}
         for cli_data in preset["clientes"]:
-            c = Cliente(empresa_id=empresa_id, **cli_data)
-            db.add(c)
+            if cli_data.get("nome", "").lower() not in nomes_existentes:
+                c = Cliente(empresa_id=empresa_id, **cli_data)
+                db.add(c)
 
         db.commit()
     except Exception as e:

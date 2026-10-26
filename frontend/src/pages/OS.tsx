@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { apiService } from '../services/api';
 import { OrdemServico, Cliente, Produto, StatusOS, FormaPagamento, Caixa, Venda, RelatorioCancelamentosOS } from '../types';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
+import { useToast } from '../contexts/ToastContext';
 import { 
   Wrench, Plus, Search, Clock, CheckCircle2, 
   AlertCircle, ChevronRight, User, Calendar, Edit, Package,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 
 export const OS: React.FC = () => {
+  const { toast } = useToast();
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<string>('TODOS');
@@ -111,9 +113,10 @@ export const OS: React.FC = () => {
       setDefeitoRelatado('');
       setValorServicos(0);
       setClienteId('');
+      toast.sucesso('Ordem de Serviço aberta com sucesso!');
       carregarDados();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao criar ordem de serviço');
+      toast.erro(err.response?.data?.detail || 'Erro ao criar ordem de serviço');
     }
   };
 
@@ -123,9 +126,10 @@ export const OS: React.FC = () => {
       if (modalDetalheOS && modalDetalheOS.id === osId) {
         setModalDetalheOS(osAtualizada);
       }
+      toast.sucesso(`Status da OS #${osId} atualizado com sucesso!`);
       carregarDados();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao atualizar status da OS');
+      toast.erro(err.response?.data?.detail || 'Erro ao atualizar status da OS');
     }
   };
 
@@ -139,7 +143,7 @@ export const OS: React.FC = () => {
     e.preventDefault();
     if (!modalCancelarOS) return;
     if (motivoCancelamento.trim().length < 5) {
-      alert('Por favor, informe uma justificativa com no mínimo 5 caracteres.');
+      toast.aviso('Por favor, informe uma justificativa com no mínimo 5 caracteres.');
       return;
     }
     setCancelandoOS(true);
@@ -148,11 +152,12 @@ export const OS: React.FC = () => {
       if (modalDetalheOS && modalDetalheOS.id === modalCancelarOS.id) {
         setModalDetalheOS(null);
       }
+      toast.sucesso(`Ordem de Serviço #${modalCancelarOS.id} cancelada com sucesso.`);
       setModalCancelarOS(null);
       setMotivoCancelamento('');
       carregarDados();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao cancelar ordem de serviço');
+      toast.erro(err.response?.data?.detail || 'Erro ao cancelar ordem de serviço');
     } finally {
       setCancelandoOS(false);
     }
@@ -192,7 +197,7 @@ export const OS: React.FC = () => {
 
   const handleAbrirCobrar = async (os: OrdemServico) => {
     if (os.status !== 'CONCLUIDA') {
-      alert(`Apenas ordens com status 'Concluída' podem ser faturadas. O status atual é '${statusColors[os.status]?.label || os.status}'. Conclua a ordem antes de cobrar.`);
+      toast.aviso(`Apenas ordens com status 'Concluída' podem ser faturadas. O status atual é '${statusColors[os.status]?.label || os.status}'. Conclua a ordem antes de cobrar.`);
       return;
     }
     setModalCobrarOS(os);
@@ -232,7 +237,7 @@ export const OS: React.FC = () => {
   const handleConfirmarFaturamento = async () => {
     if (!modalCobrarOS) return;
     if (!caixaAtual) {
-      alert('Você precisa abrir o caixa operacional antes de receber pagamentos!');
+      toast.aviso('Você precisa abrir o caixa operacional antes de receber pagamentos!');
       return;
     }
 

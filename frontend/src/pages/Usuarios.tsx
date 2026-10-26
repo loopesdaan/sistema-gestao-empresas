@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { Usuario, PerfilUsuario } from '../types';
+import { useToast } from '../contexts/ToastContext';
 import { UserCheck, Shield, Plus, Edit, Lock, CheckCircle2, AlertCircle, Camera, Upload, X, Trash2 } from 'lucide-react';
 
 export const Usuarios: React.FC = () => {
+  const { toast, confirmar } = useToast();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingFoto, setUploadingFoto] = useState(false);
@@ -29,19 +31,26 @@ export const Usuarios: React.FC = () => {
     }
   };
 
-  const handleExcluirUsuario = async (id: number, nome: string) => {
-    if (!window.confirm(`Deseja realmente excluir o colaborador "${nome}"?`)) return;
-
-    try {
-      const res = await apiService.excluirUsuario(id);
-      alert(res.mensagem || 'Usuário excluído com sucesso.');
-      if (modalUsuario?.id === id) {
-        setModalUsuario(null);
+  const handleExcluirUsuario = (id: number, nome: string) => {
+    confirmar({
+      titulo: 'Excluir Colaborador',
+      mensagem: `Deseja realmente excluir o colaborador "${nome}"?`,
+      tipo: 'perigo',
+      textoConfirmar: 'Sim, Excluir',
+      textoCancelar: 'Cancelar',
+      onConfirmar: async () => {
+        try {
+          const res = await apiService.excluirUsuario(id);
+          toast.sucesso(res.mensagem || 'Usuário excluído com sucesso.');
+          if (modalUsuario?.id === id) {
+            setModalUsuario(null);
+          }
+          carregarUsuarios();
+        } catch (err: any) {
+          toast.erro(err.response?.data?.detail || 'Erro ao excluir usuário.');
+        }
       }
-      carregarUsuarios();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao excluir usuário.');
-    }
+    });
   };
 
   useEffect(() => {
@@ -55,8 +64,9 @@ export const Usuarios: React.FC = () => {
     try {
       const res = await apiService.uploadImagem(file);
       setModalUsuario(prev => prev ? ({ ...prev, foto_url: res.url }) : null);
+      toast.sucesso('Foto carregada com sucesso!');
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao enviar foto do funcionário');
+      toast.erro(err.response?.data?.detail || 'Erro ao enviar foto do funcionário');
     } finally {
       setUploadingFoto(false);
     }
@@ -69,17 +79,19 @@ export const Usuarios: React.FC = () => {
     try {
       if (modalUsuario.id) {
         await apiService.atualizarUsuario(modalUsuario.id, modalUsuario);
+        toast.sucesso('Dados do colaborador atualizados com sucesso!');
       } else {
         if (!modalUsuario.password) {
-          alert('Informe uma senha inicial para o novo usuário.');
+          toast.aviso('Informe uma senha inicial para o novo usuário.');
           return;
         }
         await apiService.criarUsuario(modalUsuario);
+        toast.sucesso('Novo colaborador cadastrado com sucesso!');
       }
       setModalUsuario(null);
       carregarUsuarios();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao salvar usuário');
+      toast.erro(err.response?.data?.detail || 'Erro ao salvar usuário');
     }
   };
 
