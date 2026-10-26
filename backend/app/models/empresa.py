@@ -1,12 +1,12 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
+from sqlalchemy import Column, Integer, BigInteger, String, Text, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 class Empresa(Base):
     __tablename__ = "empresas"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
     razao_social = Column(String(200), nullable=False)
     nome_fantasia = Column(String(200), nullable=True)
     cnpj = Column(String(20), unique=True, index=True, nullable=True)
