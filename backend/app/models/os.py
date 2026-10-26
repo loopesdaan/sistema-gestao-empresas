@@ -19,6 +19,7 @@ class OrdemServico(Base):
     empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
     cliente_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("clientes.id"), nullable=False)
     usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
+    numero_sequencial = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True, index=True)
     
     titulo = Column(String(200), nullable=False)
     equipamento = Column(String(200), nullable=True)

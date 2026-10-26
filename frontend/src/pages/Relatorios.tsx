@@ -4,6 +4,7 @@ import { Venda, FormaPagamento, RelatorioOLAPResponse, Usuario } from '../types'
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
+import { formatarNumeroVenda, formatarNumeroOS, formatarNumeroCaixa } from '../utils/formatters';
 import { 
   BarChart3, Search, Ban, CheckCircle, Calendar, 
   ArrowRight, User, DollarSign, ShoppingCart, TrendingUp, 
@@ -246,7 +247,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
 
     const linhasTabela = vendasFiltradas.slice(0, 100).map(v => `
       <tr>
-        <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-weight: bold; color: #334155;">#${v.id}</td>
+        <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-weight: bold; color: #334155;">${formatarNumeroVenda(v)}</td>
         <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; color: #475569;">${new Date(v.created_at).toLocaleString('pt-BR')}</td>
         <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #0f172a;">${v.usuario_nome || `Operador #${v.usuario_id}`}</td>
         <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">${v.cliente_nome || 'Consumidor Final'}</td>
@@ -424,7 +425,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
       const pgtos = v.pagamentos.map(p => getFormaLabel(p.forma_pagamento)).join(' + ');
       const status = v.status === 'CONCLUIDA' ? 'Concluída' : 'Cancelada';
 
-      csv += `${v.id};${dataHora};${vendedor};${cliente};${Number(v.valor_bruto).toFixed(2).replace('.', ',')};${Number(v.desconto).toFixed(2).replace('.', ',')};${Number(v.valor_liquido).toFixed(2).replace('.', ',')};${pgtos};${status}\r\n`;
+      csv += `${formatarNumeroVenda(v)};${dataHora};${vendedor};${cliente};${Number(v.valor_bruto).toFixed(2).replace('.', ',')};${Number(v.desconto).toFixed(2).replace('.', ',')};${Number(v.valor_liquido).toFixed(2).replace('.', ',')};${pgtos};${status}\r\n`;
     });
 
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -1267,8 +1268,8 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                   ) : (
                     vendasFiltradas.map((v) => (
                       <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3 px-4 font-bold text-slate-900">
-                          #{v.id}
+                        <td className="py-3 px-4 font-bold text-slate-900 font-mono">
+                          {formatarNumeroVenda(v)}
                         </td>
                         <td className="py-3 px-4 text-slate-500">
                           {new Date(v.created_at).toLocaleString('pt-BR')}
@@ -1462,7 +1463,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-800 text-base leading-tight">
-                    Comprovante de Venda #{vendaDetalhe.id}
+                    Comprovante de Venda {formatarNumeroVenda(vendaDetalhe)}
                   </h3>
                   <p className="text-xs text-slate-400">
                     {new Date(vendaDetalhe.created_at).toLocaleString('pt-BR')}

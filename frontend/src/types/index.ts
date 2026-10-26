@@ -145,6 +145,8 @@ export interface Venda {
   created_at: string;
   itens: ItemVenda[];
   pagamentos: PagamentoVenda[];
+  numero_sequencial?: number;
+  codigo_identificador?: string;
 }
 
 export type StatusOS = 'ABERTA' | 'EM_ANDAMENTO' | 'AGUARDANDO_PECAS' | 'CONCLUIDA' | 'ENTREGUE' | 'CANCELADA';
@@ -182,6 +184,8 @@ export interface OrdemServico {
   usuario_cancelamento_nome?: string;
   created_at: string;
   itens: ItemOS[];
+  numero_sequencial?: number;
+  codigo_identificador?: string;
 }
 
 export interface RelatorioCancelamentosOS {

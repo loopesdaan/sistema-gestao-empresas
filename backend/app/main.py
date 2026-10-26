@@ -6,11 +6,11 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, func
 from app.core.config import settings
 from app.core.database import Base, engine, SessionLocal
 from app.core.security import get_password_hash
-from app.models import Empresa, Usuario, PerfilUsuario, Produto, Cliente
+from app.models import Empresa, Usuario, PerfilUsuario, Produto, Cliente, Venda, OrdemServico
 from app.api.v1.router import api_router
 
 logging.basicConfig(level=logging.INFO)
@@ -75,6 +75,15 @@ def migrar_colunas():
                     conn.execute(text("ALTER TABLE ordens_servico ADD COLUMN data_cancelamento TIMESTAMP"))
                 if "usuario_cancelamento_id" not in os_cols:
                     conn.execute(text("ALTER TABLE ordens_servico ADD COLUMN usuario_cancelamento_id INTEGER REFERENCES usuarios(id)"))
+                if "numero_sequencial" not in os_cols:
+                    conn.execute(text("ALTER TABLE ordens_servico ADD COLUMN numero_sequencial BIGINT"))
+                conn.commit()
+
+        if "vendas" in inspector.get_table_names():
+            venda_cols = [c["name"] for c in inspector.get_columns("vendas")]
+            with engine.connect() as conn:
+                if "numero_sequencial" not in venda_cols:
+                    conn.execute(text("ALTER TABLE vendas ADD COLUMN numero_sequencial BIGINT"))
                 conn.commit()
     except Exception as e:
         logger.warning(f"Aviso durante migração de colunas: {e}")
@@ -133,6 +142,39 @@ def inicializar_banco_dados():
                 u_admin.hashed_password = get_password_hash(senha)
                 db.add(u_admin)
         db.commit()
+
+        # Garante numeração sequencial humanizada para vendas e OS já registradas
+        try:
+            empresas = db.query(Empresa).all()
+            for emp in empresas:
+                vendas_sem_seq = db.query(Venda).filter(
+                    Venda.empresa_id == emp.id,
+                    Venda.numero_sequencial.is_(None)
+                ).order_by(Venda.created_at.asc(), Venda.id.asc()).all()
+                if vendas_sem_seq:
+                    maior_seq = db.query(func.max(Venda.numero_sequencial)).filter(
+                        Venda.empresa_id == emp.id
+                    ).scalar() or 0
+                    for v in vendas_sem_seq:
+                        maior_seq += 1
+                        v.numero_sequencial = maior_seq
+                    db.commit()
+
+                os_sem_seq = db.query(OrdemServico).filter(
+                    OrdemServico.empresa_id == emp.id,
+                    OrdemServico.numero_sequencial.is_(None)
+                ).order_by(OrdemServico.created_at.asc(), OrdemServico.id.asc()).all()
+                if os_sem_seq:
+                    maior_os = db.query(func.max(OrdemServico.numero_sequencial)).filter(
+                        OrdemServico.empresa_id == emp.id
+                    ).scalar() or 0
+                    for o in os_sem_seq:
+                        maior_os += 1
+                        o.numero_sequencial = maior_os
+                    db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.warning(f"Aviso ao inicializar numeração sequencial: {e}")
 
         # 2. Se for PRODUÇÃO, desativa contas de demonstração e encerra
         if is_prod:
