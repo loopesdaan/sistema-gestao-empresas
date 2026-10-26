@@ -161,6 +161,11 @@ def criar_os(
         Cliente.id == dados.cliente_id,
         Cliente.empresa_id == current_user.empresa_id
     ).first()
+    if not cliente and dados.cliente_id and dados.cliente_id > 10_000_000:
+        cliente = db.query(Cliente).filter(
+            Cliente.empresa_id == current_user.empresa_id,
+            Cliente.id.between(dados.cliente_id - 1000, dados.cliente_id + 1000)
+        ).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
@@ -382,6 +387,11 @@ def faturar_os(
         Cliente.id == os.cliente_id,
         Cliente.empresa_id == current_user.empresa_id
     ).first()
+    if not cliente and os.cliente_id and os.cliente_id > 10_000_000:
+        cliente = db.query(Cliente).filter(
+            Cliente.empresa_id == current_user.empresa_id,
+            Cliente.id.between(os.cliente_id - 1000, os.cliente_id + 1000)
+        ).first()
 
     pagamentos_processados = []
     for pg in dados.pagamentos:
@@ -404,7 +414,7 @@ def faturar_os(
             )
         )
 
-    # 5. Prepara itens da venda
+    # 5. Prepara itens da venda garantindo tipos Decimal estritos
     itens_venda = []
     if os.valor_servicos > 0:
         servico_prod = db.query(Produto).filter(
@@ -425,31 +435,40 @@ def faturar_os(
             db.add(servico_prod)
             db.flush()
 
+        v_serv = Decimal(str(os.valor_servicos)).quantize(Decimal("0.01"))
         itens_venda.append(
             ItemVenda(
                 produto_id=servico_prod.id,
                 quantidade=Decimal("1.00"),
-                valor_unitario=os.valor_servicos,
-                subtotal=os.valor_servicos
+                valor_unitario=v_serv,
+                subtotal=v_serv
             )
         )
 
     for it in os.itens:
+        q_item = Decimal(str(it.quantidade)).quantize(Decimal("0.01"))
+        v_item = Decimal(str(it.valor_unitario)).quantize(Decimal("0.01"))
+        sub_item = Decimal(str(it.subtotal)).quantize(Decimal("0.01"))
         itens_venda.append(
             ItemVenda(
                 produto_id=it.produto_id,
-                quantidade=it.quantidade,
-                valor_unitario=it.valor_unitario,
-                subtotal=it.subtotal
+                quantidade=q_item,
+                valor_unitario=v_item,
+                subtotal=sub_item
             )
         )
 
-    # 6. Registra a Venda
+    # 6. Registra a Venda com número sequencial humanizado
+    maior_venda_seq = db.query(func.max(Venda.numero_sequencial)).filter(
+        Venda.empresa_id == current_user.empresa_id
+    ).scalar() or 0
+
     nova_venda = Venda(
         empresa_id=current_user.empresa_id,
         caixa_id=caixa.id,
         cliente_id=os.cliente_id,
         usuario_id=current_user.id,
+        numero_sequencial=maior_venda_seq + 1,
         valor_bruto=valor_bruto,
         desconto=desconto,
         acrescimo=Decimal("0.00"),

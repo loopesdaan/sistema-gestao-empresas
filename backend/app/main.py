@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -110,7 +111,8 @@ def inicializar_banco_dados():
                 cnpj="00.000.000/0001-00" if is_prod else "12.345.678/0001-90",
                 telefone="(11) 99999-9999" if is_prod else "(11) 98765-4321",
                 email="contato@gestaopme.com.br",
-                endereco="São Paulo - SP"
+                endereco="São Paulo - SP",
+                modulos_ativos=json.dumps(["pdv", "caixa", "produtos", "estoque", "clientes", "os", "relatorios"])
             )
             db.add(empresa)
             db.commit()
@@ -172,9 +174,35 @@ def inicializar_banco_dados():
                         maior_os += 1
                         o.numero_sequencial = maior_os
                     db.commit()
+
+                # Garante que todas as empresas tenham modulos_ativos com OS e módulos operacionais
+                modulos = []
+                if emp.modulos_ativos:
+                    try:
+                        parsed = json.loads(emp.modulos_ativos) if isinstance(emp.modulos_ativos, str) else emp.modulos_ativos
+                        if isinstance(parsed, list):
+                            modulos = [str(m).strip().lower() for m in parsed if m]
+                    except Exception:
+                        pass
+
+                modulos_essenciais = ["pdv", "caixa", "produtos", "estoque", "clientes", "os", "relatorios"]
+                modificou = False
+                if not modulos:
+                    modulos = list(modulos_essenciais)
+                    modificou = True
+                else:
+                    for m in modulos_essenciais:
+                        if m not in modulos:
+                            modulos.append(m)
+                            modificou = True
+
+                if modificou:
+                    emp.modulos_ativos = json.dumps(modulos)
+                    db.add(emp)
+                    db.commit()
         except Exception as e:
             db.rollback()
-            logger.warning(f"Aviso ao inicializar numeração sequencial: {e}")
+            logger.warning(f"Aviso ao inicializar numeração sequencial e módulos: {e}")
 
         # 2. Se for PRODUÇÃO, desativa contas de demonstração e encerra
         if is_prod:

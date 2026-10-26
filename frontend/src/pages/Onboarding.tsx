@@ -34,7 +34,7 @@ const TIPOS_NEGOCIO = [
     icon: Car,
     corBadge: 'bg-cyan-100 text-cyan-800 border-cyan-300',
     descricao: 'Fila ágil de veículos, controle de lavadores, serviços rápidos e histórico por placa.',
-    presetModulos: ['pdv', 'caixa', 'os', 'clientes']
+    presetModulos: ['pdv', 'caixa', 'os', 'produtos', 'clientes', 'relatorios']
   },
   {
     id: 'adega',
@@ -45,7 +45,7 @@ const TIPOS_NEGOCIO = [
     icon: Wine,
     corBadge: 'bg-purple-100 text-purple-800 border-purple-300',
     descricao: 'PDV ultra veloz com leitor de código de barras, controle de fardos, bebidas e crediário.',
-    presetModulos: ['pdv', 'caixa', 'produtos', 'estoque', 'clientes', 'relatorios']
+    presetModulos: ['pdv', 'caixa', 'produtos', 'estoque', 'clientes', 'os', 'relatorios']
   },
   {
     id: 'material_construcao',
@@ -56,7 +56,7 @@ const TIPOS_NEGOCIO = [
     icon: HardHat,
     corBadge: 'bg-orange-100 text-orange-800 border-orange-300',
     descricao: 'Controle de estoque bruto, orçamentos para obras e controle de entregas.',
-    presetModulos: ['pdv', 'caixa', 'produtos', 'estoque', 'clientes', 'relatorios']
+    presetModulos: ['pdv', 'caixa', 'produtos', 'estoque', 'clientes', 'os', 'relatorios']
   },
   {
     id: 'loja_roupa',
@@ -67,7 +67,7 @@ const TIPOS_NEGOCIO = [
     icon: Shirt,
     corBadge: 'bg-pink-100 text-pink-800 border-pink-300',
     descricao: 'Catálogo de roupas, controle de crediário de clientes, trocas e promoções sazonais.',
-    presetModulos: ['pdv', 'caixa', 'produtos', 'clientes', 'relatorios']
+    presetModulos: ['pdv', 'caixa', 'produtos', 'clientes', 'os', 'relatorios']
   },
   {
     id: 'personalizado',
@@ -134,7 +134,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       return modulosAtivos;
     }
     const preset = TIPOS_NEGOCIO.find(t => t.id === (empresa.perfil_negocio || 'loja_roupa'));
-    return preset ? preset.presetModulos : ['pdv', 'caixa', 'produtos', 'clientes', 'relatorios'];
+    return preset ? preset.presetModulos : ['pdv', 'caixa', 'produtos', 'clientes', 'os', 'relatorios'];
   });
 
   // Passo 4: Usuários reais carregados da API

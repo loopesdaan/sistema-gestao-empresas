@@ -1,3 +1,4 @@
+import json
 from typing import Any, Optional
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException
@@ -144,6 +145,8 @@ def update_empresa(
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
     for field, value in empresa_in.model_dump(exclude_unset=True).items():
+        if field == "modulos_ativos" and isinstance(value, (list, dict)):
+            value = json.dumps(value)
         setattr(empresa, field, value)
 
     db.add(empresa)

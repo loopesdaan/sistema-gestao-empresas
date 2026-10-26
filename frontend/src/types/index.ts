@@ -24,7 +24,7 @@ export interface Empresa {
   logo_url?: string;
   // Campos adicionados no Sprint 2
   perfil_negocio?: string;
-  modulos_ativos?: string;
+  modulos_ativos?: string | string[];
   onboarding_concluido?: boolean;
 }
 
