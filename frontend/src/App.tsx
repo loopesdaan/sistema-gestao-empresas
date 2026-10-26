@@ -20,7 +20,7 @@ import { apiService } from './services/api';
 import { Usuario, Caixa as CaixaType, StatusJornada } from './types';
 import { Clock } from 'lucide-react';
 import { NotificationProvider } from './contexts/NotificationContext';
-import { EmpresaProvider } from './contexts/EmpresaContext';
+import { EmpresaProvider, useEmpresa } from './contexts/EmpresaContext';
 
 // Componente interno que usa os contextos
 const AppContent: React.FC = () => {
@@ -30,6 +30,7 @@ const AppContent: React.FC = () => {
   });
 
   const isAdmin = usuario?.perfil === 'ADMIN';
+  const { modulosAtivos } = useEmpresa();
 
   const [activeTab, setActiveTab] = useState(() => {
     const salvo = localStorage.getItem('gestao_user') || sessionStorage.getItem('gestao_user');
@@ -57,6 +58,14 @@ const AppContent: React.FC = () => {
       }).catch(() => {});
     }
   }, [usuario]);
+
+  // Garante que o usuário não fique preso em uma aba de módulo que foi desativado
+  useEffect(() => {
+    const abasBasicas = ['dashboard', 'ponto', 'notificacoes', 'usuarios', 'empresa'];
+    if (!abasBasicas.includes(activeTab) && !modulosAtivos.includes(activeTab)) {
+      setActiveTab(isAdmin ? 'dashboard' : 'pdv');
+    }
+  }, [modulosAtivos, activeTab, isAdmin]);
 
   // Checa status do ponto e do caixa periodicamente
   useEffect(() => {

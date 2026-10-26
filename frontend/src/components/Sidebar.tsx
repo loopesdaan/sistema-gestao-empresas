@@ -36,44 +36,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isEstoquista = userPerfil === 'ESTOQUISTA';
   const isOperador = userPerfil === 'OPERADOR_CAIXA';
 
-  // Mapeamento de itens do menu para chaves de módulo com termos do segmento
+  // Mapeamento de itens do menu para chaves de módulo com nomenclaturas padronizadas
   const allMenuItems = [
-    { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'relatorios', sempreAdmin: true },
-    { id: 'pdv', label: temaAtual.terminologia.pdv || 'PDV (Frente de Caixa)', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
+    { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'dashboard', sempreAdmin: true },
+    { id: 'pdv', label: 'Frente de Caixa (PDV)', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
     { id: 'caixa', label: 'Controle de Caixa', icon: Wallet, modulo: 'caixa' },
     { id: 'notificacoes', label: 'Notificações & Ações', icon: Bell, sempreVisivel: true, modulo: 'notificacoes' },
     { id: 'ponto', label: 'Ponto Eletrônico CLT', icon: Clock, sempreVisivel: true, modulo: 'ponto' },
-    { id: 'produtos', label: temaAtual.terminologia.itens || 'Produtos & Estoque', icon: Package, modulo: 'produtos' },
-    { id: 'clientes', label: temaAtual.terminologia.cliente || 'Clientes & Crédito', icon: Users, modulo: 'clientes' },
-    { id: 'os', label: temaAtual.terminologia.servicos || 'Ordens de Serviço', icon: Wrench, modulo: 'os' },
+    { id: 'produtos', label: 'Produtos & Estoque', icon: Package, modulo: 'produtos' },
+    { id: 'clientes', label: 'Clientes & Crediário', icon: Users, modulo: 'clientes' },
+    { id: 'os', label: 'Ordens de Serviço (OS)', icon: Wrench, modulo: 'os' },
     { id: 'relatorios', label: 'Relatórios de Vendas', icon: BarChart3, modulo: 'relatorios' },
     { id: 'usuarios', label: 'Equipe & Usuários', icon: Shield, adminOnly: true, modulo: 'usuarios' },
     { id: 'empresa', label: 'Dados da Empresa', icon: Settings, modulo: 'empresa' },
   ];
 
-  // Filtra por permissão de perfil (Gerente, Operador de Caixa, Controlador de Estoque)
+  // Filtra por permissão de perfil e respeita rigorosamente os módulos ativos da empresa
   const menuItems = allMenuItems.filter(item => {
-    // Ponto Eletrônico e Notificações sempre visíveis para todos os colaboradores
+    // 1. Recursos essenciais de conformidade e gestão interna
     if (item.id === 'ponto' || item.id === 'notificacoes') return true;
+    if (item.id === 'empresa') return true;
+    if (item.id === 'usuarios') return isAdmin;
+    if (item.id === 'dashboard') return isAdmin;
 
-    // Controlador de Estoque: trabalha exclusivamente com Estoque, Ponto, Notificações e Dados da Empresa
+    // 2. Módulos operacionais do negócio: DEVEM respeitar os módulos ativos na empresa!
+    // Se o módulo (ex: 'os') foi desativado, NINGUÉM visualiza (inclusive Administrador)
+    if (!modulosAtivos.includes(item.modulo)) {
+      return false;
+    }
+
+    // 3. Regras específicas de colaboradores:
+    // Controlador de Estoque: só opera o módulo de Produtos & Estoque
     if (isEstoquista) {
-      return item.id === 'produtos' || item.id === 'ponto' || item.id === 'notificacoes' || item.id === 'empresa';
+      return item.id === 'produtos';
     }
 
-    // Operador de Caixa: opera PDV, Caixa, OS, Clientes, Relatório das próprias vendas, Ponto, Notificações e Dados da Empresa
-    if (isOperador) {
-      if (item.id === 'dashboard' || item.id === 'usuarios') return false;
-      if (item.id === 'empresa' || item.id === 'relatorios') return true;
-      return modulosAtivos.includes(item.modulo);
-    }
-
-    // Gerente (Admin): acesso completo a todos os módulos do sistema
-    if (isAdmin) {
-      return true;
-    }
-
-    return modulosAtivos.includes(item.modulo);
+    // Operador de Caixa e Administrador: visualizam todos os módulos operacionais ativos
+    return true;
   });
 
   return (

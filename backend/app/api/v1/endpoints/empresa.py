@@ -90,19 +90,44 @@ def aplicar_preset_no_banco(empresa_id: int, perfil_negocio: str, db: Session):
     if not preset:
         return
 
-    # Substitui produtos pelos do ramo escolhido
-    db.query(Produto).filter(Produto.empresa_id == empresa_id).delete()
-    for prod_data in preset["produtos"]:
-        p = Produto(empresa_id=empresa_id, **prod_data)
-        db.add(p)
+    try:
+        from app.models.venda import ItemVenda, Venda
+        
+        # Preserva produtos vinculados a vendas existentes para não quebrar integridade referencial
+        itens_vinculados = db.query(ItemVenda.produto_id).distinct().all()
+        ids_em_vendas = {row[0] for row in itens_vinculados if row[0]}
+        
+        produtos_para_deletar = db.query(Produto).filter(
+            Produto.empresa_id == empresa_id,
+            ~Produto.id.in_(ids_em_vendas) if ids_em_vendas else True
+        ).all()
+        for p in produtos_para_deletar:
+            db.delete(p)
 
-    # Substitui clientes pelos do ramo escolhido
-    db.query(Cliente).filter(Cliente.empresa_id == empresa_id).delete()
-    for cli_data in preset["clientes"]:
-        c = Cliente(empresa_id=empresa_id, **cli_data)
-        db.add(c)
+        codigos_existentes = {p[0] for p in db.query(Produto.codigo_barras).filter(Produto.empresa_id == empresa_id).all() if p[0]}
+        for prod_data in preset["produtos"]:
+            if prod_data.get("codigo_barras") not in codigos_existentes:
+                p = Produto(empresa_id=empresa_id, **prod_data)
+                db.add(p)
 
-    db.commit()
+        # Preserva clientes vinculados a vendas existentes
+        clientes_com_vendas = {row[0] for row in db.query(Venda.cliente_id).distinct().all() if row[0]}
+        clientes_para_deletar = db.query(Cliente).filter(
+            Cliente.empresa_id == empresa_id,
+            ~Cliente.id.in_(clientes_com_vendas) if clientes_com_vendas else True
+        ).all()
+        for c in clientes_para_deletar:
+            db.delete(c)
+
+        for cli_data in preset["clientes"]:
+            c = Cliente(empresa_id=empresa_id, **cli_data)
+            db.add(c)
+
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        import logging
+        logging.getLogger(__name__).warning(f"Erro seguro ao aplicar preset de demonstração: {e}")
 
 @router.get("", response_model=EmpresaResponse)
 def get_empresa(
@@ -168,9 +193,13 @@ async def salvar_onboarding(
     db.commit()
     db.refresh(empresa)
 
-    # Se solicitado, aplica automaticamente os dados de demonstração coerentes com o segmento
-    if data.get("aplicar_dados_demo", True) and empresa.perfil_negocio in PRESETS_DEMO:
-        aplicar_preset_no_banco(empresa.id, empresa.perfil_negocio, db)
+    # Se solicitado explicitamente (por exemplo na primeira inicialização com opção marcada)
+    aplicar_demo = data.get("aplicar_dados_demo", False)
+    if aplicar_demo and empresa.perfil_negocio in PRESETS_DEMO:
+        qtd_produtos = db.query(Produto).filter(Produto.empresa_id == empresa.id).count()
+        # Se for primeira vez ou se foi expressamente autorizado
+        if qtd_produtos == 0 or data.get("forcar_substituicao_demo", False):
+            aplicar_preset_no_banco(empresa.id, empresa.perfil_negocio, db)
 
     return {"ok": True, "empresa": empresa}
 

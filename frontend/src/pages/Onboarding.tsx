@@ -77,27 +77,25 @@ const TIPOS_NEGOCIO = [
     icon: Settings,
     corBadge: 'bg-sky-100 text-sky-800 border-sky-300',
     descricao: 'Configuração flexível para qualquer tipo de negócio, ativando módulos sob medida.',
-    presetModulos: ['pdv', 'caixa', 'produtos', 'estoque', 'clientes', 'os', 'relatorios']
+    presetModulos: ['pdv', 'caixa', 'produtos', 'clientes', 'os', 'relatorios']
   },
 ];
 
-// Lista de Módulos do Sistema
+// Lista de Módulos Reais do Sistema (Totalmente alinhados com a navegação)
 const MODULOS_DISPONIVEIS = [
-  { id: 'pdv', label: 'PDV (Frente de Caixa)', desc: 'Vendas rápidas em dinheiro, PIX e maquininha' },
-  { id: 'caixa', label: 'Controle de Caixa', desc: 'Abertura, fechamento, sangrias e auditoria' },
-  { id: 'produtos', label: 'Produtos & Estoque', desc: 'Catálogo de itens, código de barras e alertas' },
-  { id: 'estoque', label: 'Ajuste Avançado de Estoque', desc: 'Movimentações detalhadas e importação Excel' },
-  { id: 'clientes', label: 'Clientes & Limite de Crédito', desc: 'Cadastro de clientes, limite e histórico' },
-  { id: 'os', label: 'Ordens de Serviço (OS)', desc: 'Abertura de atendimentos, peças e mecânicos' },
-  { id: 'relatorios', label: 'Relatórios & Métricas', desc: 'Faturamento, produtos campeões e lucratividade' },
-  { id: 'empresa', label: 'Dados da Empresa', desc: 'Configurações fiscais e compartilhamento' },
-  { id: 'usuarios', label: 'Equipe & Acessos', desc: 'Perfis de Admin, Caixa, Estoquista e Técnico' },
+  { id: 'pdv', label: 'Frente de Caixa (PDV)', desc: 'Vendas rápidas no balcão, dinheiro, PIX e cartões' },
+  { id: 'caixa', label: 'Controle de Caixa', desc: 'Abertura, fechamento, suprimentos, sangrias e conferência de gaveta' },
+  { id: 'produtos', label: 'Produtos & Estoque', desc: 'Catálogo de itens, preços, código de barras e estoque mínimo' },
+  { id: 'clientes', label: 'Clientes & Crediário', desc: 'Cadastro de clientes, limite de crédito e contas a receber' },
+  { id: 'os', label: 'Ordens de Serviço (OS)', desc: 'Abertura de atendimentos técnicos, serviços, peças e entrega' },
+  { id: 'relatorios', label: 'Relatórios de Vendas', desc: 'Histórico de vendas, produtos campeões e faturamento por período' },
 ];
 
 export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const { 
     empresa, 
     setModulosAtivos, 
+    modulosAtivos,
     setPerfilNegocio, 
     setOnboardingConcluido, 
     carregarDadosEmpresa,
@@ -105,7 +103,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     setCorSelecionada
   } = useEmpresa();
 
-  const [etapa, setEtapa] = useState<number>(1);
+  const isModoEdicao = !!empresa.onboarding_concluido;
+
+  // Se já concluiu o onboarding e está personalizando, abre direto no Passo 2 (Segmento & Estilo)
+  const [etapa, setEtapa] = useState<number>(isModoEdicao ? 2 : 1);
   const [salvando, setSalvando] = useState<boolean>(false);
 
   // Passo 1: Dados da Empresa
@@ -118,22 +119,51 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [buscandoCep, setBuscandoCep] = useState(false);
 
   // Passo 2: Estilo / Ramo & Cores
-  const [ramoSelecionado, setRamoSelecionado] = useState<string>(empresa.perfil_negocio || 'mecanica');
+  const [ramoSelecionado, setRamoSelecionado] = useState<string>(empresa.perfil_negocio || 'loja_roupa');
   const [corLocal, setCorLocal] = useState<string>(empresa.cor_primaria || corSelecionada || 'sky');
-  const [carregarDemo, setCarregarDemo] = useState<boolean>(true);
+  
+  // Em personalização, por padrão NÃO recarrega demo para nunca sobrescrever dados reais
+  const [carregarDemo, setCarregarDemo] = useState<boolean>(!isModoEdicao);
 
-  // Passo 3: Módulos
+  // Passo 3: Módulos (respeita estritamente o que já está salvo no banco/contexto)
   const [modulos, setModulos] = useState<string[]>(() => {
-    const preset = TIPOS_NEGOCIO.find(t => t.id === (empresa.perfil_negocio || 'mecanica'));
-    return preset ? preset.presetModulos : ['pdv', 'caixa', 'produtos', 'clientes'];
+    if (modulosAtivos && modulosAtivos.length > 0) {
+      return modulosAtivos;
+    }
+    const preset = TIPOS_NEGOCIO.find(t => t.id === (empresa.perfil_negocio || 'loja_roupa'));
+    return preset ? preset.presetModulos : ['pdv', 'caixa', 'produtos', 'clientes', 'relatorios'];
   });
 
-  // Passo 4: Usuários iniciais para conferência
-  const [usuariosLista, setUsuariosLista] = useState<Array<{ nome: string; email: string; perfil: string }>>([
-    { nome: 'Administrador Geral', email: 'admin@gestao.com', perfil: 'ADMIN' },
-    { nome: 'Operador de Caixa', email: 'caixa@gestao.com', perfil: 'OPERADOR_CAIXA' },
-    { nome: 'Estoquista Responsável', email: 'estoque@gestao.com', perfil: 'ESTOQUISTA' }
-  ]);
+  // Passo 4: Usuários reais carregados da API
+  const [usuariosLista, setUsuariosLista] = useState<Array<{ nome: string; email: string; perfil: string }>>([]);
+
+  useEffect(() => {
+    apiService.listarUsuarios().then((lista) => {
+      if (Array.isArray(lista) && lista.length > 0) {
+        setUsuariosLista(lista.map(u => ({ nome: u.nome, email: u.email, perfil: u.perfil })));
+      }
+    }).catch(() => {
+      setUsuariosLista([
+        { nome: 'Danilo Lopes', email: 'danilo.lopes@teste.com', perfil: 'ADMIN' },
+        { nome: 'Leticia Melo', email: 'leticia.melo@teste.com', perfil: 'ADMIN' }
+      ]);
+    });
+  }, []);
+
+  // Sincroniza dados da empresa caso terminem de carregar após a montagem do componente
+  useEffect(() => {
+    if (empresa.nome_fantasia) setNomeFantasia(empresa.nome_fantasia);
+    if (empresa.razao_social) setRazaoSocial(empresa.razao_social);
+    if (empresa.cnpj) setCnpj(empresa.cnpj);
+    if (empresa.telefone) setTelefone(empresa.telefone);
+    if (empresa.cep) setCep(empresa.cep);
+    if (empresa.endereco) setEndereco(empresa.endereco);
+    if (empresa.perfil_negocio) setRamoSelecionado(empresa.perfil_negocio);
+    if (empresa.cor_primaria) setCorLocal(empresa.cor_primaria);
+    if (modulosAtivos && modulosAtivos.length > 0) {
+      setModulos(modulosAtivos);
+    }
+  }, [empresa]);
 
   // Tema ativo atual em tempo real
   const temaAtivo: TemaSegmento = TEMAS_SEGMENTO[ramoSelecionado] || TEMAS_SEGMENTO.personalizado;
@@ -156,14 +186,22 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     }
   };
 
-  // Ao trocar de ramo, atualiza os módulos automaticamente pelo preset, cor sugerida e nome padrão
+  // Ao trocar de ramo: NUNCA destrói o nome fantasia já configurado pelo usuário
   const handleSelecionarRamo = (ramoId: string) => {
     setRamoSelecionado(ramoId);
     const preset = TIPOS_NEGOCIO.find(t => t.id === ramoId);
     if (preset) {
-      setModulos(preset.presetModulos);
-      setNomeFantasia(preset.nomeSugerido);
-      setRazaoSocial(preset.nomeSugerido + ' LTDA');
+      // Só sugere nome fantasia na primeira configuração e se o usuário ainda não tiver digitado nada
+      const nomeEhPadrao = !nomeFantasia || nomeFantasia === 'Minha Empresa' || TIPOS_NEGOCIO.some(t => t.nomeSugerido === nomeFantasia);
+      if (!isModoEdicao && nomeEhPadrao) {
+        setNomeFantasia(preset.nomeSugerido);
+        setRazaoSocial(preset.nomeSugerido + ' LTDA');
+      }
+
+      // Se for a primeira vez, sugere o preset de módulos; se já estiver em personalização, mantém os módulos customizados do usuário
+      if (!isModoEdicao) {
+        setModulos(preset.presetModulos);
+      }
     }
     const corSugerida: Record<string, string> = {
       mecanica: 'amber',
@@ -199,6 +237,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         cor_primaria: corLocal,
         perfil_negocio: ramoSelecionado,
         modulos_ativos: modulos,
+        aplicar_dados_demo: carregarDemo,
       });
 
       if (carregarDemo) {
@@ -238,12 +277,14 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
           </div>
           <div>
             <h1 className="text-base font-bold text-white flex items-center gap-2">
-              Assistente de Configuração do Sistema
+              {isModoEdicao ? 'Personalização do Sistema' : 'Assistente de Configuração Inicial'}
               <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-sky-400 font-semibold border border-slate-700">
-                Setup Rápido
+                {isModoEdicao ? 'Personalização' : 'Setup Rápido'}
               </span>
             </h1>
-            <p className="text-xs text-slate-400">Personalize a identidade visual, módulos e equipe da empresa</p>
+            <p className="text-xs text-slate-400">
+              {isModoEdicao ? 'Edite identidade, segmento e ative ou desative ferramentas livremente' : 'Personalize a identidade visual, módulos e equipe da empresa'}
+            </p>
           </div>
         </div>
 
@@ -452,6 +493,25 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   );
                 })}
               </div>
+
+              {isModoEdicao && (
+                <div className="flex flex-col sm:flex-row items-center justify-between p-3.5 bg-slate-950/80 border border-slate-800 rounded-2xl gap-2">
+                  <div className="text-xs text-slate-300">
+                    <span className="font-bold text-white block">Módulos Customizados Preservados</span>
+                    <span className="text-[11px] text-slate-400">Suas ferramentas ativas atuais ({modulos.length}) foram mantidas.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const preset = TIPOS_NEGOCIO.find(t => t.id === ramoSelecionado);
+                      if (preset) setModulos(preset.presetModulos);
+                    }}
+                    className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 font-bold rounded-xl text-xs transition-colors border border-slate-700 whitespace-nowrap"
+                  >
+                    Redefinir módulos para padrão deste ramo
+                  </button>
+                </div>
+              )}
 
               {/* Paleta de Cores para as Telas */}
               <div className="mt-5 p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-3">
@@ -716,14 +776,12 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                   />
                   <div>
                     <span className="font-bold text-white text-xs block">
-                      Carregar Catálogo e Clientes Modelo deste Segmento
+                      {isModoEdicao ? 'Adicionar itens de exemplo deste segmento' : 'Carregar Catálogo e Clientes Modelo deste Segmento'}
                     </span>
                     <span className="text-[11px] text-slate-400 block mt-0.5 leading-relaxed">
-                      {ramoSelecionado === 'lava_rapido'
-                        ? 'Popula com Ducha Completa, Polimento Cristalizado, Higienização e clientes com veículo e placa (ABC-1D23).'
-                        : ramoSelecionado === 'mecanica'
-                          ? 'Popula com Pastilha de Freio, Óleo 5W30, Troca de Correia e clientes com veículos na oficina.'
-                          : 'Popula com catálogo de produtos e clientes reais coerentes com o ramo escolhido.'}
+                      {isModoEdicao
+                        ? 'Deixe desmarcado para preservar exatamente seu catálogo e clientes já existentes.'
+                        : 'Popula com catálogo de produtos e clientes reais coerentes com o ramo escolhido.'}
                     </span>
                   </div>
                 </label>
