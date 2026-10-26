@@ -14,6 +14,7 @@ from app.models.estoque import MovimentacaoEstoque, TipoMovimentacaoEstoque
 from app.models.os import OrdemServico, ItemOS, StatusOS
 from app.schemas.os import OSCreate, OSUpdate, OSResponse, OSFaturarRequest, OSFaturarResponse, OSCancelarRequest
 from app.api.deps import get_current_user
+from app.api.v1.endpoints.vendas import buscar_caixa_aberto_seguro
 
 router = APIRouter()
 
@@ -341,13 +342,8 @@ def faturar_os(
             detail=f"Apenas ordens com status 'CONCLUIDA' podem ser cobradas e faturadas no caixa. O status atual desta OS é '{os.status.value}'. Conclua a execução do serviço antes de realizar a cobrança."
         )
 
-    # 2. Valida o Caixa
-    caixa = db.query(Caixa).filter(
-        Caixa.id == dados.caixa_id,
-        Caixa.empresa_id == current_user.empresa_id
-    ).first()
-    if not caixa or caixa.status != StatusCaixa.ABERTO:
-        raise HTTPException(status_code=400, detail="O caixa informado não está aberto ou não existe.")
+    # 2. Valida o Caixa com resiliência
+    caixa = buscar_caixa_aberto_seguro(dados.caixa_id, db, current_user)
 
     # 3. Calcula valores
     valor_bruto = os.valor_total

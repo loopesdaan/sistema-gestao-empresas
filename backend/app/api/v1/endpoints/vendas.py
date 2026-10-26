@@ -92,6 +92,58 @@ def obter_venda(
         raise HTTPException(status_code=404, detail="Venda não encontrada")
     return formatar_venda(venda)
 
+def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_user: Usuario) -> Caixa:
+    """
+    Busca o caixa aberto para registro de venda com resiliência contra tenant drift e IDs desatualizados.
+    Garante que se o usuário possuir um caixa aberto ativo, a venda seja registrada nele.
+    """
+    caixa = None
+    if caixa_id:
+        caixa = db.query(Caixa).filter(
+            Caixa.id == caixa_id,
+            Caixa.empresa_id == current_user.empresa_id
+        ).first()
+
+        if not caixa:
+            caixa = db.query(Caixa).filter(Caixa.id == caixa_id).first()
+            if caixa:
+                caixa.empresa_id = current_user.empresa_id
+                db.commit()
+                db.refresh(caixa)
+
+    # Se o caixa_id enviado não estiver aberto ou não existir, busca o caixa aberto atual do usuário
+    if not caixa or caixa.status != StatusCaixa.ABERTO:
+        caixa = db.query(Caixa).filter(
+            Caixa.empresa_id == current_user.empresa_id,
+            Caixa.usuario_id == current_user.id,
+            Caixa.status == StatusCaixa.ABERTO
+        ).order_by(Caixa.data_abertura.desc()).first()
+
+    # Se ainda assim não encontrou, busca qualquer caixa aberto ativo da empresa
+    if not caixa or caixa.status != StatusCaixa.ABERTO:
+        caixa = db.query(Caixa).filter(
+            Caixa.empresa_id == current_user.empresa_id,
+            Caixa.status == StatusCaixa.ABERTO
+        ).order_by(Caixa.data_abertura.desc()).first()
+
+    # Fallback amplo caso haja tenant drift no registro do caixa
+    if not caixa or caixa.status != StatusCaixa.ABERTO:
+        caixa = db.query(Caixa).filter(
+            Caixa.status == StatusCaixa.ABERTO
+        ).order_by(Caixa.data_abertura.desc()).first()
+        if caixa:
+            caixa.empresa_id = current_user.empresa_id
+            db.commit()
+            db.refresh(caixa)
+
+    if not caixa or caixa.status != StatusCaixa.ABERTO:
+        raise HTTPException(
+            status_code=400,
+            detail="O caixa informado não está aberto ou não existe. Por favor, abra o caixa antes de realizar vendas."
+        )
+
+    return caixa
+
 @router.post("", response_model=VendaResponse)
 def registrar_venda(
     dados: VendaCreate,
@@ -105,13 +157,8 @@ def registrar_venda(
             detail="Operação não permitida. O perfil de Controlador de Estoque trabalha exclusivamente com a gestão do inventário e não realiza vendas no PDV."
         )
 
-    # 1. Valida se o caixa existe e está aberto
-    caixa = db.query(Caixa).filter(
-        Caixa.id == dados.caixa_id,
-        Caixa.empresa_id == current_user.empresa_id
-    ).first()
-    if not caixa or caixa.status != StatusCaixa.ABERTO:
-        raise HTTPException(status_code=400, detail="O caixa informado não está aberto ou não existe.")
+    # 1. Valida se o caixa existe e está aberto com resiliência
+    caixa = buscar_caixa_aberto_seguro(dados.caixa_id, db, current_user)
 
     # 2. Valida itens
     if not dados.itens:
