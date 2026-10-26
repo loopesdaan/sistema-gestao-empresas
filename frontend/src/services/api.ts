@@ -241,6 +241,23 @@ export const apiService = {
     const res = await api.post(`/os/${osId}/faturar`, dados);
     return res.data;
   },
+  cancelarOS: async (osId: number, motivo: string): Promise<OrdemServico> => {
+    const res = await api.post(`/os/${osId}/cancelar`, { motivo });
+    return res.data;
+  },
+  obterRelatorioCancelamentosOS: async (dataInicio?: string, dataFim?: string): Promise<{
+    total_ordens_canceladas: number;
+    total_servicos_cancelados: number;
+    total_pecas_canceladas: number;
+    total_valor_cancelado: number;
+    ordens: OrdemServico[];
+  }> => {
+    const params: Record<string, any> = {};
+    if (dataInicio) params.data_inicio = dataInicio;
+    if (dataFim) params.data_fim = dataFim;
+    const res = await api.get('/os/relatorios/cancelamentos', { params });
+    return res.data;
+  },
 
   // Relatórios e Dashboard
   getDashboard: async (): Promise<DashboardMetrics> => {

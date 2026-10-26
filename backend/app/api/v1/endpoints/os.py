@@ -12,10 +12,20 @@ from app.models.caixa import Caixa, StatusCaixa
 from app.models.venda import Venda, ItemVenda, PagamentoVenda, StatusVenda, FormaPagamento
 from app.models.estoque import MovimentacaoEstoque, TipoMovimentacaoEstoque
 from app.models.os import OrdemServico, ItemOS, StatusOS
-from app.schemas.os import OSCreate, OSUpdate, OSResponse, OSFaturarRequest, OSFaturarResponse
+from app.schemas.os import OSCreate, OSUpdate, OSResponse, OSFaturarRequest, OSFaturarResponse, OSCancelarRequest
 from app.api.deps import get_current_user
 
 router = APIRouter()
+
+# Regras estritas de transição de status para Ordens de Serviço
+TRANSIÇÕES_VALIDAS = {
+    StatusOS.ABERTA: [StatusOS.EM_ANDAMENTO, StatusOS.AGUARDANDO_PECAS, StatusOS.CONCLUIDA, StatusOS.CANCELADA],
+    StatusOS.AGUARDANDO_PECAS: [StatusOS.EM_ANDAMENTO, StatusOS.CONCLUIDA, StatusOS.CANCELADA],
+    StatusOS.EM_ANDAMENTO: [StatusOS.AGUARDANDO_PECAS, StatusOS.CONCLUIDA, StatusOS.CANCELADA],
+    StatusOS.CONCLUIDA: [StatusOS.EM_ANDAMENTO, StatusOS.ENTREGUE, StatusOS.CANCELADA],
+    StatusOS.ENTREGUE: [],    # Estado final: faturada e entregue, não retrocede
+    StatusOS.CANCELADA: []    # Estado final: cancelada, não retrocede
+}
 
 def formatar_os(os: OrdemServico) -> dict:
     return {
@@ -36,6 +46,10 @@ def formatar_os(os: OrdemServico) -> dict:
         "valor_total": os.valor_total,
         "previsao_entrega": os.previsao_entrega,
         "data_finalizacao": os.data_finalizacao,
+        "motivo_cancelamento": os.motivo_cancelamento,
+        "data_cancelamento": os.data_cancelamento,
+        "usuario_cancelamento_id": os.usuario_cancelamento_id,
+        "usuario_cancelamento_nome": os.usuario_cancelamento.nome if getattr(os, "usuario_cancelamento", None) else "",
         "created_at": os.created_at,
         "updated_at": os.updated_at,
         "itens": [
@@ -65,6 +79,45 @@ def listar_os(
         query = query.filter(OrdemServico.cliente_id == cliente_id)
     ordens = query.order_by(OrdemServico.created_at.desc()).all()
     return [formatar_os(o) for o in ordens]
+
+@router.get("/relatorios/cancelamentos")
+def relatorio_cancelamentos_os(
+    data_inicio: Optional[str] = None,
+    data_fim: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Relatório gerencial de Ordens de Serviço canceladas com motivos para auditoria"""
+    query = db.query(OrdemServico).filter(
+        OrdemServico.empresa_id == current_user.empresa_id,
+        OrdemServico.status == StatusOS.CANCELADA
+    )
+    if data_inicio:
+        try:
+            dt_ini = datetime.fromisoformat(data_inicio)
+            query = query.filter(OrdemServico.data_cancelamento >= dt_ini)
+        except Exception:
+            pass
+    if data_fim:
+        try:
+            dt_fim = datetime.fromisoformat(data_fim)
+            query = query.filter(OrdemServico.data_cancelamento <= dt_fim)
+        except Exception:
+            pass
+
+    ordens_canceladas = query.order_by(OrdemServico.data_cancelamento.desc(), OrdemServico.id.desc()).all()
+
+    total_servicos = sum([o.valor_servicos for o in ordens_canceladas], Decimal("0.00"))
+    total_pecas = sum([o.valor_pecas for o in ordens_canceladas], Decimal("0.00"))
+    total_geral = sum([o.valor_total for o in ordens_canceladas], Decimal("0.00"))
+
+    return {
+        "total_ordens_canceladas": len(ordens_canceladas),
+        "total_servicos_cancelados": float(total_servicos),
+        "total_pecas_canceladas": float(total_pecas),
+        "total_valor_cancelado": float(total_geral),
+        "ordens": [formatar_os(o) for o in ordens_canceladas]
+    }
 
 @router.get("/{os_id}", response_model=OSResponse)
 def obter_os(
@@ -176,6 +229,26 @@ def atualizar_os(
 
     if "status" in update_dict and update_dict["status"]:
         novo_status = update_dict["status"]
+        if os.status == StatusOS.ENTREGUE:
+            raise HTTPException(
+                status_code=400,
+                detail="Esta ordem de serviço já foi faturada e entregue ao cliente. O status não pode mais ser alterado."
+            )
+        if os.status == StatusOS.CANCELADA:
+            raise HTTPException(
+                status_code=400,
+                detail="Esta ordem de serviço está cancelada e seu status não pode ser reaberto diretamente."
+            )
+        if novo_status != os.status and novo_status not in TRANSIÇÕES_VALIDAS.get(os.status, []):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Transição de status inválida: Não é permitido alterar de '{os.status.value}' para '{novo_status.value}'."
+            )
+        if novo_status == StatusOS.CANCELADA:
+            raise HTTPException(
+                status_code=400,
+                detail="Para cancelar a ordem de serviço, utilize a função Cancelar informando a justificativa obrigatória."
+            )
         if novo_status in [StatusOS.CONCLUIDA, StatusOS.ENTREGUE] and not os.data_finalizacao:
             os.data_finalizacao = datetime.now(timezone.utc)
         os.status = novo_status
@@ -260,6 +333,13 @@ def faturar_os(
         raise HTTPException(status_code=404, detail="Ordem de serviço não encontrada")
     if os.status == StatusOS.ENTREGUE:
         raise HTTPException(status_code=400, detail="Esta ordem de serviço já foi faturada e entregue.")
+    if os.status == StatusOS.CANCELADA:
+        raise HTTPException(status_code=400, detail="Não é possível faturar uma ordem de serviço cancelada.")
+    if os.status != StatusOS.CONCLUIDA:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Apenas ordens com status 'CONCLUIDA' podem ser cobradas e faturadas no caixa. O status atual desta OS é '{os.status.value}'. Conclua a execução do serviço antes de realizar a cobrança."
+        )
 
     # 2. Valida o Caixa
     caixa = db.query(Caixa).filter(
@@ -384,5 +464,83 @@ def faturar_os(
         "venda_id": nova_venda.id,
         "valor_pago": total_pago
     }
+
+@router.post("/{os_id}/cancelar", response_model=OSResponse)
+def cancelar_os(
+    os_id: int,
+    dados: OSCancelarRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Cancela uma Ordem de Serviço com justificativa obrigatória e estorna peças no estoque."""
+    if current_user.perfil == PerfilUsuario.ESTOQUISTA:
+        raise HTTPException(
+            status_code=403,
+            detail="Operação não permitida. O Controlador de Estoque não possui autorização para cancelar Ordens de Serviço."
+        )
+
+    os = db.query(OrdemServico).filter(
+        OrdemServico.id == os_id,
+        OrdemServico.empresa_id == current_user.empresa_id
+    ).first()
+    if not os:
+        raise HTTPException(status_code=404, detail="Ordem de serviço não encontrada")
+
+    if os.status == StatusOS.ENTREGUE:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta ordem de serviço já foi faturada e entregue ao cliente. Não é possível cancelá-la diretamente sem cancelamento da venda vinculada."
+        )
+    if os.status == StatusOS.CANCELADA:
+        raise HTTPException(status_code=400, detail="Esta ordem de serviço já se encontra cancelada.")
+
+    motivo = dados.motivo.strip() if dados.motivo else ""
+    if len(motivo) < 5:
+        raise HTTPException(
+            status_code=400,
+            detail="Informe uma justificativa detalhada para o cancelamento (mínimo de 5 caracteres)."
+        )
+
+    # Estorna as peças da OS para o estoque
+    for it in os.itens:
+        prod = db.query(Produto).filter(
+            Produto.id == it.produto_id,
+            Produto.empresa_id == current_user.empresa_id
+        ).first()
+        if prod:
+            prod.estoque_atual += it.quantidade
+            mov = MovimentacaoEstoque(
+                empresa_id=current_user.empresa_id,
+                produto_id=prod.id,
+                usuario_id=current_user.id,
+                tipo=TipoMovimentacaoEstoque.AJUSTE,
+                quantidade=it.quantidade,
+                motivo=f"Estorno por cancelamento da OS #{os.id}: {motivo}"
+            )
+            db.add(mov)
+
+    os.status = StatusOS.CANCELADA
+    os.motivo_cancelamento = motivo
+    os.data_cancelamento = datetime.now(timezone.utc)
+    os.usuario_cancelamento_id = current_user.id
+    os.updated_at = datetime.now(timezone.utc)
+
+    db.add(os)
+    db.commit()
+    db.refresh(os)
+
+    return formatar_os(os)
+
+@router.delete("/{os_id}")
+def excluir_os(
+    os_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Bloqueio explícito de exclusão de Ordens de Serviço por exigência fiscal e de auditoria."""
+    raise HTTPException(
+        status_code=400,
+        detail="Ordens de serviço não podem ser excluídas por exigência de auditoria contábil e controle de estoque. Para encerrar sem cobrança, utilize o botão Cancelar informando o motivo."
+    )
 
 

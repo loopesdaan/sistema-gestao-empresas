@@ -27,5 +27,5 @@ class Usuario(Base):
     empresa = relationship("Empresa", back_populates="usuarios")
     caixas = relationship("Caixa", back_populates="usuario")
     vendas = relationship("Venda", back_populates="usuario")
-    ordens_servico = relationship("OrdemServico", back_populates="usuario")
+    ordens_servico = relationship("OrdemServico", foreign_keys="[OrdemServico.usuario_id]", back_populates="usuario")
 

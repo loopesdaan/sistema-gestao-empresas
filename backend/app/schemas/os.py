@@ -59,12 +59,19 @@ class OSResponse(BaseModel):
     valor_total: Decimal
     previsao_entrega: Optional[datetime] = None
     data_finalizacao: Optional[datetime] = None
+    motivo_cancelamento: Optional[str] = None
+    data_cancelamento: Optional[datetime] = None
+    usuario_cancelamento_id: Optional[int] = None
+    usuario_cancelamento_nome: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     itens: List[ItemOSResponse] = []
 
     class Config:
         from_attributes = True
+
+class OSCancelarRequest(BaseModel):
+    motivo: str
 
 class OSPagamentoItem(BaseModel):
     forma_pagamento: FormaPagamento

@@ -135,8 +135,8 @@ export const PDV: React.FC = () => {
     setModalImportarOSAberto(true);
     try {
       const ordens = await apiService.listarOS();
-      const pendentes = ordens.filter(o => o.status !== 'ENTREGUE' && o.status !== 'CANCELADA');
-      setOrdensServicoPendentes(pendentes);
+      const concluidas = ordens.filter(o => o.status === 'CONCLUIDA');
+      setOrdensServicoPendentes(concluidas);
     } catch (e) {
       console.error('Erro ao buscar OS pendentes:', e);
     } finally {
@@ -1076,7 +1076,7 @@ export const PDV: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Wrench className="text-sky-600" size={20} />
-                <h3 className="font-bold text-slate-900 text-base">Ordens de Serviço em Aberto</h3>
+                <h3 className="font-bold text-slate-900 text-base">Ordens de Serviço Concluídas</h3>
               </div>
               <button
                 onClick={() => setModalImportarOSAberto(false)}
@@ -1087,15 +1087,18 @@ export const PDV: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-500">
-              Selecione o atendimento para carregar os serviços e peças diretamente no carrinho do PDV:
+              Apenas atendimentos técnicos <strong>Concluídos</strong> podem ser cobrados e faturados no caixa:
             </p>
 
             <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
               {carregandoOS ? (
                 <div className="text-center py-8 text-xs text-slate-400">Carregando ordens de serviço...</div>
               ) : ordensServicoPendentes.length === 0 ? (
-                <div className="text-center py-8 text-xs text-slate-400">
-                  Nenhuma ordem de serviço pendente de pagamento encontrada.
+                <div className="text-center py-8 text-xs text-slate-500 space-y-1.5 bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                  <p className="font-bold text-slate-700">Nenhuma OS concluída aguardando pagamento.</p>
+                  <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                    Ordens em andamento não podem ser cobradas. Conclua a execução técnica na tela de Ordens de Serviço antes de realizar o faturamento no PDV.
+                  </p>
                 </div>
               ) : (
                 ordensServicoPendentes.map((os) => (

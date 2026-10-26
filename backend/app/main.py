@@ -62,6 +62,17 @@ def migrar_colunas():
                 if "cor_veiculo" not in cliente_cols:
                     conn.execute(text("ALTER TABLE clientes ADD COLUMN cor_veiculo VARCHAR(50)"))
                 conn.commit()
+
+        if "ordens_servico" in inspector.get_table_names():
+            os_cols = [c["name"] for c in inspector.get_columns("ordens_servico")]
+            with engine.connect() as conn:
+                if "motivo_cancelamento" not in os_cols:
+                    conn.execute(text("ALTER TABLE ordens_servico ADD COLUMN motivo_cancelamento TEXT"))
+                if "data_cancelamento" not in os_cols:
+                    conn.execute(text("ALTER TABLE ordens_servico ADD COLUMN data_cancelamento TIMESTAMP"))
+                if "usuario_cancelamento_id" not in os_cols:
+                    conn.execute(text("ALTER TABLE ordens_servico ADD COLUMN usuario_cancelamento_id INTEGER REFERENCES usuarios(id)"))
+                conn.commit()
     except Exception as e:
         logger.warning(f"Aviso durante migração de colunas: {e}")
 

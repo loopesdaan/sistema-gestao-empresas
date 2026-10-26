@@ -176,8 +176,20 @@ export interface OrdemServico {
   valor_total: number;
   previsao_entrega?: string;
   data_finalizacao?: string;
+  motivo_cancelamento?: string;
+  data_cancelamento?: string;
+  usuario_cancelamento_id?: number;
+  usuario_cancelamento_nome?: string;
   created_at: string;
   itens: ItemOS[];
+}
+
+export interface RelatorioCancelamentosOS {
+  total_ordens_canceladas: number;
+  total_servicos_cancelados: number;
+  total_pecas_canceladas: number;
+  total_valor_cancelado: number;
+  ordens: OrdemServico[];
 }
 
 export interface DashboardMetrics {

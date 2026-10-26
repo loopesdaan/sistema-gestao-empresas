@@ -85,12 +85,14 @@ O sistema opera no modelo de confirmação e baixa manual, garantindo autonomia 
 
 ---
 
-## 7. Gestão de Ordens de Serviço (OS)
+## 7. Gestão de Ordens de Serviço (OS) & Regras de Atendimento
 
-- **Workflow Dinâmico:** *Aberta ➔ Em Andamento ➔ Aguardando Peças ➔ Concluída ➔ Entregue*.
-- **Controle de Insumos:** Peças associadas à OS são reservadas e baixadas do estoque físico.
-- **Mão de Obra e Serviços:** Discriminação de horas técnicas e valores de serviço.
-- **Cobrança Direta no Balcão:** Faturamento integrado ao caixa ativo, com suporte a todas as formas de pagamento (dinheiro, PIX, cartões ou fiado).
+- **Workflow Controlado de Estados:** *Aberta ➔ Em Execução / Aguardando Peças ➔ Concluída ➔ Faturada / Entregue*.
+- **Regra Rígida de Cobrança:** Ordens em andamento não podem ser cobradas. O faturamento e cobrança só são liberados quando a OS atinge o status **Concluída**.
+- **Baixa Automática ao Faturar:** Ao receber o pagamento no caixa (ou no PDV), o sistema atualiza o status para **Entregue** e congela o atendimento contra edições posteriores.
+- **Blindagem Contra Exclusão:** Ordens de serviço não podem ser excluídas, preservando a integridade contábil e o histórico dos veículos/clientes.
+- **Cancelamento com Justificativa Obrigatória:** Ordens não faturadas podem ser canceladas informando o motivo detalhado (mínimo de 5 caracteres), com estorno automático de peças de volta ao estoque.
+- **Relatório de Auditoria de Cancelamentos:** Painel dedicado e exportação em Excel com listagem de ordens canceladas, motivos registrados, colaboradores responsáveis e impacto financeiro não faturado.
 
 ---
 

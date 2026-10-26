@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { apiService } from '../services/api';
-import { OrdemServico, Cliente, Produto, StatusOS, FormaPagamento, Caixa, Venda } from '../types';
+import { OrdemServico, Cliente, Produto, StatusOS, FormaPagamento, Caixa, Venda, RelatorioCancelamentosOS } from '../types';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { 
   Wrench, Plus, Search, Clock, CheckCircle2, 
   AlertCircle, ChevronRight, User, Calendar, Edit, Package,
   CreditCard, Banknote, QrCode, UserCheck, Receipt, Printer,
-  Sparkles, RefreshCw, X, AlertTriangle, Check, Copy, Smartphone
+  Sparkles, RefreshCw, X, AlertTriangle, Check, Copy, Smartphone,
+  Ban, FileText, Download, FileSpreadsheet, History
 } from 'lucide-react';
 
 export const OS: React.FC = () => {
@@ -23,6 +24,16 @@ export const OS: React.FC = () => {
   // Modais
   const [modalNovaOS, setModalNovaOS] = useState(false);
   const [modalDetalheOS, setModalDetalheOS] = useState<OrdemServico | null>(null);
+
+  // Modal Cancelamento de OS
+  const [modalCancelarOS, setModalCancelarOS] = useState<OrdemServico | null>(null);
+  const [motivoCancelamento, setMotivoCancelamento] = useState('');
+  const [cancelandoOS, setCancelandoOS] = useState(false);
+
+  // Modal Relatório de Cancelamentos
+  const [modalRelatorioCancelamentosAberto, setModalRelatorioCancelamentosAberto] = useState(false);
+  const [relatorioCancelamentos, setRelatorioCancelamentos] = useState<RelatorioCancelamentosOS | null>(null);
+  const [carregandoRelatorio, setCarregandoRelatorio] = useState(false);
 
   // Modal Cobrança / Faturamento
   const [modalCobrarOS, setModalCobrarOS] = useState<OrdemServico | null>(null);
@@ -108,17 +119,82 @@ export const OS: React.FC = () => {
 
   const handleAtualizarStatus = async (osId: number, novoStatus: StatusOS) => {
     try {
-      await apiService.atualizarOS(osId, { status: novoStatus });
+      const osAtualizada = await apiService.atualizarOS(osId, { status: novoStatus });
       if (modalDetalheOS && modalDetalheOS.id === osId) {
-        setModalDetalheOS({ ...modalDetalheOS, status: novoStatus });
+        setModalDetalheOS(osAtualizada);
       }
       carregarDados();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Erro ao atualizar status');
+      alert(err.response?.data?.detail || 'Erro ao atualizar status da OS');
     }
   };
 
+  const handleAbrirCancelarOS = (os: OrdemServico, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setModalCancelarOS(os);
+    setMotivoCancelamento('');
+  };
+
+  const handleConfirmarCancelamento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalCancelarOS) return;
+    if (motivoCancelamento.trim().length < 5) {
+      alert('Por favor, informe uma justificativa com no mínimo 5 caracteres.');
+      return;
+    }
+    setCancelandoOS(true);
+    try {
+      await apiService.cancelarOS(modalCancelarOS.id, motivoCancelamento.trim());
+      if (modalDetalheOS && modalDetalheOS.id === modalCancelarOS.id) {
+        setModalDetalheOS(null);
+      }
+      setModalCancelarOS(null);
+      setMotivoCancelamento('');
+      carregarDados();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Erro ao cancelar ordem de serviço');
+    } finally {
+      setCancelandoOS(false);
+    }
+  };
+
+  const handleAbrirRelatorioCancelamentos = async () => {
+    setModalRelatorioCancelamentosAberto(true);
+    setCarregandoRelatorio(true);
+    try {
+      const dados = await apiService.obterRelatorioCancelamentosOS();
+      setRelatorioCancelamentos(dados);
+    } catch (err: any) {
+      console.error('Erro ao carregar relatório de cancelamentos:', err);
+    } finally {
+      setCarregandoRelatorio(false);
+    }
+  };
+
+  const exportarCSVRelatorioCancelamentos = () => {
+    if (!relatorioCancelamentos || !relatorioCancelamentos.ordens.length) return;
+    let csv = '\ufeff'; // UTF-8 BOM
+    csv += 'Número OS;Data Cancelamento;Cliente;Telefone;Veículo/Equipamento;Responsável Cancelamento;Motivo do Cancelamento;Mão de Obra (R$);Peças (R$);Total (R$)\n';
+    relatorioCancelamentos.ordens.forEach(o => {
+      const dataCanc = o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR') : '';
+      const motivo = (o.motivo_cancelamento || '').replace(/;/g, ',');
+      csv += `${o.id};"${dataCanc}";"${o.cliente_nome}";"${o.cliente_telefone || ''}";"${o.equipamento || ''}";"${o.usuario_cancelamento_nome || ''}";"${motivo}";${Number(o.valor_servicos).toFixed(2)};${Number(o.valor_pecas).toFixed(2)};${Number(o.valor_total).toFixed(2)}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `relatorio_cancelamentos_os_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleAbrirCobrar = async (os: OrdemServico) => {
+    if (os.status !== 'CONCLUIDA') {
+      alert(`Apenas ordens com status 'Concluída' podem ser faturadas. O status atual é '${statusColors[os.status]?.label || os.status}'. Conclua a ordem antes de cobrar.`);
+      return;
+    }
     setModalCobrarOS(os);
     setFormaPagamento('DINHEIRO');
     setDesconto(0);
@@ -237,18 +313,28 @@ export const OS: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => setModalNovaOS(true)}
-          className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors"
-        >
-          <Plus size={16} />
-          <span>Nova Ordem de Serviço</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleAbrirRelatorioCancelamentos}
+            className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3.5 py-2 rounded-xl text-xs font-bold shadow-2xs transition-colors"
+          >
+            <Ban size={15} />
+            <span>Relatório de Cancelamentos</span>
+          </button>
+
+          <button
+            onClick={() => setModalNovaOS(true)}
+            className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-colors"
+          >
+            <Plus size={16} />
+            <span>Nova Ordem de Serviço</span>
+          </button>
+        </div>
       </div>
 
       {/* Filtros por Status */}
       <div className="flex flex-wrap gap-2">
-        {['TODOS', 'ABERTA', 'EM_ANDAMENTO', 'AGUARDANDO_PECAS', 'CONCLUIDA', 'ENTREGUE'].map(st => (
+        {['TODOS', 'ABERTA', 'EM_ANDAMENTO', 'AGUARDANDO_PECAS', 'CONCLUIDA', 'ENTREGUE', 'CANCELADA'].map(st => (
           <button
             key={st}
             onClick={() => setFiltroStatus(st)}
@@ -272,7 +358,6 @@ export const OS: React.FC = () => {
         ) : (
           ordens.map((os) => {
             const st = statusColors[os.status] || { bg: 'bg-slate-50', text: 'text-slate-700', label: os.status };
-            const podeCobrar = os.status !== 'ENTREGUE' && os.status !== 'CANCELADA';
 
             return (
               <div
@@ -303,6 +388,11 @@ export const OS: React.FC = () => {
                         "{os.defeito_relatado}"
                       </p>
                     )}
+                    {os.status === 'CANCELADA' && os.motivo_cancelamento && (
+                      <p className="text-rose-700 text-[11px] bg-rose-50 border border-rose-100 p-2 rounded-lg mt-2">
+                        <strong>Motivo Cancelamento:</strong> {os.motivo_cancelamento}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -313,7 +403,7 @@ export const OS: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {podeCobrar && (
+                    {os.status === 'CONCLUIDA' && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -326,6 +416,52 @@ export const OS: React.FC = () => {
                         <span>Cobrar</span>
                       </button>
                     )}
+
+                    {os.status === 'EM_ANDAMENTO' && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAtualizarStatus(os.id, 'CONCLUIDA');
+                        }}
+                        className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 transition-all"
+                        title="Concluir serviço para liberar cobrança no caixa"
+                      >
+                        <CheckCircle2 size={13} />
+                        <span>Concluir</span>
+                      </button>
+                    )}
+
+                    {os.status === 'ABERTA' && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAtualizarStatus(os.id, 'EM_ANDAMENTO');
+                        }}
+                        className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 transition-all"
+                        title="Iniciar execução do serviço"
+                      >
+                        <Clock size={13} />
+                        <span>Iniciar</span>
+                      </button>
+                    )}
+
+                    {os.status === 'AGUARDANDO_PECAS' && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAtualizarStatus(os.id, 'EM_ANDAMENTO');
+                        }}
+                        className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 transition-all"
+                        title="Retomar execução do serviço"
+                      >
+                        <RefreshCw size={13} />
+                        <span>Retomar</span>
+                      </button>
+                    )}
+
                     <div className="flex items-center gap-0.5 text-xs font-semibold text-slate-500 hover:text-sky-600">
                       <span>Ver</span>
                       <ChevronRight size={14} />
@@ -464,32 +600,190 @@ export const OS: React.FC = () => {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="space-y-3.5 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl space-y-1">
                 <p><strong>Cliente:</strong> {modalDetalheOS.cliente_nome}</p>
                 <p><strong>Equipamento / Veículo:</strong> {modalDetalheOS.equipamento || 'Não especificado'}</p>
-                <p><strong>Status Atual:</strong> {statusColors[modalDetalheOS.status]?.label}</p>
               </div>
 
-              <div>
-                <span className="block font-semibold text-slate-700 mb-1">Atualizar Status do Atendimento:</span>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(['ABERTA', 'EM_ANDAMENTO', 'AGUARDANDO_PECAS', 'CONCLUIDA', 'ENTREGUE', 'CANCELADA'] as StatusOS[]).map(st => (
-                    <button
-                      key={st}
-                      type="button"
-                      onClick={() => handleAtualizarStatus(modalDetalheOS.id, st)}
-                      className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                        modalDetalheOS.status === st
-                          ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {statusColors[st]?.label}
-                    </button>
+              {/* Stepper Visual de Fases */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-bold">
+                  <span className="text-slate-500 uppercase tracking-wider">Etapa do Atendimento</span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${statusColors[modalDetalheOS.status]?.bg} ${statusColors[modalDetalheOS.status]?.text}`}>
+                    {statusColors[modalDetalheOS.status]?.label}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5 py-1">
+                  {[
+                    { st: 'ABERTA', label: '1. Aberta', active: true },
+                    { st: 'EM_ANDAMENTO', label: '2. Em Execução', active: ['EM_ANDAMENTO', 'AGUARDANDO_PECAS', 'CONCLUIDA', 'ENTREGUE'].includes(modalDetalheOS.status) },
+                    { st: 'CONCLUIDA', label: '3. Concluída', active: ['CONCLUIDA', 'ENTREGUE'].includes(modalDetalheOS.status) },
+                    { st: 'ENTREGUE', label: '4. Faturada', active: modalDetalheOS.status === 'ENTREGUE' }
+                  ].map((passo, idx) => (
+                    <div key={idx} className="flex flex-col items-center text-center">
+                      <div className={`h-1.5 w-full rounded-full transition-all ${
+                        modalDetalheOS.status === 'CANCELADA'
+                          ? 'bg-rose-200'
+                          : passo.active
+                            ? 'bg-emerald-500'
+                            : 'bg-slate-200'
+                      }`} />
+                      <span className={`text-[10px] mt-1 font-semibold ${
+                        passo.active ? 'text-slate-900 font-bold' : 'text-slate-400'
+                      }`}>
+                        {passo.label}
+                      </span>
+                    </div>
                   ))}
                 </div>
+
+                {modalDetalheOS.status === 'AGUARDANDO_PECAS' && (
+                  <div className="p-2 bg-purple-50 border border-purple-200 rounded-xl text-purple-700 text-xs flex items-center gap-1.5 font-medium">
+                    <Clock size={14} className="shrink-0" />
+                    <span>Atendimento pausado aguardando chegada de peças / insumos.</span>
+                  </div>
+                )}
+
+                {modalDetalheOS.status === 'EM_ANDAMENTO' && (
+                  <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-1.5 font-medium">
+                    <Clock size={14} className="shrink-0" />
+                    <span>Serviço em execução. Conclua o atendimento técnico para liberar a cobrança.</span>
+                  </div>
+                )}
+
+                {modalDetalheOS.status === 'ENTREGUE' && (
+                  <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-1.5 font-medium">
+                    <CheckCircle2 size={14} className="shrink-0" />
+                    <span>Ordem faturada e entregue ao cliente. Histórico bloqueado para edições.</span>
+                  </div>
+                )}
+
+                {modalDetalheOS.status === 'CANCELADA' && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                      <Ban size={15} className="shrink-0" />
+                      <span>Ordem de Serviço Cancelada</span>
+                    </div>
+                    <p><strong>Motivo:</strong> {modalDetalheOS.motivo_cancelamento || 'Não informado'}</p>
+                    {modalDetalheOS.data_cancelamento && (
+                      <p className="text-[11px] text-rose-600">
+                        Cancelada em {new Date(modalDetalheOS.data_cancelamento).toLocaleString('pt-BR')}
+                        {modalDetalheOS.usuario_cancelamento_nome ? ` por ${modalDetalheOS.usuario_cancelamento_nome}` : ''}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* Transições de Status Permitidas */}
+              {modalDetalheOS.status !== 'ENTREGUE' && modalDetalheOS.status !== 'CANCELADA' && (
+                <div className="space-y-2 pt-1">
+                  <span className="block font-semibold text-slate-700 text-xs">Avançar Etapa do Atendimento:</span>
+
+                  {modalDetalheOS.status === 'ABERTA' && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAtualizarStatus(modalDetalheOS.id, 'EM_ANDAMENTO')}
+                        className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <Clock size={15} />
+                        <span>Iniciar Atendimento (Em Execução)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAtualizarStatus(modalDetalheOS.id, 'AGUARDANDO_PECAS')}
+                        className="py-2.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200 flex items-center justify-center gap-1 transition-all"
+                      >
+                        <Package size={15} />
+                        <span>Aguardar Peças</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {modalDetalheOS.status === 'AGUARDANDO_PECAS' && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAtualizarStatus(modalDetalheOS.id, 'EM_ANDAMENTO')}
+                        className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>Retomar Atendimento (Em Execução)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAtualizarStatus(modalDetalheOS.id, 'CONCLUIDA')}
+                        className="py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-200 flex items-center justify-center gap-1 transition-all"
+                      >
+                        <Check size={15} />
+                        <span>Concluir Diretamente</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {modalDetalheOS.status === 'EM_ANDAMENTO' && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAtualizarStatus(modalDetalheOS.id, 'CONCLUIDA')}
+                        className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>Concluir Atendimento (Pronto para Cobrança)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAtualizarStatus(modalDetalheOS.id, 'AGUARDANDO_PECAS')}
+                        className="py-2.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200 flex items-center justify-center gap-1 transition-all"
+                      >
+                        <Package size={15} />
+                        <span>Aguardar Peças</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {modalDetalheOS.status === 'CONCLUIDA' && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const os = modalDetalheOS;
+                          setModalDetalheOS(null);
+                          handleAbrirCobrar(os);
+                        }}
+                        className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
+                      >
+                        <CreditCard size={18} />
+                        <span>Cobrar e Faturar OS ({formatMoney(modalDetalheOS.valor_total)})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleAtualizarStatus(modalDetalheOS.id, 'EM_ANDAMENTO')}
+                        className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Clock size={14} />
+                        <span>Reabrir Atendimento Técnico (Ajustes)</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Botão de Cancelamento com Justificativa */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleAbrirCancelarOS(modalDetalheOS)}
+                      className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs rounded-xl border border-rose-200 flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Ban size={14} />
+                      <span>Cancelar Ordem de Serviço...</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="p-3 bg-slate-50 rounded-xl space-y-1 border border-slate-100">
                 <div className="flex justify-between">
@@ -507,27 +801,211 @@ export const OS: React.FC = () => {
               </div>
             </div>
 
-            {modalDetalheOS.status !== 'ENTREGUE' && modalDetalheOS.status !== 'CANCELADA' && (
-              <button
-                type="button"
-                onClick={() => {
-                  const os = modalDetalheOS;
-                  setModalDetalheOS(null);
-                  handleAbrirCobrar(os);
-                }}
-                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
-              >
-                <CreditCard size={18} />
-                <span>Cobrar e Finalizar OS ({formatMoney(modalDetalheOS.valor_total)})</span>
-              </button>
-            )}
-
             <button
               onClick={() => setModalDetalheOS(null)}
               className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
             >
               Fechar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Cancelamento de OS */}
+      {modalCancelarOS && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => !cancelandoOS && setModalCancelarOS(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-rose-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-rose-100">
+              <div className="flex items-center gap-2 text-rose-600">
+                <Ban size={20} />
+                <h3 className="font-bold text-slate-900 text-base">Cancelar Ordem #{modalCancelarOS.id}</h3>
+              </div>
+              <button
+                disabled={cancelandoOS}
+                onClick={() => setModalCancelarOS(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-start gap-2">
+              <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                O cancelamento é irreversível e estorna automaticamente todas as peças consumidas de volta ao estoque da loja.
+              </span>
+            </div>
+
+            <form onSubmit={handleConfirmarCancelamento} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Motivo / Justificativa do Cancelamento *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={motivoCancelamento}
+                  onChange={(e) => setMotivoCancelamento(e.target.value)}
+                  placeholder="Informe detalhadamente por que este atendimento está sendo cancelado (ex: Cliente desistiu da peça, equipamento sem conserto viável, etc.)..."
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">Mínimo de 5 caracteres. Este motivo constará nos relatórios gerenciais de auditoria.</span>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={cancelandoOS}
+                  onClick={() => setModalCancelarOS(null)}
+                  className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  disabled={cancelandoOS || motivoCancelamento.trim().length < 5}
+                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-xs shadow-md shadow-rose-600/20 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all"
+                >
+                  {cancelandoOS ? <RefreshCw size={14} className="animate-spin" /> : <Ban size={14} />}
+                  <span>{cancelandoOS ? 'Cancelando...' : 'Confirmar Cancelamento'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Relatório de Cancelamentos de OS */}
+      {modalRelatorioCancelamentosAberto && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setModalRelatorioCancelamentosAberto(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col border border-slate-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                  <Ban size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base leading-tight">Relatório de Cancelamentos de Ordens de Serviço</h3>
+                  <p className="text-xs text-slate-500">Auditoria de justificativas, responsáveis e valores cancelados</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={exportarCSVRelatorioCancelamentos}
+                  disabled={!relatorioCancelamentos?.ordens?.length}
+                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all disabled:opacity-50"
+                  title="Exportar para Excel (.csv com UTF-8 BOM)"
+                >
+                  <FileSpreadsheet size={15} />
+                  <span>Exportar Excel</span>
+                </button>
+                <button
+                  onClick={() => setModalRelatorioCancelamentosAberto(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Cards de Resumo */}
+            {relatorioCancelamentos && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Canceladas</span>
+                  <span className="text-lg font-black text-rose-700">{relatorioCancelamentos.total_ordens_canceladas} OS</span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Mão de Obra Cancelada</span>
+                  <span className="text-lg font-black text-slate-800">{formatMoney(relatorioCancelamentos.total_servicos_cancelados)}</span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Peças Canceladas</span>
+                  <span className="text-lg font-black text-slate-800">{formatMoney(relatorioCancelamentos.total_pecas_canceladas)}</span>
+                </div>
+                <div className="p-3 bg-rose-50 rounded-2xl border border-rose-200">
+                  <span className="text-[10px] uppercase font-bold text-rose-500 block">Total Não Faturado</span>
+                  <span className="text-lg font-black text-rose-800">{formatMoney(relatorioCancelamentos.total_valor_cancelado)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Listagem / Tabela de Cancelamentos */}
+            <div className="flex-1 overflow-y-auto pr-1">
+              {carregandoRelatorio ? (
+                <div className="text-center py-12 text-xs text-slate-400 flex items-center justify-center gap-2">
+                  <RefreshCw size={16} className="animate-spin" />
+                  <span>Carregando dados de cancelamento...</span>
+                </div>
+              ) : !relatorioCancelamentos || relatorioCancelamentos.ordens.length === 0 ? (
+                <div className="text-center py-12 text-xs text-slate-400 bg-slate-50 rounded-2xl border border-slate-200">
+                  Nenhuma ordem de serviço cancelada registrada no sistema.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="py-2.5 px-3">OS #</th>
+                        <th className="py-2.5 px-3">Data Canc.</th>
+                        <th className="py-2.5 px-3">Cliente / Veículo</th>
+                        <th className="py-2.5 px-3">Motivo Informado</th>
+                        <th className="py-2.5 px-3">Operador</th>
+                        <th className="py-2.5 px-3 text-right">Valor Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {relatorioCancelamentos.ordens.map((o) => (
+                        <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-2.5 px-3 font-mono font-bold text-rose-700">#{o.id}</td>
+                          <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
+                            {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="font-bold text-slate-800 block truncate max-w-[150px]">{o.cliente_nome}</span>
+                            <span className="text-[11px] text-slate-400 block truncate max-w-[150px]">{o.equipamento || o.titulo}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-700 font-medium">
+                            <span className="bg-rose-50 text-rose-900 border border-rose-100 px-2 py-1 rounded-lg block max-w-xs text-[11px] line-clamp-2">
+                              {o.motivo_cancelamento || 'Motivo não informado'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
+                            {o.usuario_cancelamento_nome || 'Sistema'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-black text-slate-800 whitespace-nowrap">
+                            {formatMoney(o.valor_total)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setModalRelatorioCancelamentosAberto(false)}
+                className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+              >
+                Fechar Relatório
+              </button>
+            </div>
           </div>
         </div>
       )}

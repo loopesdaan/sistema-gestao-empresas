@@ -31,7 +31,9 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
   const [periodoOLAP, setPeriodoOLAP] = useState<string>('MENSAL');
   const [dadosOLAP, setDadosOLAP] = useState<RelatorioOLAPResponse | null>(null);
   const [carregandoOLAP, setCarregandoOLAP] = useState<boolean>(isAdmin);
-  const [abaVisao, setAbaVisao] = useState<'OLAP' | 'FORECAST' | 'VENDAS'>(isAdmin ? 'OLAP' : 'VENDAS');
+  const [abaVisao, setAbaVisao] = useState<'OLAP' | 'FORECAST' | 'VENDAS' | 'OS_CANCELADAS'>(isAdmin ? 'OLAP' : 'VENDAS');
+  const [relatorioCancelamentosOS, setRelatorioCancelamentosOS] = useState<any | null>(null);
+  const [carregandoCancelamentosOS, setCarregandoCancelamentosOS] = useState<boolean>(false);
 
   const carregarVendas = async () => {
     setLoading(true);
@@ -55,6 +57,37 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
     } finally {
       setCarregandoOLAP(false);
     }
+  };
+
+  const carregarCancelamentosOS = async () => {
+    try {
+      setCarregandoCancelamentosOS(true);
+      const res = await apiService.obterRelatorioCancelamentosOS();
+      setRelatorioCancelamentosOS(res);
+    } catch (err) {
+      console.error('Erro ao carregar cancelamentos de OS:', err);
+    } finally {
+      setCarregandoCancelamentosOS(false);
+    }
+  };
+
+  const exportarCSVCancelamentosOS = () => {
+    if (!relatorioCancelamentosOS || !relatorioCancelamentosOS.ordens.length) return;
+    let csv = '\ufeff'; // UTF-8 BOM
+    csv += 'Número OS;Data Cancelamento;Cliente;Telefone;Veículo/Equipamento;Responsável Cancelamento;Motivo do Cancelamento;Mão de Obra (R$);Peças (R$);Total (R$)\n';
+    relatorioCancelamentosOS.ordens.forEach((o: any) => {
+      const dataCanc = o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR') : '';
+      const motivo = (o.motivo_cancelamento || '').replace(/;/g, ',');
+      csv += `${o.id};"${dataCanc}";"${o.cliente_nome}";"${o.cliente_telefone || ''}";"${o.equipamento || ''}";"${o.usuario_cancelamento_nome || ''}";"${motivo}";${Number(o.valor_servicos).toFixed(2)};${Number(o.valor_pecas).toFixed(2)};${Number(o.valor_total).toFixed(2)}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `relatorio_cancelamentos_os_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   useEffect(() => {
@@ -606,6 +639,21 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
               >
                 <Table size={15} />
                 <span>📋 Transações & Auditoria (OLTP)</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setAbaVisao('OS_CANCELADAS');
+                  carregarCancelamentosOS();
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  abaVisao === 'OS_CANCELADAS'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                <Ban size={15} />
+                <span>🚫 Cancelamentos de OS</span>
               </button>
             </div>
 
@@ -1261,6 +1309,121 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                               Cancelar
                             </button>
                           )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ABA 4: VISUALIZAÇÃO DE CANCELAMENTOS DE ORDENS DE SERVIÇO */}
+      {abaVisao === 'OS_CANCELADAS' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Ban className="text-rose-600" size={20} />
+                <h3 className="font-bold text-slate-900 text-base">Relatório de Cancelamentos de Ordens de Serviço</h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Auditoria de ordens canceladas, motivos informados pelos operadores e receita que deixou de ser faturada.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={exportarCSVCancelamentosOS}
+                disabled={!relatorioCancelamentosOS?.ordens?.length}
+                className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all disabled:opacity-50"
+              >
+                <Download size={15} />
+                <span>Exportar Excel (.csv)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={carregarCancelamentosOS}
+                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+                title="Atualizar dados"
+              >
+                <RefreshCw size={16} className={carregandoCancelamentosOS ? 'animate-spin' : ''} />
+              </button>
+            </div>
+          </div>
+
+          {/* Cards de Métricas */}
+          {relatorioCancelamentosOS && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Total Canceladas</span>
+                <span className="text-2xl font-black text-rose-700">{relatorioCancelamentosOS.total_ordens_canceladas} OS</span>
+              </div>
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Mão de Obra Cancelada</span>
+                <span className="text-2xl font-black text-slate-800">{formatMoney(relatorioCancelamentosOS.total_servicos_cancelados)}</span>
+              </div>
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Peças Canceladas</span>
+                <span className="text-2xl font-black text-slate-800">{formatMoney(relatorioCancelamentosOS.total_pecas_canceladas)}</span>
+              </div>
+              <div className="bg-rose-50/70 p-4 rounded-2xl border border-rose-200 shadow-xs">
+                <span className="text-[10px] uppercase font-bold text-rose-500 block mb-1">Receita Não Faturada</span>
+                <span className="text-2xl font-black text-rose-800">{formatMoney(relatorioCancelamentosOS.total_valor_cancelado)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Tabela de Ordens Canceladas */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 px-4">OS #</th>
+                    <th className="py-3 px-4">Data Cancelamento</th>
+                    <th className="py-3 px-4">Cliente</th>
+                    <th className="py-3 px-4">Veículo / Equipamento</th>
+                    <th className="py-3 px-4">Motivo Informado</th>
+                    <th className="py-3 px-4">Responsável</th>
+                    <th className="py-3 px-4 text-right">Valor Cancelado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {carregandoCancelamentosOS ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400">
+                        <RefreshCw size={16} className="animate-spin inline mr-2" />
+                        Carregando cancelamentos...
+                      </td>
+                    </tr>
+                  ) : !relatorioCancelamentosOS || relatorioCancelamentosOS.ordens.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400">
+                        Nenhuma ordem de serviço cancelada encontrada no histórico.
+                      </td>
+                    </tr>
+                  ) : (
+                    relatorioCancelamentosOS.ordens.map((o: any) => (
+                      <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-4 font-mono font-bold text-rose-700">#{o.id}</td>
+                        <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
+                          {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR') : '-'}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-800">{o.cliente_nome}</td>
+                        <td className="py-3 px-4 text-slate-600">{o.equipamento || o.titulo}</td>
+                        <td className="py-3 px-4">
+                          <span className="bg-rose-50 text-rose-900 border border-rose-100 px-2.5 py-1 rounded-lg inline-block text-[11px] font-medium max-w-sm">
+                            {o.motivo_cancelamento || 'Sem motivo registrado'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-600">{o.usuario_cancelamento_nome || 'Sistema'}</td>
+                        <td className="py-3 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                          {formatMoney(o.valor_total)}
                         </td>
                       </tr>
                     ))

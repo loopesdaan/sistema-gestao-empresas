@@ -32,12 +32,16 @@ class OrdemServico(Base):
     
     previsao_entrega = Column(DateTime, nullable=True)
     data_finalizacao = Column(DateTime, nullable=True)
+    motivo_cancelamento = Column(Text, nullable=True)
+    data_cancelamento = Column(DateTime, nullable=True)
+    usuario_cancelamento_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     empresa = relationship("Empresa", back_populates="ordens_servico")
     cliente = relationship("Cliente", back_populates="ordens_servico")
-    usuario = relationship("Usuario", back_populates="ordens_servico")
+    usuario = relationship("Usuario", foreign_keys=[usuario_id], back_populates="ordens_servico")
+    usuario_cancelamento = relationship("Usuario", foreign_keys=[usuario_cancelamento_id])
     itens = relationship("ItemOS", back_populates="ordem_servico", cascade="all, delete-orphan")
 
 class ItemOS(Base):
