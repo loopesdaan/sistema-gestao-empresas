@@ -468,7 +468,25 @@ export const PDV: React.FC = () => {
       const prods = await apiService.listarProdutos();
       setTodosProdutos(prods);
     } catch (err: any) {
-      setErroCheckout(err.response?.data?.detail || 'Erro ao processar a venda.');
+      let msg = 'Erro ao processar a venda.';
+      if (err.response?.data?.detail) {
+        const d = err.response.data.detail;
+        if (typeof d === 'string') {
+          msg = d;
+        } else if (Array.isArray(d)) {
+          msg = d.map((it: any) => it.msg || JSON.stringify(it)).join(' | ');
+        } else if (typeof d === 'object') {
+          msg = JSON.stringify(d);
+        }
+      } else if (err.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (typeof err.response?.data === 'string' && err.response.data.trim()) {
+        msg = err.response.data;
+      } else if (err.message) {
+        msg = err.message;
+      }
+      setErroCheckout(msg);
+      toast.erro(msg);
     } finally {
       setFinalizando(false);
     }
@@ -914,10 +932,20 @@ export const PDV: React.FC = () => {
 
             {/* Calculadora de Troco — Dinheiro */}
             {formaPagamento === 'DINHEIRO' && (
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3 mb-5">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3.5 mb-5">
                 {/* Botões de cédulas rápidas */}
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-2">Selecionar cédula:</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-bold text-slate-600">Atalhos de Valor / Cédulas:</p>
+                    <button
+                      type="button"
+                      onClick={() => setValorRecebido(totalLiquido.toFixed(2))}
+                      className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[11px] font-bold rounded-lg transition-colors border border-emerald-300 flex items-center gap-1 shadow-2xs"
+                    >
+                      <CheckCircle2 size={13} />
+                      <span>Valor Exato ({formatMoney(totalLiquido)})</span>
+                    </button>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {[5, 10, 20, 50, 100, 200].map(cedula => (
                       <button
@@ -929,9 +957,9 @@ export const PDV: React.FC = () => {
                             return (atual + cedula).toFixed(2);
                           })
                         }
-                        className="px-3 py-1.5 bg-white border border-slate-300 hover:border-sky-500 hover:bg-sky-50 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+                        className="px-3 py-1.5 bg-white border border-slate-300 hover:border-sky-500 hover:bg-sky-50 text-slate-700 text-xs font-bold rounded-lg transition-colors shadow-2xs"
                       >
-                        R$ {cedula}
+                        + R$ {cedula}
                       </button>
                     ))}
                   </div>
@@ -949,7 +977,7 @@ export const PDV: React.FC = () => {
                     value={valorRecebido}
                     onChange={(e) => setValorRecebido(e.target.value)}
                     placeholder="0,00"
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-lg font-bold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-lg font-bold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                   />
                 </div>
 
@@ -957,35 +985,83 @@ export const PDV: React.FC = () => {
                 {valorRecebido !== '' && (
                   <div className="pt-2 border-t border-slate-200">
                     {numRecebido >= totalLiquido ? (
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-semibold text-slate-600">Troco:</span>
+                      <div className="flex justify-between items-center bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
+                        <span className="text-sm font-semibold text-emerald-800">Troco a Devolver:</span>
                         <span className="text-2xl font-black text-emerald-600">
                           {formatMoney(troco)}
                         </span>
                       </div>
                     ) : (
-                      <p className="text-sm font-semibold text-rose-600 text-center">
-                        Valor insuficiente
+                      <p className="text-sm font-semibold text-rose-600 text-center py-1">
+                        ⚠️ Valor entregue insuficiente (Faltam {formatMoney(totalLiquido - numRecebido)})
                       </p>
                     )}
                   </div>
                 )}
 
                 {/* Botão Limpar */}
-                <button
-                  type="button"
-                  onClick={() => setValorRecebido('')}
-                  className="text-xs text-slate-500 hover:text-slate-700 underline"
-                >
-                  Limpar
-                </button>
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => setValorRecebido('')}
+                    className="text-xs text-slate-500 hover:text-slate-700 underline font-medium"
+                  >
+                    Limpar valor
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Alerta de A Prazo se não tiver cliente */}
-            {formaPagamento === 'A_PRAZO' && !clienteSelecionado && (
-              <div className="mb-5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
-                ⚠️ Para vender a prazo, selecione um cliente cadastrado no topo do carrinho.
+            {/* Painel de Venda a Prazo (Crediário) com Seleção de Cliente e Limites */}
+            {formaPagamento === 'A_PRAZO' && (
+              <div className="mb-5 p-4 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Cliente Vinculado para Lançamento do Crediário:
+                  </label>
+                  <select
+                    value={clienteSelecionado?.id || ''}
+                    onChange={(e) => {
+                      const id = Number(e.target.value);
+                      const found = clientes.find(c => c.id === id) || null;
+                      setClienteSelecionado(found);
+                    }}
+                    className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  >
+                    <option value="">Selecione o cliente cadastrado...</option>
+                    {clientes.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.nome} {c.saldo_devedor > 0 ? `(Devedor: ${formatMoney(c.saldo_devedor)})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {clienteSelecionado ? (
+                  <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs space-y-1.5 shadow-2xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Limite de Crédito Aprovado:</span>
+                      <span className="font-bold text-slate-800">{formatMoney(clienteSelecionado.limite_credito)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Débito Atual no Sistema:</span>
+                      <span className="font-bold text-rose-600">{formatMoney(clienteSelecionado.saldo_devedor)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-100 pt-1.5 font-bold">
+                      <span className="text-slate-700">Novo Saldo Devedor Previsto:</span>
+                      <span className="text-slate-900">{formatMoney(Number(clienteSelecionado.saldo_devedor) + totalLiquido)}</span>
+                    </div>
+                    {Number(clienteSelecionado.limite_credito) > 0 && (Number(clienteSelecionado.saldo_devedor) + totalLiquido) > Number(clienteSelecionado.limite_credito) && (
+                      <p className="text-[11px] font-bold text-rose-600 mt-1 bg-rose-50 p-2 rounded-lg border border-rose-200">
+                        ⚠️ Atenção: Esta venda de {formatMoney(totalLiquido)} ultrapassará o limite de crédito cadastrado de {formatMoney(clienteSelecionado.limite_credito)}.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-amber-800 font-medium bg-amber-100/70 p-2.5 rounded-xl border border-amber-200">
+                    ⚠️ Vendas a prazo necessitam de um cliente cadastrado selecionado para lançamento na ficha do crediário.
+                  </p>
+                )}
               </div>
             )}
 

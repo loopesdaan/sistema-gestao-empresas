@@ -58,9 +58,8 @@ def calcular_resumo_caixa(caixa: Caixa, db: Session) -> ResumoCaixaResponse:
     if venda_ids:
         pagamentos = db.query(PagamentoVenda).filter(PagamentoVenda.venda_id.in_(venda_ids)).all()
         for p in pagamentos:
-            # Para dinheiro, desconta o troco
-            valor_efetivo = p.valor - (p.troco if p.forma_pagamento == FormaPagamento.DINHEIRO else Decimal("0.00"))
-            totais_por_forma[p.forma_pagamento] += valor_efetivo
+            # O p.valor gravado no pagamento é o montante líquido da venda faturado naquela modalidade
+            totais_por_forma[p.forma_pagamento] += p.valor
 
     # Movimentações do caixa (sangrias e suprimentos)
     movs = db.query(MovimentacaoCaixa).filter(MovimentacaoCaixa.caixa_id == caixa.id).all()

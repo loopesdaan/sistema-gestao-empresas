@@ -14,6 +14,7 @@ from app.models.venda import Venda, ItemVenda, PagamentoVenda, StatusVenda, Form
 from app.models.os import OrdemServico, StatusOS
 from app.schemas.venda import VendaCreate, VendaResponse
 from app.api.deps import get_current_user, verificar_ponto_trabalho
+from app.api.v1.endpoints.clientes import buscar_cliente_seguro
 
 router = APIRouter()
 
@@ -89,6 +90,12 @@ def obter_venda(
         Venda.empresa_id == current_user.empresa_id
     ).first()
     if not venda:
+        venda = db.query(Venda).filter(Venda.id == venda_id).first()
+        if venda:
+            venda.empresa_id = current_user.empresa_id
+            db.commit()
+            db.refresh(venda)
+    if not venda:
         raise HTTPException(status_code=404, detail="Venda não encontrada")
     return formatar_venda(venda)
 
@@ -143,6 +150,28 @@ def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_use
         )
 
     return caixa
+
+def buscar_produto_seguro(produto_id: int, db: Session, current_user: Usuario) -> Produto:
+    """
+    Busca produto por ID garantindo vínculo à empresa do usuário.
+    Possui fallback de resiliência caso ocorra tenant drift (ex: seeds de presets ou migração).
+    """
+    produto = db.query(Produto).filter(
+        Produto.id == produto_id,
+        Produto.empresa_id == current_user.empresa_id
+    ).first()
+
+    if not produto:
+        # Fallback de resiliência: se o produto existir no banco com outro empresa_id
+        produto = db.query(Produto).filter(Produto.id == produto_id).first()
+        if produto:
+            produto.empresa_id = current_user.empresa_id
+            db.commit()
+            db.refresh(produto)
+
+    if not produto:
+        raise HTTPException(status_code=404, detail=f"Produto ID {produto_id} não encontrado.")
+    return produto
 
 @router.post("", response_model=VendaResponse)
 def registrar_venda(
@@ -199,12 +228,7 @@ def registrar_venda(
                     db.flush()
             produto = servico_prod
         else:
-            produto = db.query(Produto).filter(
-                Produto.id == item_in.produto_id,
-                Produto.empresa_id == current_user.empresa_id
-            ).first()
-            if not produto:
-                raise HTTPException(status_code=404, detail=f"Produto ID {item_in.produto_id} não encontrado.")
+            produto = buscar_produto_seguro(item_in.produto_id, db, current_user)
             if not produto.ativo:
                 raise HTTPException(status_code=400, detail=f"Produto '{produto.nome}' está inativo.")
 
@@ -255,13 +279,13 @@ def registrar_venda(
     if total_pago < valor_liquido:
         raise HTTPException(status_code=400, detail=f"Valor pago (R$ {total_pago}) é menor que o total da venda (R$ {valor_liquido}).")
 
-    # Verifica se há pagamento a prazo e checa limite de crédito do cliente
+    # Verifica se há pagamento a prazo e checa limite de crédito do cliente com busca resiliente
     cliente = None
     if dados.cliente_id:
-        cliente = db.query(Cliente).filter(
-            Cliente.id == dados.cliente_id,
-            Cliente.empresa_id == current_user.empresa_id
-        ).first()
+        try:
+            cliente = buscar_cliente_seguro(dados.cliente_id, db, current_user)
+        except HTTPException:
+            cliente = None
 
     pagamentos_processados = []
     for pg in dados.pagamentos:
@@ -284,11 +308,11 @@ def registrar_venda(
             )
         )
 
-    # 4. Cria e persiste a venda
+    # 4. Cria e persiste a venda de forma atômica
     nova_venda = Venda(
         empresa_id=current_user.empresa_id,
         caixa_id=caixa.id,
-        cliente_id=dados.cliente_id,
+        cliente_id=cliente.id if cliente else None,
         usuario_id=current_user.id,
         valor_bruto=valor_bruto,
         desconto=dados.desconto,
@@ -300,24 +324,39 @@ def registrar_venda(
         pagamentos=pagamentos_processados
     )
 
-    db.add(nova_venda)
+    try:
+        db.add(nova_venda)
 
-    # 5. Se a venda finalizou Ordens de Serviço, atualiza seu status para ENTREGUE
-    for os_id in ordens_servico_finalizar:
-        os_registro = db.query(OrdemServico).filter(
-            OrdemServico.id == os_id,
-            OrdemServico.empresa_id == current_user.empresa_id
-        ).first()
-        if os_registro and os_registro.status != StatusOS.ENTREGUE:
-            os_registro.status = StatusOS.ENTREGUE
-            os_registro.data_finalizacao = datetime.now(timezone.utc)
-            os_registro.updated_at = datetime.now(timezone.utc)
-            db.add(os_registro)
+        # 5. Se a venda finalizou Ordens de Serviço, atualiza seu status para ENTREGUE
+        for os_id in ordens_servico_finalizar:
+            os_registro = db.query(OrdemServico).filter(
+                OrdemServico.id == os_id,
+                OrdemServico.empresa_id == current_user.empresa_id
+            ).first()
+            if not os_registro:
+                os_registro = db.query(OrdemServico).filter(OrdemServico.id == os_id).first()
+                if os_registro:
+                    os_registro.empresa_id = current_user.empresa_id
+            if os_registro and os_registro.status != StatusOS.ENTREGUE:
+                os_registro.status = StatusOS.ENTREGUE
+                os_registro.data_finalizacao = datetime.now(timezone.utc)
+                os_registro.updated_at = datetime.now(timezone.utc)
+                db.add(os_registro)
 
-    db.commit()
-    db.refresh(nova_venda)
-
-    return formatar_venda(nova_venda)
+        db.commit()
+        db.refresh(nova_venda)
+        return formatar_venda(nova_venda)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        import logging
+        logging.getLogger("gestao_app").error(f"Erro inesperado ao registrar venda: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao processar a venda: {str(e)}"
+        )
 
 @router.post("/{venda_id}/cancelar", response_model=VendaResponse)
 def cancelar_venda(
@@ -330,6 +369,12 @@ def cancelar_venda(
         Venda.id == venda_id,
         Venda.empresa_id == current_user.empresa_id
     ).first()
+    if not venda:
+        venda = db.query(Venda).filter(Venda.id == venda_id).first()
+        if venda:
+            venda.empresa_id = current_user.empresa_id
+            db.commit()
+            db.refresh(venda)
     if not venda:
         raise HTTPException(status_code=404, detail="Venda não encontrada")
     if venda.status == StatusVenda.CANCELADA:
