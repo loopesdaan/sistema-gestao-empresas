@@ -152,7 +152,16 @@ export const Clientes: React.FC = () => {
         carregarClientes();
       }, 1200);
     } catch (err: any) {
-      toast.erro(err.response?.data?.detail || 'Erro ao registrar quitação do débito.');
+      let msg = 'Erro ao registrar quitação do débito.';
+      if (err.response?.data?.detail) {
+        const d = err.response.data.detail;
+        msg = typeof d === 'string' ? d : JSON.stringify(d);
+      } else if (err.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err.message) {
+        msg = err.message;
+      }
+      toast.erro(msg);
     } finally {
       setSalvandoQuitacao(false);
     }
