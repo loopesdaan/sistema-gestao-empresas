@@ -8,6 +8,10 @@ class ItemVendaCreate(BaseModel):
     produto_id: int
     quantidade: Decimal
     valor_unitario: Decimal
+    is_servico_os: Optional[bool] = False
+    is_peca_os: Optional[bool] = False
+    baixar_estoque: Optional[bool] = True
+    os_id: Optional[int] = None
 
 class PagamentoVendaCreate(BaseModel):
     forma_pagamento: FormaPagamento
@@ -22,6 +26,7 @@ class VendaCreate(BaseModel):
     itens: List[ItemVendaCreate]
     pagamentos: List[PagamentoVendaCreate]
     observacoes: Optional[str] = None
+    os_id: Optional[int] = None
 
 class ItemVendaResponse(BaseModel):
     id: int

@@ -46,21 +46,21 @@ const ETAPAS_TOUR: StepTour[] = [
     }
   },
   {
-    titulo: '2. Frente de Caixa (PDV) Híbrido & Mercado Pago',
+    titulo: '2. Frente de Caixa (PDV) Híbrido & Pagamentos',
     subtitulo: 'Venda de produtos e ordens de serviço no mesmo carrinho',
     modulo: 'pdv',
     icone: ShoppingCart,
-    descricao: 'Realize vendas ágeis com leitor de código de barras, busca rápida e botão especial para importar Ordens de Serviço abertas para o mesmo cupom fiscal. O checkout é totalmente integrado ao Mercado Pago com QR Code PIX dinâmico e integração com maquininhas de cartão.',
+    descricao: 'Realize vendas ágeis com leitor de código de barras, busca rápida e botão especial para importar Ordens de Serviço abertas para o mesmo cupom fiscal. O checkout suporta Dinheiro, PIX no balcão, Cartão de Débito/Crédito e Crediário a prazo.',
     destaques: [
       'Venda unificada de itens físicos e serviços prestados',
-      'QR Code PIX oficial Mercado Pago com verificação em tempo real',
+      'Conferência ágil de PIX e comprovantes de cartão com baixa manual pelo operador',
       'Calculadora de troco automática e bloqueio de vendas sem estoque'
     ],
     mockupGradiente: 'from-emerald-600 to-teal-600',
     mockupConteudo: {
       topo: 'Terminal PDV • Caixa Aberto',
       itens: ['1x Óleo Sintético 5W30 - R$ 45,00', '1x Troca de Óleo (OS #12) - R$ 80,00', 'Total a Receber: R$ 125,00'],
-      badge: 'Cobrança PIX Pronta'
+      badge: 'Cobrança Pronta'
     }
   },
   {

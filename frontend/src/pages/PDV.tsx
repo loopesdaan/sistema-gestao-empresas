@@ -17,6 +17,10 @@ interface CartItem {
   quantidade: number;
   valor_unitario: number;
   subtotal: number;
+  is_servico_os?: boolean;
+  is_peca_os?: boolean;
+  baixar_estoque?: boolean;
+  os_id?: number;
 }
 
 export const PDV: React.FC = () => {
@@ -46,7 +50,7 @@ export const PDV: React.FC = () => {
   const [erroCheckout, setErroCheckout] = useState<string | null>(null);
   const [finalizando, setFinalizando] = useState(false);
 
-  // Mercado Pago PIX State
+  // PIX State
   const [pixData, setPixData] = useState<{
     payment_id: string;
     qr_code?: string;
@@ -58,7 +62,7 @@ export const PDV: React.FC = () => {
   const [gerandoPix, setGerandoPix] = useState(false);
   const [pixCopiado, setPixCopiado] = useState(false);
 
-  // Mercado Pago Point (maquininha de cartão)
+  // Cartão (maquininha física)
   const [pointData, setPointData] = useState<{ id: string; status: string; modo: string } | null>(null);
   const [aguardandoPoint, setAguardandoPoint] = useState(false);
   const [pointIntentId, setPointIntentId] = useState<string | null>(null);
@@ -67,6 +71,7 @@ export const PDV: React.FC = () => {
   const [modalImportarOSAberto, setModalImportarOSAberto] = useState(false);
   const [ordensServicoPendentes, setOrdensServicoPendentes] = useState<any[]>([]);
   const [carregandoOS, setCarregandoOS] = useState(false);
+  const [osVinculadaId, setOsVinculadaId] = useState<number | null>(null);
 
   const { temaAtual } = useEmpresa();
   const [modalComprovanteAberto, setModalComprovanteAberto] = useState(false);
@@ -142,7 +147,10 @@ export const PDV: React.FC = () => {
   const handleCarregarOSParaCarrinho = (os: any) => {
     // Vincula o cliente da OS
     const cli = clientes.find(c => c.id === os.cliente_id) || null;
-    setClienteSelecionado(cli);
+    if (cli) {
+      setClienteSelecionado(cli);
+    }
+    setOsVinculadaId(os.id);
 
     const novosItens: CartItem[] = [];
 
@@ -163,7 +171,10 @@ export const PDV: React.FC = () => {
         },
         quantidade: 1,
         valor_unitario: Number(os.valor_servicos),
-        subtotal: Number(os.valor_servicos)
+        subtotal: Number(os.valor_servicos),
+        is_servico_os: true,
+        baixar_estoque: false,
+        os_id: os.id
       });
     }
 
@@ -185,13 +196,21 @@ export const PDV: React.FC = () => {
           },
           quantidade: Number(it.quantidade),
           valor_unitario: Number(it.valor_unitario),
-          subtotal: Number(it.subtotal)
+          subtotal: Number(it.subtotal),
+          is_peca_os: true,
+          baixar_estoque: false,
+          os_id: os.id
         });
       });
     }
 
-    setCarrinho(novosItens);
+    setCarrinho(prev => [...prev, ...novosItens]);
     setModalImportarOSAberto(false);
+    addNotificacao({
+      tipo: 'sucesso',
+      titulo: 'OS Importada',
+      mensagem: `Ordem de Serviço #${os.id} adicionada ao carrinho.`,
+    });
   };
 
   const handleAbrirCaixa = async (e: React.FormEvent) => {
@@ -316,7 +335,7 @@ export const PDV: React.FC = () => {
       });
       setPixData(dados);
     } catch (err: any) {
-      setErroCheckout(err.response?.data?.detail || 'Erro ao gerar QR Code PIX no Mercado Pago.');
+      setErroCheckout(err.response?.data?.detail || 'Erro ao gerar cobrança PIX.');
     } finally {
       setGerandoPix(false);
     }
@@ -388,10 +407,15 @@ export const PDV: React.FC = () => {
         cliente_id: clienteSelecionado?.id || null,
         desconto: Number(desconto) || 0,
         acrescimo: Number(acrescimo) || 0,
+        os_id: osVinculadaId || undefined,
         itens: carrinho.map(it => ({
           produto_id: it.produto.id,
           quantidade: it.quantidade,
-          valor_unitario: it.valor_unitario
+          valor_unitario: it.valor_unitario,
+          is_servico_os: !!it.is_servico_os,
+          is_peca_os: !!it.is_peca_os,
+          baixar_estoque: it.baixar_estoque !== false,
+          os_id: it.os_id || osVinculadaId || undefined
         })),
         pagamentos: [
           {
@@ -409,6 +433,7 @@ export const PDV: React.FC = () => {
       setDesconto(0);
       setAcrescimo(0);
       setClienteSelecionado(null);
+      setOsVinculadaId(null);
       setPixData(null);
       setPointData(null);
       setAguardandoPoint(false);
@@ -793,7 +818,7 @@ export const PDV: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5">
               {[
                 { id: 'DINHEIRO', label: 'Dinheiro', icon: Banknote },
-                { id: 'PIX', label: 'PIX Mercado Pago', icon: QrCode },
+                { id: 'PIX', label: 'PIX', icon: QrCode },
                 { id: 'CARTAO_CREDITO', label: 'Crédito', icon: CreditCard },
                 { id: 'CARTAO_DEBITO', label: 'Débito', icon: CreditCard },
                 { id: 'A_PRAZO', label: 'A Prazo (Crediário)', icon: UserCheck },

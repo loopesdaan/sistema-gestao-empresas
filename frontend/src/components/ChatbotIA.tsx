@@ -48,8 +48,8 @@ const FAQ_KNOWLEDGE_BASE: Array<{
     acao: { label: 'Abrir Gestão de Estoque', tab: 'produtos' }
   },
   {
-    keywords: ['pix', 'mercado pago', 'qr code', 'pagamento pix', 'copia e cola', 'chave pix'],
-    resposta: 'A cobrança via PIX é integrada diretamente ao Mercado Pago:\n• No checkout do PDV ou cobrança de OS, selecione "PIX Mercado Pago" e clique em "Gerar QR Code";\n• O QR Code é gerado vetorialmente em SVG na tela para leitura direta pelo aplicativo do banco;\n• É possível clicar em "Copiar Pix Copia e Cola" ou em "Simular Pagamento Pago (Dev)" para testes rápidos em ambiente de demonstração.',
+    keywords: ['pix', 'pagamento pix', 'chave pix', 'qr code', 'balcao'],
+    resposta: 'A cobrança via PIX opera no modo de conferência e baixa manual de balcão:\n• No checkout do PDV ou cobrança de OS, selecione "PIX" e solicite a transferência do cliente para a chave ou QR Code físico da loja;\n• O operador confere a notificação/extrato no aplicativo bancário e clica em "Confirmar Baixa do PIX" para registrar a venda imediatamente.',
     acao: { label: 'Ir para Frente de Caixa (PDV)', tab: 'pdv' }
   },
   {
@@ -222,7 +222,7 @@ export const ChatbotIA: React.FC<ChatbotIAProps> = ({ onNavigateTab, onOpenTour 
               'Onde bater o ponto?',
               'Dashboard de Estoque',
               'Como abrir caixa?',
-              'PIX Mercado Pago',
+              'Como receber PIX?',
               'Exportar em Excel'
             ].map((sugestao, idx) => (
               <button

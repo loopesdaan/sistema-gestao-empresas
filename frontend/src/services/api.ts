@@ -248,7 +248,7 @@ export const apiService = {
     return res.data;
   },
 
-  // Pagamentos Mercado Pago
+  // Pagamentos & Baixa
   gerarPixQRCode: async (dados: { valor: number; descricao?: string; cliente_email?: string; cliente_nome?: string }) => {
     const res = await api.post('/pagamentos/pix-qrcode', dados);
     return res.data;

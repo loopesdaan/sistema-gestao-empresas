@@ -11,6 +11,7 @@ from app.models.cliente import Cliente
 from app.models.produto import Produto
 from app.models.estoque import MovimentacaoEstoque, TipoMovimentacaoEstoque
 from app.models.venda import Venda, ItemVenda, PagamentoVenda, StatusVenda, FormaPagamento
+from app.models.os import OrdemServico, StatusOS
 from app.schemas.venda import VendaCreate, VendaResponse
 from app.api.deps import get_current_user, verificar_ponto_trabalho
 
@@ -118,35 +119,73 @@ def registrar_venda(
 
     valor_bruto = Decimal("0.00")
     itens_processados = []
+    ordens_servico_finalizar = set()
+    if dados.os_id:
+        ordens_servico_finalizar.add(dados.os_id)
+
+    servico_prod = None
 
     for item_in in dados.itens:
-        produto = db.query(Produto).filter(
-            Produto.id == item_in.produto_id,
-            Produto.empresa_id == current_user.empresa_id
-        ).first()
-        if not produto:
-            raise HTTPException(status_code=404, detail=f"Produto ID {item_in.produto_id} não encontrado.")
-        if not produto.ativo:
-            raise HTTPException(status_code=400, detail=f"Produto '{produto.nome}' está inativo.")
+        is_servico = getattr(item_in, "is_servico_os", False) or (item_in.produto_id >= 999000)
+        os_id_item = getattr(item_in, "os_id", None) or (item_in.produto_id - 999000 if item_in.produto_id >= 999000 else None)
+        if os_id_item:
+            ordens_servico_finalizar.add(os_id_item)
+
+        if is_servico:
+            if not servico_prod:
+                servico_prod = db.query(Produto).filter(
+                    Produto.empresa_id == current_user.empresa_id,
+                    Produto.codigo_barras == "SERV_GERAL"
+                ).first()
+                if not servico_prod:
+                    servico_prod = Produto(
+                        empresa_id=current_user.empresa_id,
+                        nome="Mão de Obra / Serviços Executados",
+                        codigo_barras="SERV_GERAL",
+                        preco_custo=Decimal("0.00"),
+                        preco_venda=Decimal("0.00"),
+                        estoque_atual=Decimal("9999.00"),
+                        estoque_minimo=Decimal("0.00"),
+                        ativo=True
+                    )
+                    db.add(servico_prod)
+                    db.flush()
+            produto = servico_prod
+        else:
+            produto = db.query(Produto).filter(
+                Produto.id == item_in.produto_id,
+                Produto.empresa_id == current_user.empresa_id
+            ).first()
+            if not produto:
+                raise HTTPException(status_code=404, detail=f"Produto ID {item_in.produto_id} não encontrado.")
+            if not produto.ativo:
+                raise HTTPException(status_code=400, detail=f"Produto '{produto.nome}' está inativo.")
 
         subtotal = item_in.quantidade * item_in.valor_unitario
         valor_bruto += subtotal
 
-        # Dá baixa no estoque
-        if produto.estoque_atual < item_in.quantidade:
-            raise HTTPException(status_code=400, detail=f"Estoque insuficiente para '{produto.nome}'. Disponível: {produto.estoque_atual} {produto.unidade}")
-        produto.estoque_atual -= item_in.quantidade
+        # Dá baixa no estoque apenas para produtos normais que não sejam serviços ou peças já baixadas na OS
+        deve_baixar_estoque = getattr(item_in, "baixar_estoque", True)
+        if deve_baixar_estoque is None:
+            deve_baixar_estoque = True
+        if is_servico or getattr(item_in, "is_peca_os", False):
+            deve_baixar_estoque = False
 
-        # Registra movimentação de estoque
-        mov = MovimentacaoEstoque(
-            empresa_id=current_user.empresa_id,
-            produto_id=produto.id,
-            usuario_id=current_user.id,
-            tipo=TipoMovimentacaoEstoque.VENDA,
-            quantidade=item_in.quantidade,
-            motivo="Venda no PDV"
-        )
-        db.add(mov)
+        if deve_baixar_estoque:
+            if produto.estoque_atual < item_in.quantidade:
+                raise HTTPException(status_code=400, detail=f"Estoque insuficiente para '{produto.nome}'. Disponível: {produto.estoque_atual} {produto.unidade}")
+            produto.estoque_atual -= item_in.quantidade
+
+            # Registra movimentação de estoque
+            mov = MovimentacaoEstoque(
+                empresa_id=current_user.empresa_id,
+                produto_id=produto.id,
+                usuario_id=current_user.id,
+                tipo=TipoMovimentacaoEstoque.VENDA,
+                quantidade=item_in.quantidade,
+                motivo="Venda no PDV"
+            )
+            db.add(mov)
 
         itens_processados.append(
             ItemVenda(
@@ -215,6 +254,19 @@ def registrar_venda(
     )
 
     db.add(nova_venda)
+
+    # 5. Se a venda finalizou Ordens de Serviço, atualiza seu status para ENTREGUE
+    for os_id in ordens_servico_finalizar:
+        os_registro = db.query(OrdemServico).filter(
+            OrdemServico.id == os_id,
+            OrdemServico.empresa_id == current_user.empresa_id
+        ).first()
+        if os_registro and os_registro.status != StatusOS.ENTREGUE:
+            os_registro.status = StatusOS.ENTREGUE
+            os_registro.data_finalizacao = datetime.now(timezone.utc)
+            os_registro.updated_at = datetime.now(timezone.utc)
+            db.add(os_registro)
+
     db.commit()
     db.refresh(nova_venda)
 

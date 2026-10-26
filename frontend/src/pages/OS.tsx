@@ -40,7 +40,7 @@ export const OS: React.FC = () => {
   } | null>(null);
   const [comprovanteVenda, setComprovanteVenda] = useState<Venda | null>(null);
 
-  // PIX Mercado Pago na OS
+  // PIX na OS
   const [pixData, setPixData] = useState<{
     payment_id: string;
     qr_code?: string;
@@ -147,7 +147,7 @@ export const OS: React.FC = () => {
       });
       setPixData(res);
     } catch (err: any) {
-      setErroFaturamento(err.response?.data?.detail || 'Erro ao gerar cobrança PIX Mercado Pago');
+      setErroFaturamento(err.response?.data?.detail || 'Erro ao gerar cobrança PIX');
     } finally {
       setGerandoPix(false);
     }
@@ -603,7 +603,7 @@ export const OS: React.FC = () => {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   { id: 'DINHEIRO', label: 'Dinheiro', icon: Banknote },
-                  { id: 'PIX', label: 'PIX Mercado Pago', icon: QrCode },
+                  { id: 'PIX', label: 'PIX', icon: QrCode },
                   { id: 'CARTAO_CREDITO', label: 'Crédito', icon: CreditCard },
                   { id: 'CARTAO_DEBITO', label: 'Débito', icon: CreditCard },
                   { id: 'A_PRAZO', label: 'A Prazo (Crediário)', icon: UserCheck },
