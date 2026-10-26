@@ -18,9 +18,20 @@ if is_cockroach:
         db_url = db_url.replace("postgresql://", "cockroachdb://", 1)
     elif db_url.startswith("postgresql+psycopg2://"):
         db_url = db_url.replace("postgresql+psycopg2://", "cockroachdb://", 1)
+    
+    # Em containers (como Render), 'sslmode=verify-full' exige um arquivo local ~/.postgresql/root.crt
+    # que não existe no container. Substituímos por 'sslmode=require', que mantém a criptografia TLS
+    # completa em trânsito sem falhar por falta de arquivo de certificado local.
+    if "sslmode=verify-full" in db_url:
+        db_url = db_url.replace("sslmode=verify-full", "sslmode=require")
+    elif "sslmode" not in db_url:
+        sep = "&" if "?" in db_url else "?"
+        db_url = f"{db_url}{sep}sslmode=require"
 elif db_url.startswith("postgres://"):
     # Ajuste para provedores como Neon, Supabase e Render
     db_url = db_url.replace("postgres://", "postgresql://", 1)
+    if "sslmode=verify-full" in db_url:
+        db_url = db_url.replace("sslmode=verify-full", "sslmode=require")
 
 if db_url.startswith("sqlite"):
     engine = create_engine(db_url, connect_args={"check_same_thread": False})
