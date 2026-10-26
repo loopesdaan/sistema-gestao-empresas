@@ -23,6 +23,7 @@ class Venda(Base):
     caixa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("caixas.id"), nullable=False)
     cliente_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("clientes.id"), nullable=True)
     usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
+    numero_sequencial = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True, index=True)
     
     valor_bruto = Column(Numeric(10, 2), default=0.00, nullable=False)
     desconto = Column(Numeric(10, 2), default=0.00, nullable=False)

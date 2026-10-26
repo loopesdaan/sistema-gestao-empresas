@@ -7,6 +7,7 @@ import {
 import { Venda } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { resolveImageUrl } from '../services/api';
+import { formatarNumeroVenda, formatarNumeroCaixa } from '../utils/formatters';
 
 interface ComprovanteDigitalModalProps {
   isOpen: boolean;
@@ -65,7 +66,7 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Comprovante de Venda #${vendaAtiva.id}</title>
+        <title>Comprovante de Venda ${formatarNumeroVenda(vendaAtiva)}</title>
         <style>
           @page { size: 80mm auto; margin: 2mm; }
           body {
@@ -92,7 +93,7 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
         <div class="text-center">${empresa.telefone ? 'TEL: ' + empresa.telefone : ''}</div>
         <div class="divider"></div>
         <div class="row"><span>DATA: ${new Date(vendaAtiva.created_at).toLocaleString('pt-BR')}</span></div>
-        <div class="row"><span>VENDA: #${vendaAtiva.id}</span><span>CAIXA: #${vendaAtiva.caixa_id}</span></div>
+        <div class="row"><span>VENDA: ${formatarNumeroVenda(vendaAtiva)}</span><span>CAIXA: #${formatarNumeroCaixa(vendaAtiva.caixa_id)}</span></div>
         <div class="row"><span>OPERADOR: ${vendaAtiva.usuario_nome || 'Caixa'}</span></div>
         <div class="row"><span>CLIENTE: ${vendaAtiva.cliente_nome || 'Consumidor Final'}</span></div>
         <div class="divider"></div>
@@ -147,7 +148,7 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
       `CNPJ: ${empresa.cnpj || '00.000.000/0001-00'}`,
       `Tel: ${empresa.telefone || '-'}`,
       `Data: ${new Date(vendaAtiva.created_at).toLocaleString('pt-BR')}`,
-      `Venda Nº: #${vendaAtiva.id} | Caixa: #${vendaAtiva.caixa_id}`,
+      `Venda Nº: ${formatarNumeroVenda(vendaAtiva)} | Caixa: #${formatarNumeroCaixa(vendaAtiva.caixa_id)}`,
       `Operador: ${vendaAtiva.usuario_nome || 'Caixa'}`,
       `Cliente: ${vendaAtiva.cliente_nome || 'Consumidor Final'}`,
       `==============================`,
@@ -188,7 +189,7 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
             </div>
             <div>
               <h3 className="font-bold text-slate-800 text-sm">
-                Comprovante Digital de Venda #{vendaAtiva.id}
+                Comprovante Digital de Venda {formatarNumeroVenda(vendaAtiva)}
               </h3>
               <p className="text-[11px] text-slate-500">
                 Visualização detalhada com navegação e impressão térmica
@@ -259,7 +260,7 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
             <div className="text-[11px] space-y-1 border-b border-dashed border-slate-300 pb-3 leading-tight">
               <div className="flex justify-between">
                 <span className="text-slate-500">DOC:</span>
-                <span className="font-bold">VENDA #{vendaAtiva.id}</span>
+                <span className="font-bold">VENDA {formatarNumeroVenda(vendaAtiva)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">DATA / HORA:</span>
@@ -267,7 +268,7 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">CAIXA / OPERADOR:</span>
-                <span>#{vendaAtiva.caixa_id} - {vendaAtiva.usuario_nome || 'Operador'}</span>
+                <span>Caixa #{formatarNumeroCaixa(vendaAtiva.caixa_id)} - {vendaAtiva.usuario_nome || 'Operador'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">CLIENTE:</span>

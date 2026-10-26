@@ -4,6 +4,7 @@ import { apiService } from '../services/api';
 import { OrdemServico, Cliente, Produto, StatusOS, FormaPagamento, Caixa, Venda, RelatorioCancelamentosOS } from '../types';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { useToast } from '../contexts/ToastContext';
+import { formatarNumeroOS, formatarNumeroVenda } from '../utils/formatters';
 import { 
   Wrench, Plus, Search, Clock, CheckCircle2, 
   AlertCircle, ChevronRight, User, Calendar, Edit, Package,
@@ -152,7 +153,7 @@ export const OS: React.FC = () => {
       if (modalDetalheOS && modalDetalheOS.id === modalCancelarOS.id) {
         setModalDetalheOS(null);
       }
-      toast.sucesso(`Ordem de Serviço #${modalCancelarOS.id} cancelada com sucesso.`);
+      toast.sucesso(`Ordem de Serviço ${formatarNumeroOS(modalCancelarOS)} cancelada com sucesso.`);
       setModalCancelarOS(null);
       setMotivoCancelamento('');
       carregarDados();
@@ -223,7 +224,7 @@ export const OS: React.FC = () => {
     try {
       const res = await apiService.gerarPixQRCode({
         valor: totalCobrar,
-        descricao: `OS #${modalCobrarOS.id} - ${modalCobrarOS.titulo}`,
+        descricao: `${formatarNumeroOS(modalCobrarOS)} - ${modalCobrarOS.titulo}`,
         cliente_nome: modalCobrarOS.cliente_nome
       });
       setPixData(res);
@@ -372,7 +373,7 @@ export const OS: React.FC = () => {
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-xs font-bold text-slate-400">OS #{os.id}</span>
+                    <span className="text-xs font-bold text-slate-400">{formatarNumeroOS(os)}</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${st.bg} ${st.text}`}>
                       {st.label}
                     </span>
@@ -594,7 +595,7 @@ export const OS: React.FC = () => {
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div>
-                <span className="text-xs font-bold text-slate-400">OS #{modalDetalheOS.id}</span>
+                <span className="text-xs font-bold text-slate-400">{formatarNumeroOS(modalDetalheOS)}</span>
                 <h3 className="font-bold text-slate-800 text-lg leading-tight">{modalDetalheOS.titulo}</h3>
               </div>
               <button
@@ -829,7 +830,7 @@ export const OS: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-rose-100">
               <div className="flex items-center gap-2 text-rose-600">
                 <Ban size={20} />
-                <h3 className="font-bold text-slate-900 text-base">Cancelar Ordem #{modalCancelarOS.id}</h3>
+                <h3 className="font-bold text-slate-900 text-base">Cancelar {formatarNumeroOS(modalCancelarOS)}</h3>
               </div>
               <button
                 disabled={cancelandoOS}
@@ -975,7 +976,7 @@ export const OS: React.FC = () => {
                     <tbody className="divide-y divide-slate-100">
                       {relatorioCancelamentos.ordens.map((o) => (
                         <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-2.5 px-3 font-mono font-bold text-rose-700">#{o.id}</td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-rose-700">{formatarNumeroOS(o)}</td>
                           <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
                             {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
                           </td>
@@ -1031,7 +1032,7 @@ export const OS: React.FC = () => {
                   Recebimento de Atendimento
                 </span>
                 <h3 className="text-lg font-black text-slate-900 leading-tight">
-                  Cobrar Ordem de Serviço #{modalCobrarOS.id}
+                  Cobrar {formatarNumeroOS(modalCobrarOS)}
                 </h3>
               </div>
               <button
@@ -1270,11 +1271,11 @@ export const OS: React.FC = () => {
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-400">Ordem de Serviço:</span>
-                <span className="font-bold text-slate-800">#{sucessoFaturamento.os.id}</span>
+                <span className="font-bold text-slate-800">{formatarNumeroOS(sucessoFaturamento.os)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Venda Gerada:</span>
-                <span className="font-bold text-sky-700">#{sucessoFaturamento.venda_id}</span>
+                <span className="font-bold text-sky-700">{formatarNumeroVenda(sucessoFaturamento.venda_id)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Cliente:</span>

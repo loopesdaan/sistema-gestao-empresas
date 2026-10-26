@@ -4,6 +4,7 @@ import { Caixa as CaixaType, ResumoCaixa, Venda } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
+import { formatarNumeroCaixa, formatarNumeroVenda } from '../utils/formatters';
 import { 
   Wallet, ArrowDownCircle, ArrowUpCircle, Lock, 
   CheckCircle2, AlertCircle, Clock, Calendar, DollarSign, Users, Eye, X,
@@ -317,7 +318,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                 <div key={c.id} className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-400">Caixa #{c.id}</span>
+                      <span className="text-xs font-bold text-slate-400">Caixa #{formatarNumeroCaixa(c.id)}</span>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                         Em Operação
                       </span>
@@ -444,7 +445,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
 
                       return (
                         <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3.5 px-4 font-mono font-bold text-slate-600">#{c.id}</td>
+                          <td className="py-3.5 px-4 font-mono font-bold text-slate-600">#{formatarNumeroCaixa(c.id)}</td>
                           <td className="py-3.5 px-4 font-semibold text-slate-900">
                             {c.usuario_nome || `Operador #${c.usuario_id}`}
                           </td>
@@ -656,13 +657,13 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                     ticketsPendentes.map((t) => (
                       <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                         <td className="p-3 font-mono">
-                          <span className="font-bold text-slate-900">#{t.id}</span>
+                          <span className="font-bold text-slate-900">#{formatarNumeroCaixa(t.id)}</span>
                           <span className="text-[10px] text-slate-400 block">
                             {new Date(t.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </td>
                         <td className="p-3 font-semibold text-slate-900">
-                          {t.usuario_nome || `Usuário #${t.usuario_id}`} (Caixa #{t.caixa_id})
+                          {t.usuario_nome || `Usuário #${t.usuario_id}`} (Caixa #{formatarNumeroCaixa(t.caixa_id)})
                         </td>
                         <td className="p-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${

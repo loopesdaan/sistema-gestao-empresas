@@ -3,6 +3,7 @@ from typing import Any, List, Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.core.database import get_db
 from app.models.usuario import Usuario, PerfilUsuario
@@ -19,8 +20,18 @@ from app.api.v1.endpoints.clientes import buscar_cliente_seguro
 router = APIRouter()
 
 def formatar_venda(venda: Venda) -> dict:
+    seq = getattr(venda, "numero_sequencial", None)
+    if not seq:
+        if venda.id > 1_000_000_000:
+            seq = (venda.id % 10000) or 1
+        else:
+            seq = venda.id
+    codigo = f"#{seq:04d}" if seq < 10000 else f"#{seq}"
+
     return {
         "id": venda.id,
+        "numero_sequencial": seq,
+        "codigo_identificador": codigo,
         "empresa_id": venda.empresa_id,
         "caixa_id": venda.caixa_id,
         "cliente_id": venda.cliente_id,
@@ -351,12 +362,19 @@ def registrar_venda(
             )
         )
 
+    # Determina o próximo número sequencial da venda para a empresa
+    maior_num = db.query(func.max(Venda.numero_sequencial)).filter(
+        Venda.empresa_id == current_user.empresa_id
+    ).scalar() or 0
+    novo_numero_sequencial = maior_num + 1
+
     # 4. Cria e persiste a venda de forma atômica
     nova_venda = Venda(
         empresa_id=current_user.empresa_id,
         caixa_id=caixa.id,
         cliente_id=cliente.id if cliente else None,
         usuario_id=current_user.id,
+        numero_sequencial=novo_numero_sequencial,
         valor_bruto=valor_bruto.quantize(Decimal("0.01")),
         desconto=v_desconto,
         acrescimo=v_acrescimo,
