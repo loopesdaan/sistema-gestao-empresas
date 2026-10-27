@@ -261,7 +261,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex w-full max-w-full overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 flex w-full max-w-full overflow-x-clip">
       {/* Sidebar de Navegação */}
       <Sidebar
         activeTab={activeTab}
@@ -280,7 +280,7 @@ const AppContent: React.FC = () => {
       />
 
       {/* Área Principal de Conteúdo */}
-      <div className={`flex-1 flex flex-col min-w-0 w-full max-w-full overflow-x-hidden ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-80'} transition-all duration-300`}>
+      <div className={`flex-1 flex flex-col min-w-0 w-full max-w-full overflow-x-clip ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-80'} transition-all duration-300`}>
         <Navbar
           onMenuToggle={() => setSidebarOpen(true)}
           activeTitle={getPageTitle()}
@@ -294,6 +294,9 @@ const AppContent: React.FC = () => {
           isAdmin={isAdmin}
           onOpenPerfil={() => setShowPerfilModal(true)}
         />
+
+        {/* Espaçador para o cabeçalho fixo no mobile */}
+        <div className="h-16 lg:hidden shrink-0" />
 
         <main className="flex-1 p-3 sm:p-6 max-w-7xl w-full mx-auto min-w-0">
           {renderContent()}

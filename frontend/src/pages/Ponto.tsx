@@ -361,8 +361,58 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
         </div>
       </div>
 
-      {/* Tabs com Scroll Suave no Mobile */}
-      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar pb-0.5">
+      {/* Navegação de Guias para Mobile (Grid Touch Responsivo - Zero Rolagem Lateral) */}
+      <div className="md:hidden w-full">
+        <div className={`grid ${isAdmin ? 'grid-cols-2' : 'grid-cols-2'} gap-1.5 p-1.5 bg-slate-100 rounded-2xl text-xs font-bold`}>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva('bater')}
+            className={`py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+              abaAtiva === 'bater' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <LogIn size={14} />
+            <span className="truncate">Registrar Ponto</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva('historico')}
+            className={`py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+              abaAtiva === 'historico' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Calendar size={14} />
+            <span className="truncate">Meu Histórico</span>
+          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setAbaAtiva('auditoria')}
+              className={`py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                abaAtiva === 'auditoria' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Shield size={14} />
+              <span className="truncate">Auditoria CLT</span>
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setAbaAtiva('escalas')}
+              className={`py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                abaAtiva === 'escalas' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Sliders size={14} />
+              <span className="truncate">Escalas & Perfis</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tabs Tradicionais para Tablet e Desktop */}
+      <div className="hidden md:flex gap-2 border-b border-slate-200 pb-0.5">
         <button
           onClick={() => setAbaAtiva('bater')}
           className={`px-4 sm:px-5 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
