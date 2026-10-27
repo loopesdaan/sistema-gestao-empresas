@@ -888,7 +888,63 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Visualização em Cartões para Mobile (elimina rolagem lateral) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {!dadosOLAP?.ranking_operadores || dadosOLAP.ranking_operadores.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-xs">
+                  Nenhum registro de venda localizado no período selecionado.
+                </div>
+              ) : (
+                dadosOLAP.ranking_operadores.map((op) => (
+                  <div key={op.usuario_id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-black text-sm text-slate-800 bg-slate-100 px-2.5 py-1 rounded-xl">
+                          {op.badge}
+                        </span>
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs">
+                          {op.nome_operador.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <h5 className="font-bold text-slate-900 text-xs">{op.nome_operador}</h5>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600">
+                            {op.perfil}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-black text-emerald-600 text-sm block">{formatMoney(op.faturamento)}</span>
+                        <span className="text-[10px] text-slate-400">{op.quantidade_vendas} vendas</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">Ticket Médio</span>
+                        <span className="font-semibold text-slate-800">{formatMoney(op.ticket_medio)}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 block">Participação</span>
+                        <span className="font-bold text-slate-800">{op.participacao_percentual}%</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" 
+                          style={{ width: `${Math.min(100, op.participacao_percentual)}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-semibold">{op.participacao_percentual}% da receita</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Tabela para Tablet e Desktop */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
                   <tr>
@@ -1042,7 +1098,68 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Visualização em Cartões para Mobile (elimina rolagem lateral) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {!dadosOLAP?.previsao_faturamento.produtos_motores || dadosOLAP.previsao_faturamento.produtos_motores.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-xs">
+                  Nenhum produto com movimentação registrada neste horizonte temporal.
+                </div>
+              ) : (
+                dadosOLAP.previsao_faturamento.produtos_motores.map((prod) => (
+                  <div key={prod.produto_id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-xl bg-slate-100 text-slate-600">
+                          <Package size={15} />
+                        </div>
+                        <div>
+                          <h5 className="font-bold text-slate-900 text-xs leading-snug">{prod.nome}</h5>
+                          <span className="text-[10px] text-slate-400">ID #{prod.produto_id}</span>
+                        </div>
+                      </div>
+
+                      {prod.risco_ruptura === 'ALTO' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 border border-rose-200 animate-pulse shrink-0">
+                          <AlertTriangle size={11} />
+                          ALTO RISCO (&lt; 7d)
+                        </span>
+                      ) : prod.risco_ruptura === 'MEDIO' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                          MÉDIO (&lt; 15d)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                          ESTÁVEL
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">Receita Diária</span>
+                        <span className="font-black text-indigo-600">{formatMoney(prod.receita_diaria)}/dia</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Giro: {prod.taxa_giro_diaria} un/dia</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 block">Estoque & Cobertura</span>
+                        <span className="font-bold text-slate-800">
+                          {prod.estoque_atual} un ({prod.dias_estoque_estimados > 365 ? '365+d' : `${prod.dias_estoque_estimados}d`})
+                        </span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">{prod.unidades_vendidas} un vendidas</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                      <span className="text-[11px] text-slate-500">Faturamento no período:</span>
+                      <span className="font-black text-slate-900">{formatMoney(prod.faturamento)} ({prod.contribuicao_percentual}%)</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Tabela para Tablet e Desktop */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
                   <tr>
@@ -1244,7 +1361,88 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
 
           {/* Tabela de Vendas com Vendedor */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Visualização em Cartões para Mobile (elimina rolagem lateral) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {vendasFiltradas.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-xs">
+                  Nenhuma venda encontrada com os filtros selecionados.
+                </div>
+              ) : (
+                vendasFiltradas.map((v) => (
+                  <div key={v.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="font-mono font-bold text-slate-900 text-sm">{formatarNumeroVenda(v)}</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                          {new Date(v.created_at).toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                        v.status === 'CONCLUIDA'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}>
+                        {v.status === 'CONCLUIDA' ? 'Concluída' : 'Cancelada'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-[11px]">Vendedor:</span>
+                        <span className="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-lg text-[11px]">
+                          {v.usuario_nome || `Operador #${v.usuario_id}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-[11px]">Cliente:</span>
+                        <span className="font-medium text-slate-800">{v.cliente_nome || 'Consumidor Final'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-[11px]">Pagamento:</span>
+                        <span className="text-slate-600 font-medium">{v.pagamentos?.map(p => getFormaLabel(p.forma_pagamento)).join(', ') || 'N/A'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">Valor Líquido</span>
+                        <span className="font-black text-slate-900 text-base">{formatMoney(v.valor_liquido)}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVendaDetalhe(v);
+                            setIndiceVendaComprovante(vendasFiltradas.findIndex(vf => vf.id === v.id));
+                            setComprovanteModalAberto(true);
+                          }}
+                          title="Visualizar comprovante digital da venda"
+                          className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                        >
+                          <Receipt size={13} />
+                          <span>Comprovante</span>
+                        </button>
+                        {v.status === 'CONCLUIDA' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelarVenda(v.id)}
+                            title="Cancelar venda e estornar estoque"
+                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Tabela para Tablet e Desktop */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
                   <tr>
@@ -1391,7 +1589,48 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
 
           {/* Tabela de Ordens Canceladas */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Visualização em Cartões para Mobile (elimina rolagem lateral) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {carregandoCancelamentosOS ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  <RefreshCw size={16} className="animate-spin inline mr-2" />
+                  Carregando cancelamentos...
+                </div>
+              ) : !relatorioCancelamentosOS || relatorioCancelamentosOS.ordens.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  Nenhuma ordem de serviço cancelada encontrada no histórico.
+                </div>
+              ) : (
+                relatorioCancelamentosOS.ordens.map((o: any) => (
+                  <div key={o.id} className="p-4 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="font-mono font-bold text-rose-700 text-sm">#{o.id}</span>
+                        <h5 className="font-bold text-slate-800 text-xs mt-0.5">{o.cliente_nome}</h5>
+                      </div>
+                      <span className="font-black text-slate-900 text-sm shrink-0">
+                        {formatMoney(o.valor_total)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-xs text-slate-500">
+                      <p><span className="text-slate-400">Veículo / Ref:</span> {o.equipamento || o.titulo}</p>
+                      <p><span className="text-slate-400">Cancelado em:</span> {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR') : '-'}</p>
+                      <p><span className="text-slate-400">Responsável:</span> {o.usuario_cancelamento_nome || 'Sistema'}</p>
+                    </div>
+
+                    {o.motivo_cancelamento && (
+                      <p className="text-[11px] bg-rose-50 text-rose-900 border border-rose-100 p-2 rounded-lg">
+                        <strong>Motivo:</strong> {o.motivo_cancelamento}
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Tabela para Tablet e Desktop */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                   <tr>

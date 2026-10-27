@@ -449,9 +449,95 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
             </div>
           </div>
 
-          {/* Tabela de Auditoria */}
+          {/* Tabela e Cartões de Auditoria */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Visualização em Cartões para Mobile (elimina rolagem lateral) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {caixasFechadosFiltrados.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  Nenhum caixa fechado encontrado.
+                </div>
+              ) : (
+                caixasFechadosFiltrados.map((c) => {
+                  const dif = Number(c.diferenca ?? ((c.saldo_final_informado || 0) - (c.saldo_final_calculado || 0)));
+                  const temQuebra = dif < -0.01;
+                  const temSobra = dif > 0.01;
+
+                  return (
+                    <div key={c.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="font-mono font-bold text-slate-900 text-sm">#{formatarNumeroCaixa(c.id)}</span>
+                          <h4 className="font-semibold text-slate-800 text-xs mt-0.5">
+                            {c.usuario_nome || `Operador #${c.usuario_id}`}
+                          </h4>
+                        </div>
+
+                        {temQuebra ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-200 shrink-0">
+                            <AlertTriangle size={12} />
+                            Falta {formatMoney(Math.abs(dif))}
+                          </span>
+                        ) : temSobra ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-sky-100 text-sky-700 border border-sky-200 shrink-0">
+                            Sobra +{formatMoney(dif)}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0">
+                            <CheckCircle2 size={12} />
+                            Bateu 100%
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Fundo Inicial</span>
+                          <span className="font-semibold text-slate-700">{formatMoney(c.saldo_inicial)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Saldo Calculado</span>
+                          <span className="font-semibold text-slate-700">{formatMoney(c.saldo_final_calculado ?? 0)}</span>
+                        </div>
+                        <div className="col-span-2 pt-1 border-t border-slate-200/60 flex items-center justify-between">
+                          <span className="text-[11px] text-slate-500 font-medium">Saldo Entregue (Declarado):</span>
+                          <span className="font-black text-slate-900 text-sm">{formatMoney(c.saldo_final_informado ?? 0)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1 text-[11px] text-slate-400">
+                        <span className="truncate">
+                          {new Date(c.data_abertura).toLocaleDateString('pt-BR')} • {c.data_fechamento ? new Date(c.data_fechamento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Encerrado'}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleInspecionarCaixa(c.id)}
+                            className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1"
+                            title="Ver resumo financeiro"
+                          >
+                            <Eye size={12} />
+                            <span>Resumo</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAbrirComprovantesCaixa(c.id)}
+                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1"
+                            title="Auditar todos os comprovantes"
+                          >
+                            <Receipt size={12} />
+                            <span>Comprovantes</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Tabela para Tablet e Desktop */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
@@ -691,7 +777,91 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
             <h4 className="font-bold text-slate-800 text-sm">Tickets de Solicitação (Suprimento / Sangria)</h4>
 
-            <div className="overflow-x-auto">
+            {/* Visualização em Cartões para Mobile (elimina rolagem lateral) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {ticketsPendentes.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 text-xs">
+                  Nenhum ticket de caixa pendente de aprovação.
+                </div>
+              ) : (
+                ticketsPendentes.map((t) => (
+                  <div key={t.id} className="p-4 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-slate-900 font-mono text-sm">#{formatarNumeroCaixa(t.id)}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(t.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold text-slate-800 mt-0.5">
+                          {t.usuario_nome || `Usuário #${t.usuario_id}`} (Caixa #{formatarNumeroCaixa(t.caixa_id)})
+                        </p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        t.tipo === 'SUPRIMENTO' 
+                          ? 'bg-emerald-100 text-emerald-800' 
+                          : t.tipo === 'SANGRIA_CEGA'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {t.tipo.replace('_', ' ')}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+                      <span className="text-[10px] text-slate-400">Valor Solicitado:</span>
+                      <span className="font-black font-mono text-slate-900">
+                        {t.valor_solicitado ? formatMoney(t.valor_solicitado) : 'Valor Cego (ADM define)'}
+                      </span>
+                    </div>
+
+                    {t.motivo && (
+                      <p className="text-[11px] text-slate-500 italic bg-slate-50/60 p-2 rounded-lg border border-slate-100">
+                        "{t.motivo}"
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          confirmar({
+                            titulo: 'Recusar Chamado de Caixa',
+                            mensagem: `Deseja realmente recusar o pedido de ${t.tipo.replace('_', ' ')} do colaborador ${t.usuario_nome || 'Operador'}?`,
+                            tipo: 'aviso',
+                            textoConfirmar: 'Sim, Recusar',
+                            onConfirmar: () => handleResponderTicket(t.id, false)
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold transition-colors"
+                      >
+                        Recusar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalAprovarTicket({
+                            ticketId: t.id,
+                            caixaId: t.caixa_id,
+                            tipo: t.tipo,
+                            valor: t.valor_solicitado ? String(t.valor_solicitado) : '50.00',
+                            usuarioNome: t.usuario_nome || `Operador #${t.usuario_id}`,
+                            motivo: t.motivo || ''
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                      >
+                        Aprovar Ticket
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Tabela para Tablet e Desktop */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
                   <tr>
