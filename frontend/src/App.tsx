@@ -15,7 +15,7 @@ import { Ponto } from './pages/Ponto';
 import { Notificacoes } from './pages/Notificacoes';
 import { Onboarding } from './pages/Onboarding';
 import { Financeiro } from './pages/Financeiro';
-import { ChatbotIA } from './components/ChatbotIA';
+// import { ChatbotIA } from './components/ChatbotIA';
 import { TourModal } from './components/TourModal';
 import { MeuPerfilModal } from './components/MeuPerfilModal';
 import { apiService } from './services/api';
@@ -308,11 +308,11 @@ const AppContent: React.FC = () => {
         onUsuarioAtualizado={(u) => setUsuario(u)}
       />
 
-      {/* Chatbot IA Integrado & Tour Interativo */}
-      <ChatbotIA
+      {/* Chatbot IA Integrado (Desativado temporariamente) */}
+      {/* <ChatbotIA
         onNavigateTab={(tab) => setActiveTab(tab)}
         onOpenTour={() => setShowTour(true)}
-      />
+      /> */}
 
       <TourModal
         isOpen={showTour}
