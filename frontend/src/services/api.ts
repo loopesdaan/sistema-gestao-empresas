@@ -257,6 +257,8 @@ export const apiService = {
     defeito_relatado?: string;
     valor_servicos: number;
     previsao_entrega?: string;
+    foto_antes_url?: string;
+    foto_depois_url?: string;
     itens?: Array<{ produto_id: number; quantidade: number; valor_unitario: number }>;
   }): Promise<OrdemServico> => {
     const res = await api.post('/os', dados);
@@ -483,11 +485,11 @@ export const apiService = {
     const { data } = await api.get('/financeiro/status');
     return data;
   },
-  fazerAporteTesouraria: async (dados: { valor: number; motivo?: string }): Promise<MovimentacaoTesouraria> => {
+  fazerAporteTesouraria: async (dados: { valor: number; motivo?: string; comprovante_url?: string }): Promise<MovimentacaoTesouraria> => {
     const { data } = await api.post('/financeiro/aporte', dados);
     return data;
   },
-  fazerRetiradaTesouraria: async (dados: { valor: number; motivo?: string }): Promise<MovimentacaoTesouraria> => {
+  fazerRetiradaTesouraria: async (dados: { valor: number; motivo?: string; comprovante_url?: string }): Promise<MovimentacaoTesouraria> => {
     const { data } = await api.post('/financeiro/retirada', dados);
     return data;
   },

@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       titulo: 'Operação & Vendas',
       items: [
         { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'dashboard', sempreAdmin: true },
-        { id: 'pdv', label: 'Frente de Caixa (PDV)', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
+        { id: 'pdv', label: 'Frente de Caixa', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
         { id: 'os', label: labelServicos, icon: Wrench, modulo: 'os' },
         { id: 'notificacoes', label: 'Notificações & Ações', icon: Bell, sempreVisivel: true, modulo: 'notificacoes' },
       ]
@@ -166,14 +166,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Container */}
       <aside className={`
-        fixed top-0 bottom-0 left-0 z-50 ${isCollapsed ? 'lg:w-20' : 'lg:w-72'} w-72 bg-slate-900 bg-gradient-to-b ${temaAtual.sidebarGradiente} text-slate-200 flex flex-col transition-all duration-300 ease-in-out border-r border-slate-800
+        fixed top-0 bottom-0 left-0 z-50 ${isCollapsed ? 'lg:w-20' : 'lg:w-80'} w-80 bg-slate-900 bg-gradient-to-b ${temaAtual.sidebarGradiente} text-slate-200 flex flex-col transition-all duration-300 ease-in-out border-r border-slate-800
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Header da Sidebar com Tema do Segmento */}
         <div className={`border-b border-slate-800/80 flex transition-all duration-200 ${
           isCollapsed 
             ? 'p-4 lg:px-2 lg:py-3 lg:flex-col lg:items-center lg:gap-2.5 items-center justify-between' 
-            : 'p-4 items-center justify-between gap-2'
+            : 'p-4 items-center justify-between gap-3'
         }`}>
           <div className={`flex items-center ${isCollapsed ? 'lg:justify-center lg:w-full' : 'gap-3 min-w-0 flex-1 overflow-hidden'}`}>
             {empresa.logo_url && !logoFalhou ? (
@@ -193,8 +193,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
             <div className={`overflow-hidden min-w-0 flex-1 ${isCollapsed ? 'lg:hidden' : ''}`}>
-              <h1 className="font-bold text-white text-sm leading-snug truncate" title={nomeExibicao}>{nomeExibicao}</h1>
-              <span className={`text-[11px] font-semibold ${temaAtual.textoHighlight} block truncate`} title={temaAtual.label}>
+              <h1 className="font-bold text-white text-sm leading-snug truncate whitespace-nowrap" title={nomeExibicao}>{nomeExibicao}</h1>
+              <span className={`text-[11px] font-semibold ${temaAtual.textoHighlight} block truncate whitespace-nowrap`} title={temaAtual.label}>
                 {temaAtual.label}
               </span>
             </div>
@@ -265,8 +265,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       {isOperador && item.id === 'relatorios' ? 'Minhas Vendas' : item.label}
                     </span>
                     {item.highlight && !isActive && (
-                      <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${temaAtual.accentBadge} ${isCollapsed ? 'lg:hidden' : ''}`}>
-                        Rápido
+                      <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${temaAtual.accentBadge} ${isCollapsed ? 'lg:hidden' : ''}`}>
+                        PDV
                       </span>
                     )}
                   </button>

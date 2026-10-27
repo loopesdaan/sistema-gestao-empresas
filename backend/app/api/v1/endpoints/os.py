@@ -62,6 +62,8 @@ def formatar_os(os: OrdemServico) -> dict:
         "data_cancelamento": os.data_cancelamento,
         "usuario_cancelamento_id": os.usuario_cancelamento_id,
         "usuario_cancelamento_nome": os.usuario_cancelamento.nome if getattr(os, "usuario_cancelamento", None) else "",
+        "foto_antes_url": getattr(os, "foto_antes_url", None),
+        "foto_depois_url": getattr(os, "foto_depois_url", None),
         "created_at": os.created_at,
         "updated_at": os.updated_at,
         "itens": [
@@ -232,6 +234,8 @@ def criar_os(
         valor_pecas=valor_pecas,
         valor_total=valor_total,
         previsao_entrega=dados.previsao_entrega,
+        foto_antes_url=dados.foto_antes_url,
+        foto_depois_url=dados.foto_depois_url,
         itens=itens_processados
     )
 
@@ -296,6 +300,10 @@ def atualizar_os(
 
     if "valor_servicos" in update_dict and update_dict["valor_servicos"] is not None:
         os.valor_servicos = update_dict["valor_servicos"]
+    if "foto_antes_url" in update_dict:
+        os.foto_antes_url = update_dict["foto_antes_url"]
+    if "foto_depois_url" in update_dict:
+        os.foto_depois_url = update_dict["foto_depois_url"]
 
     # Se novas peças forem adicionadas
     if dados.itens is not None:

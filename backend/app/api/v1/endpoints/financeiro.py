@@ -149,6 +149,7 @@ def realizar_aporte(
         saldo_anterior=saldo_ant,
         saldo_posterior=novo_saldo,
         motivo=dados.motivo or "Aporte de Capital / Entrada no Cofre",
+        comprovante_url=dados.comprovante_url,
         created_at=datetime.now(timezone.utc)
     )
     db.add(mov)
@@ -199,6 +200,7 @@ def realizar_retirada(
         saldo_anterior=saldo_ant,
         saldo_posterior=novo_saldo,
         motivo=dados.motivo or "Retirada para Depósito Bancário / Despesa",
+        comprovante_url=dados.comprovante_url,
         created_at=datetime.now(timezone.utc)
     )
     db.add(mov)

@@ -36,6 +36,8 @@ class OrdemServico(Base):
     motivo_cancelamento = Column(Text, nullable=True)
     data_cancelamento = Column(DateTime, nullable=True)
     usuario_cancelamento_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=True)
+    foto_antes_url = Column(Text, nullable=True)
+    foto_depois_url = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
