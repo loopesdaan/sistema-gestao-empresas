@@ -168,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <Menu size={22} />
         </button>
-        <h2 className="text-lg font-bold text-slate-800 tracking-tight capitalize">
+        <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight capitalize truncate max-w-[130px] xs:max-w-[180px] sm:max-w-none" title={activeTitle}>
           {activeTitle}
         </h2>
       </div>
@@ -204,7 +204,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Mini tela flutuante abaixo do botão */}
             {pontoRapidoAberto && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 p-4 space-y-3.5 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="fixed sm:absolute right-2 sm:right-0 mt-2 w-[calc(100vw-1rem)] sm:w-80 max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 p-4 space-y-3.5 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -305,7 +305,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Dropdown de Notificações */}
           {dropdownAberto && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 overflow-hidden">
+            <div className="fixed sm:absolute right-2 sm:right-0 mt-2 w-[calc(100vw-1rem)] sm:w-80 max-w-sm bg-white rounded-2xl border border-slate-200 shadow-xl z-50 overflow-hidden">
               {/* Cabeçalho do dropdown */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
                 <div>

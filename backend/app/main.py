@@ -86,6 +86,14 @@ def migrar_colunas():
                 if "numero_sequencial" not in venda_cols:
                     conn.execute(text("ALTER TABLE vendas ADD COLUMN numero_sequencial BIGINT"))
                 conn.commit()
+
+        # Suporte ao Enum FINANCEIRO no PostgreSQL / CockroachDB
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TYPE perfilusuario ADD VALUE IF NOT EXISTS 'FINANCEIRO'"))
+                conn.commit()
+        except Exception:
+            pass
     except Exception as e:
         logger.warning(f"Aviso durante migração de colunas: {e}")
 
@@ -112,7 +120,7 @@ def inicializar_banco_dados():
                 telefone="(11) 99999-9999" if is_prod else "(11) 98765-4321",
                 email="contato@gestaopme.com.br",
                 endereco="São Paulo - SP",
-                modulos_ativos=json.dumps(["pdv", "caixa", "produtos", "estoque", "clientes", "os", "relatorios"])
+                modulos_ativos=json.dumps(["pdv", "caixa", "produtos", "estoque", "clientes", "os", "relatorios", "financeiro"])
             )
             db.add(empresa)
             db.commit()
@@ -185,7 +193,7 @@ def inicializar_banco_dados():
                     except Exception:
                         pass
 
-                modulos_essenciais = ["pdv", "caixa", "produtos", "estoque", "clientes", "os", "relatorios"]
+                modulos_essenciais = ["pdv", "caixa", "produtos", "estoque", "clientes", "os", "relatorios", "financeiro"]
                 modificou = False
                 if not modulos:
                     modulos = list(modulos_essenciais)
@@ -219,6 +227,7 @@ def inicializar_banco_dados():
         # 3. Se for DESENVOLVIMENTO, popula dados de demonstração
         usuarios_demo = [
             ("Administrador Demo", "admin@gestao.com", "admin123", PerfilUsuario.ADMIN),
+            ("Gerente Financeiro", "financeiro@gestao.com", "fin123", PerfilUsuario.FINANCEIRO),
             ("Operador de Caixa", "caixa@gestao.com", "caixa123", PerfilUsuario.OPERADOR_CAIXA),
             ("Estoquista Responsável", "estoque@gestao.com", "estoque123", PerfilUsuario.ESTOQUISTA),
         ]

@@ -11,6 +11,8 @@ from app.models.usuario import Usuario, PerfilUsuario
 from app.models.caixa import Caixa, MovimentacaoCaixa, StatusCaixa, TipoMovimentacaoCaixa, SolicitacaoCaixa, TipoSolicitacaoCaixa, StatusSolicitacaoCaixa
 from app.models.notificacao import Notificacao, StatusNotificacao
 from app.models.venda import Venda, PagamentoVenda, StatusVenda, FormaPagamento
+from app.models.financeiro import CofreCentral, MovimentacaoTesouraria, TipoMovimentacaoTesouraria
+from app.api.v1.endpoints.financeiro import obter_ou_criar_cofre
 from app.schemas.caixa import (
     AberturaCaixa, FechamentoCaixa, MovimentacaoCaixaCreate,
     CaixaResponse, MovimentacaoCaixaResponse, ResumoCaixaResponse
@@ -221,6 +223,30 @@ def abrir_caixa(
         status=StatusCaixa.ABERTO
     )
     db.add(novo_caixa)
+    db.flush()
+
+    # Integração com a Tesouraria / Cofre Central: Liberação do Fundo de Troco
+    val_fundo = Decimal(str(dados.saldo_inicial or 0))
+    if val_fundo > 0:
+        cofre = obter_ou_criar_cofre(db, current_user.empresa_id, current_user.id)
+        saldo_ant = cofre.saldo
+        novo_saldo = max(Decimal("0.00"), saldo_ant - val_fundo)
+        cofre.saldo = novo_saldo
+
+        mov_tesouraria = MovimentacaoTesouraria(
+            empresa_id=current_user.empresa_id,
+            cofre_id=cofre.id,
+            usuario_id=current_user.id,
+            caixa_id=novo_caixa.id,
+            tipo=TipoMovimentacaoTesouraria.LIBERACAO_FUNDO_TROCO,
+            valor=val_fundo,
+            saldo_anterior=saldo_ant,
+            saldo_posterior=novo_saldo,
+            motivo=f"Liberação de fundo de troco para Caixa #{novo_caixa.id} ({current_user.nome})",
+            created_at=datetime.now(timezone.utc)
+        )
+        db.add(mov_tesouraria)
+
     db.commit()
     db.refresh(novo_caixa)
     return serialize_caixa(novo_caixa, db)
@@ -231,11 +257,11 @@ def lancar_movimentacao(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    # Regra de negócio: apenas administradores podem registrar movimentações avulsas diretamente
-    if current_user.perfil != PerfilUsuario.ADMIN:
+    # Regra de negócio: administradores e financeiro podem registrar movimentações avulsas diretamente
+    if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.FINANCEIRO]:
         raise HTTPException(
             status_code=403,
-            detail="Acesso restrito: Funções não administradoras não podem lançar sangria ou entrada de valores diretamente no caixa. Utilize a opção 'Solicitar Ticket' para aprovação do Administrador."
+            detail="Acesso restrito: Funções não administrativas/financeiras não podem lançar sangria ou entrada de valores diretamente no caixa. Utilize a opção 'Solicitar Ticket' para aprovação do Gestor."
         )
 
     # Se caixa_id for informado explicitamente
@@ -243,16 +269,16 @@ def lancar_movimentacao(
         caixa = buscar_caixa_seguro(db, dados.caixa_id, current_user.empresa_id)
         if caixa and caixa.status != StatusCaixa.ABERTO:
             caixa = None
-        if caixa and current_user.perfil != PerfilUsuario.ADMIN and caixa.usuario_id != current_user.id:
+        if caixa and current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.FINANCEIRO] and caixa.usuario_id != current_user.id:
             caixa = None
     else:
-        # Busca o caixa aberto do usuário, ou se for admin, o caixa aberto ativo da empresa
+        # Busca o caixa aberto do usuário, ou se for admin/financeiro, o caixa aberto ativo da empresa
         caixa = db.query(Caixa).filter(
             Caixa.empresa_id == current_user.empresa_id,
             Caixa.usuario_id == current_user.id,
             Caixa.status == StatusCaixa.ABERTO
         ).first()
-        if not caixa and current_user.perfil == PerfilUsuario.ADMIN:
+        if not caixa and current_user.perfil in [PerfilUsuario.ADMIN, PerfilUsuario.FINANCEIRO]:
             caixa = db.query(Caixa).filter(
                 Caixa.empresa_id == current_user.empresa_id,
                 Caixa.status == StatusCaixa.ABERTO
@@ -329,7 +355,7 @@ def fechar_caixa(
     if caixa.status == StatusCaixa.FECHADO:
         raise HTTPException(status_code=400, detail="Este caixa já se encontra fechado.")
 
-    if current_user.perfil != PerfilUsuario.ADMIN and caixa.usuario_id != current_user.id and caixa.empresa_id != current_user.empresa_id:
+    if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.FINANCEIRO] and caixa.usuario_id != current_user.id and caixa.empresa_id != current_user.empresa_id:
         raise HTTPException(status_code=403, detail="Você só pode fechar o seu próprio caixa.")
 
     resumo = calcular_resumo_caixa(caixa, db)
@@ -339,6 +365,28 @@ def fechar_caixa(
     caixa.saldo_final_calculado = resumo.saldo_esperado_dinheiro
     if dados.observacoes:
         caixa.observacoes = (caixa.observacoes or "") + ("\nFechamento: " + dados.observacoes)
+
+    # Integração com a Tesouraria / Cofre Central: Recolhimento de Fechamento de Caixa
+    valor_recolhido = Decimal(str(dados.saldo_final_informado if dados.saldo_final_informado is not None else resumo.saldo_esperado_dinheiro))
+    if valor_recolhido > 0:
+        cofre = obter_ou_criar_cofre(db, current_user.empresa_id, current_user.id)
+        saldo_ant = cofre.saldo
+        novo_saldo = saldo_ant + valor_recolhido
+        cofre.saldo = novo_saldo
+
+        mov_tesouraria = MovimentacaoTesouraria(
+            empresa_id=current_user.empresa_id,
+            cofre_id=cofre.id,
+            usuario_id=current_user.id,
+            caixa_id=caixa.id,
+            tipo=TipoMovimentacaoTesouraria.RECOLHIMENTO_FECHAMENTO,
+            valor=valor_recolhido,
+            saldo_anterior=saldo_ant,
+            saldo_posterior=novo_saldo,
+            motivo=f"Recolhimento de fechamento do Caixa #{caixa.id} ({current_user.nome})",
+            created_at=datetime.now(timezone.utc)
+        )
+        db.add(mov_tesouraria)
 
     db.add(caixa)
     db.commit()
@@ -355,8 +403,8 @@ def historico_caixas(
     query = db.query(Caixa).filter(Caixa.empresa_id == current_user.empresa_id)
     if status:
         query = query.filter(Caixa.status == status)
-    # Se não for admin, vê apenas o seu histórico
-    if current_user.perfil != PerfilUsuario.ADMIN:
+    # Se não for admin nem financeiro, vê apenas o seu histórico
+    if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.FINANCEIRO]:
         query = query.filter(Caixa.usuario_id == current_user.id)
     caixas = query.order_by(Caixa.data_abertura.desc()).limit(100).all()
     return [serialize_caixa(c, db) for c in caixas]
@@ -447,7 +495,7 @@ def listar_solicitacoes_pendentes(
         SolicitacaoCaixa.empresa_id == current_user.empresa_id,
         SolicitacaoCaixa.status == StatusSolicitacaoCaixa.PENDENTE
     )
-    if current_user.perfil != PerfilUsuario.ADMIN:
+    if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.FINANCEIRO]:
         query = query.filter(SolicitacaoCaixa.usuario_id == current_user.id)
         
     tickets = query.order_by(SolicitacaoCaixa.created_at.desc()).all()
@@ -473,9 +521,9 @@ def responder_ticket_caixa(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    """Administrador autoriza ou recusa solicitação de suprimento/sangria, gerando movimentação automática"""
-    if current_user.perfil != PerfilUsuario.ADMIN:
-        raise HTTPException(status_code=403, detail="Apenas administradores podem responder tickets de caixa.")
+    """Administrador ou Financeiro autoriza ou recusa solicitação de suprimento/sangria, gerando movimentação automática"""
+    if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.FINANCEIRO]:
+        raise HTTPException(status_code=403, detail="Apenas administradores ou financeiro podem responder tickets de caixa.")
 
     agora = datetime.now(timezone.utc)
 
@@ -567,9 +615,36 @@ def responder_ticket_caixa(
             usuario_id=ticket.usuario_id,
             tipo=tipo_mov,
             valor=valor,
-            motivo=f"Aprovado pelo ADM {current_user.nome}: {motivo_final}"
+            motivo=f"Aprovado por {current_user.nome}: {motivo_final}"
         )
         db.add(mov)
+
+        # Integração Contábil com Tesouraria / Cofre Central
+        cofre = obter_ou_criar_cofre(db, current_user.empresa_id, current_user.id)
+        saldo_ant = cofre.saldo
+        if tipo_mov == TipoMovimentacaoCaixa.SUPRIMENTO:
+            novo_saldo = max(Decimal("0.00"), saldo_ant - valor)
+            tipo_tesouraria = TipoMovimentacaoTesouraria.SUPRIMENTO_CAIXA
+            motivo_tes = f"Liberação de suprimento para Caixa #{ticket.caixa_id}: {motivo_final}"
+        else:
+            novo_saldo = saldo_ant + valor
+            tipo_tesouraria = TipoMovimentacaoTesouraria.SANGRIA_CAIXA
+            motivo_tes = f"Recolhimento de sangria do Caixa #{ticket.caixa_id}: {motivo_final}"
+
+        cofre.saldo = novo_saldo
+        mov_tesouraria = MovimentacaoTesouraria(
+            empresa_id=current_user.empresa_id,
+            cofre_id=cofre.id,
+            usuario_id=current_user.id,
+            caixa_id=ticket.caixa_id,
+            tipo=tipo_tesouraria,
+            valor=valor,
+            saldo_anterior=saldo_ant,
+            saldo_posterior=novo_saldo,
+            motivo=motivo_tes,
+            created_at=datetime.now(timezone.utc)
+        )
+        db.add(mov_tesouraria)
     else:
         ticket.status = StatusSolicitacaoCaixa.REJEITADO
 

@@ -12,7 +12,7 @@ import {
   Banknote, QrCode, UserCheck, CheckCircle2, AlertCircle, 
   ShoppingCart, RefreshCw, X, Copy, Check, Sparkles, Wrench,
   Lock, Clock, Receipt, Shield, AlertTriangle, Smartphone,
-  Tag, Percent
+  Tag, Percent, Package, ArrowLeft, ArrowRight
 } from 'lucide-react';
 
 interface CartItem {
@@ -47,6 +47,7 @@ export const PDV: React.FC = () => {
   const [tipoDesconto, setTipoDesconto] = useState<'VALOR' | 'PORCENTAGEM'>('VALOR');
   const [valorDescontoInput, setValorDescontoInput] = useState<string>('');
   const [acrescimo, setAcrescimo] = useState<number>(0);
+  const [abaMobilePDV, setAbaMobilePDV] = useState<'CATALOGO' | 'CARRINHO'>('CATALOGO');
 
   // Modal de Checkout / Pagamento
   const [modalPagamentoAberto, setModalPagamentoAberto] = useState(false);
@@ -667,101 +668,177 @@ export const PDV: React.FC = () => {
   }
 
   return (
-    <div className="h-[calc(100vh-6rem)] flex flex-col lg:flex-row gap-5">
-      {/* Coluna Esquerda: Busca & Catálogo Rápido */}
-      <div className="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-xs relative">
-        {/* Barra de Busca de Produtos */}
-        <div className="p-4 border-b border-slate-200 bg-slate-50/50">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              <Search size={19} />
-            </div>
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && produtosSugestoes.length > 0) {
-                  adicionarAoCarrinho(produtosSugestoes[0]);
-                }
-              }}
-              placeholder="Digite o nome do produto ou bip o código de barras (Enter para adicionar)..."
-              className="w-full pl-10 pr-10 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent shadow-xs"
-              autoFocus
-            />
-            {busca && (
-              <button 
-                onClick={() => setBusca('')} 
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-              >
-                <X size={18} />
-              </button>
-            )}
-
-            {/* Lista Flutuante de Sugestões de Busca - ancorada estritamente abaixo do input para nunca sobrepor a sidebar */}
-            {produtosSugestoes.length > 0 && (
-              <div className="absolute z-30 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 ring-1 ring-slate-900/5">
-                {produtosSugestoes.map((p) => (
-                  <div
-                    key={p.id}
-                    onClick={() => {
-                      adicionarAoCarrinho(p);
-                      setBusca('');
-                    }}
-                    className="p-3 hover:bg-sky-50 cursor-pointer flex items-center justify-between transition-colors"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{p.nome}</p>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span>{p.codigo_barras || 'Sem código'}</span>
-                        <span>•</span>
-                        <span className={p.estoque_atual <= 0 ? 'text-rose-600 font-semibold' : ''}>
-                          Estoque: {p.estoque_atual} {p.unidade}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-sm font-bold text-sky-600">{formatMoney(p.preco_venda)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Grade de Produtos Frequentes / Rápidos */}
-        <div className="flex-1 p-4 overflow-y-auto">
-          <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-            Produtos em Destaque
-          </h4>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {todosProdutos.map((prod) => (
-              <button
-                key={prod.id}
-                onClick={() => adicionarAoCarrinho(prod)}
-                className="p-3 bg-white border border-slate-200 hover:border-sky-500 hover:bg-sky-50/30 rounded-xl text-left transition-all group flex flex-col justify-between shadow-xs hover:shadow-sm"
-              >
-                <div>
-                  <span className="text-[10px] font-semibold text-sky-600 uppercase tracking-wide">
-                    {prod.categoria || 'Geral'}
-                  </span>
-                  <h5 className="text-xs font-medium text-slate-800 group-hover:text-sky-700 line-clamp-2 mt-0.5">
-                    {prod.nome}
-                  </h5>
-                </div>
-                <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
-                  <span className="text-xs font-bold text-slate-900">{formatMoney(prod.preco_venda)}</span>
-                  <span className="text-[10px] text-slate-400">Est: {formatEstoque(prod.estoque_atual)}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+    <div className="min-h-[calc(100vh-5rem)] lg:h-[calc(100vh-6rem)] flex flex-col gap-3 lg:gap-5 pb-16 lg:pb-0">
+      {/* Seletor de Abas no Mobile (Padrão de Mercado para POS / PDV no celular) */}
+      <div className="lg:hidden flex items-center bg-slate-200/80 p-1 rounded-2xl shrink-0">
+        <button
+          type="button"
+          onClick={() => setAbaMobilePDV('CATALOGO')}
+          className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${
+            abaMobilePDV === 'CATALOGO'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Package size={15} />
+          <span>Catálogo</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setAbaMobilePDV('CARRINHO')}
+          className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${
+            abaMobilePDV === 'CARRINHO'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <ShoppingCart size={15} />
+          <span>Carrinho ({carrinho.reduce((acc, item) => acc + item.quantidade, 0)})</span>
+          {carrinho.length > 0 && (
+            <span className="text-[11px] font-black text-emerald-600 ml-1">
+              {formatMoney(totalLiquido)}
+            </span>
+          )}
+        </button>
       </div>
 
-      {/* Coluna Direita: Carrinho & Checkout */}
-      <div className="w-full lg:w-96 flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        {/* Header do Carrinho & Cliente */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-5 h-full">
+        {/* Coluna Esquerda: Busca & Catálogo Rápido */}
+        <div className={`flex-1 flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-xs relative ${
+          abaMobilePDV === 'CATALOGO' ? 'flex' : 'hidden lg:flex'
+        }`}>
+          {/* Barra de Busca de Produtos */}
+          <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Search size={19} />
+              </div>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && produtosSugestoes.length > 0) {
+                    adicionarAoCarrinho(produtosSugestoes[0]);
+                  }
+                }}
+                placeholder="Digite o nome do produto ou bip o código de barras (Enter para adicionar)..."
+                className="w-full pl-10 pr-10 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent shadow-xs"
+                autoFocus
+              />
+              {busca && (
+                <button 
+                  onClick={() => setBusca('')} 
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                >
+                  <X size={18} />
+                </button>
+              )}
+
+              {/* Lista Flutuante de Sugestões de Busca - ancorada estritamente abaixo do input para nunca sobrepor a sidebar */}
+              {produtosSugestoes.length > 0 && (
+                <div className="absolute z-30 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 ring-1 ring-slate-900/5">
+                  {produtosSugestoes.map((p) => (
+                    <div
+                      key={p.id}
+                      onClick={() => {
+                        adicionarAoCarrinho(p);
+                        setBusca('');
+                      }}
+                      className="p-3 hover:bg-sky-50 cursor-pointer flex items-center justify-between transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{p.nome}</p>
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <span>{p.codigo_barras || 'Sem código'}</span>
+                          <span>•</span>
+                          <span className={p.estoque_atual <= 0 ? 'text-rose-600 font-semibold' : ''}>
+                            Estoque: {p.estoque_atual} {p.unidade}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold text-sky-600">{formatMoney(p.preco_venda)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Grade de Produtos Frequentes / Rápidos */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+              Produtos em Destaque
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {todosProdutos.map((prod) => (
+                <button
+                  key={prod.id}
+                  onClick={() => adicionarAoCarrinho(prod)}
+                  className="p-3 bg-white border border-slate-200 hover:border-sky-500 hover:bg-sky-50/30 rounded-xl text-left transition-all group flex flex-col justify-between shadow-xs hover:shadow-sm"
+                >
+                  <div>
+                    <span className="text-[10px] font-semibold text-sky-600 uppercase tracking-wide">
+                      {prod.categoria || 'Geral'}
+                    </span>
+                    <h5 className="text-xs font-medium text-slate-800 group-hover:text-sky-700 line-clamp-2 mt-0.5">
+                      {prod.nome}
+                    </h5>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
+                    <span className="text-xs font-bold text-slate-900">{formatMoney(prod.preco_venda)}</span>
+                    <span className="text-[10px] text-slate-400">Est: {formatEstoque(prod.estoque_atual)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Barra Flutuante de Ação Rápida no Mobile ao Adicionar Itens ao Carrinho */}
+          {carrinho.length > 0 && (
+            <div className="lg:hidden sticky bottom-2 mx-3 mb-2 p-3 bg-slate-900 text-white rounded-2xl shadow-xl flex items-center justify-between z-20 border border-slate-800 animate-in fade-in slide-in-from-bottom-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-xs">
+                  {carrinho.reduce((acc, item) => acc + item.quantidade, 0)}
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider leading-tight">Total</span>
+                  <span className="text-sm font-black text-emerald-400 leading-tight">{formatMoney(totalLiquido)}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAbaMobilePDV('CARRINHO')}
+                className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all active:scale-95"
+              >
+                <span>Ver Carrinho</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Coluna Direita: Carrinho & Checkout */}
+        <div className={`w-full lg:w-96 flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden ${
+          abaMobilePDV === 'CARRINHO' ? 'flex' : 'hidden lg:flex'
+        }`}>
+          {/* Botão Mobile para Retornar ao Catálogo */}
+          <div className="lg:hidden p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setAbaMobilePDV('CATALOGO')}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-sky-600 transition-colors"
+            >
+              <ArrowLeft size={15} />
+              <span>Adicionar mais produtos</span>
+            </button>
+            <span className="text-xs font-semibold text-slate-500">
+              {carrinho.reduce((acc, item) => acc + item.quantidade, 0)} {carrinho.reduce((acc, item) => acc + item.quantidade, 0) === 1 ? 'item' : 'itens'}
+            </span>
+          </div>
+
+          {/* Header do Carrinho & Cliente */}
         <div className="p-4 border-b border-slate-200 bg-slate-50/50">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -984,6 +1061,7 @@ export const PDV: React.FC = () => {
           </button>
         </div>
       </div>
+      </div>
 
       {/* Modal de Pagamento / Checkout com Fechamento ao Clicar Fora */}
       {modalPagamentoAberto && (
@@ -992,7 +1070,7 @@ export const PDV: React.FC = () => {
           onClick={() => setModalPagamentoAberto(false)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-4 border-b border-slate-200">
@@ -1331,7 +1409,7 @@ export const PDV: React.FC = () => {
           onClick={() => setModalImportarOSAberto(false)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col border border-slate-100 animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col border border-slate-100 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">

@@ -14,6 +14,7 @@ import { Usuarios } from './pages/Usuarios';
 import { Ponto } from './pages/Ponto';
 import { Notificacoes } from './pages/Notificacoes';
 import { Onboarding } from './pages/Onboarding';
+import { Financeiro } from './pages/Financeiro';
 import { ChatbotIA } from './components/ChatbotIA';
 import { TourModal } from './components/TourModal';
 import { apiService } from './services/api';
@@ -37,6 +38,7 @@ const AppContent: React.FC = () => {
     const salvo = localStorage.getItem('gestao_user') || sessionStorage.getItem('gestao_user');
     const u = salvo ? JSON.parse(salvo) : null;
     if (u?.perfil === 'ADMIN') return 'dashboard';
+    if (u?.perfil === 'FINANCEIRO') return 'financeiro';
     if (u?.perfil === 'ESTOQUISTA') return 'produtos';
     return 'pdv';
   });
@@ -117,6 +119,8 @@ const AppContent: React.FC = () => {
 
     if (u.perfil === 'ADMIN') {
       setActiveTab('dashboard');
+    } else if (u.perfil === 'FINANCEIRO') {
+      setActiveTab('financeiro');
     } else if (u.perfil === 'ESTOQUISTA') {
       setActiveTab('produtos');
     } else {
@@ -213,6 +217,8 @@ const AppContent: React.FC = () => {
         return <PDV />;
       case 'caixa':
         return <Caixa isAdmin={isAdmin} />;
+      case 'financeiro':
+        return <Financeiro />;
       case 'notificacoes':
         return <Notificacoes isAdmin={isAdmin} onNavigate={(tab) => setActiveTab(tab)} />;
       case 'ponto':
@@ -239,6 +245,7 @@ const AppContent: React.FC = () => {
       dashboard: 'Dashboard Geral',
       pdv: 'Frente de Caixa (PDV)',
       caixa: 'Controle de Caixa',
+      financeiro: 'Gestão Financeira & Cofre Central',
       notificacoes: 'Central de Notificações & Ações Rápidas',
       ponto: 'Ponto Eletrônico CLT',
       produtos: 'Produtos & Estoque',

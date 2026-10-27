@@ -28,4 +28,5 @@ class Empresa(Base):
     caixas = relationship("Caixa", back_populates="empresa", cascade="all, delete-orphan")
     vendas = relationship("Venda", back_populates="empresa", cascade="all, delete-orphan")
     ordens_servico = relationship("OrdemServico", back_populates="empresa", cascade="all, delete-orphan")
+    cofre_central = relationship("CofreCentral", back_populates="empresa", uselist=False, cascade="all, delete-orphan")
 

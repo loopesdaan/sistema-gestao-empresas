@@ -50,15 +50,25 @@ def get_current_admin(
         )
     return current_user
 
+def get_current_admin_ou_financeiro(
+    current_user: Usuario = Depends(get_current_user)
+) -> Usuario:
+    if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.FINANCEIRO]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso restrito aos perfis Administrador ou Financeiro",
+        )
+    return current_user
+
 def verificar_ponto_trabalho(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Usuario:
     """
     Exige que Operadores e Controladores de Estoque estejam com ponto ativo (status TRABALHANDO)
-    para realizar operações de trabalho. Admins ou usuários com bypass de teste ativado estão liberados.
+    para realizar operações de trabalho. Admins, Financeiro ou usuários com bypass de teste ativado estão liberados.
     """
-    if current_user.perfil == PerfilUsuario.ADMIN:
+    if current_user.perfil in [PerfilUsuario.ADMIN, PerfilUsuario.FINANCEIRO]:
         return current_user
 
     # 1. Verifica se a empresa ativou o bypass de ponto para testes
