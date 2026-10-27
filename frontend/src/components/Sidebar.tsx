@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, ShoppingCart, Wallet, Package, Users, 
   Wrench, BarChart3, Settings, LogOut, X, Shield, Sparkles, Clock, Bell,
-  ChevronLeft, ChevronRight, Landmark
+  ChevronLeft, ChevronRight, ChevronDown, Landmark
 } from 'lucide-react';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { resolveImageUrl } from '../services/api';
@@ -70,6 +70,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isOperador = userPerfil === 'OPERADOR_CAIXA';
   const isFinanceiro = userPerfil === 'FINANCEIRO';
   const isAdminOuFinanceiro = isAdmin || isFinanceiro;
+
+  // Estado dos grupos minimizados/recolhidos (persistido no localStorage)
+  const [gruposRecolhidos, setGruposRecolhidos] = useState<Record<string, boolean>>(() => {
+    try {
+      const salvo = localStorage.getItem('gestao_grupos_sidebar_colapsados');
+      return salvo ? JSON.parse(salvo) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleGrupo = (grupoId: string) => {
+    setGruposRecolhidos(prev => {
+      const novo = { ...prev, [grupoId]: !prev[grupoId] };
+      try {
+        localStorage.setItem('gestao_grupos_sidebar_colapsados', JSON.stringify(novo));
+      } catch {}
+      return novo;
+    });
+  };
 
   // Nomenclatura contextual de serviços/OS de acordo com o segmento da empresa
   const labelServicos = temaAtual?.terminologia?.servicos 
@@ -159,6 +179,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }))
     .filter(grupo => grupo.items.length > 0);
 
+  // Garante que o grupo da aba ativa nunca fique minimizado/oculto
+  useEffect(() => {
+    const grupoAtivo = menuGrupos.find(g => g.items.some(i => i.id === activeTab));
+    if (grupoAtivo && gruposRecolhidos[grupoAtivo.id]) {
+      setGruposRecolhidos(prev => {
+        const novo = { ...prev, [grupoAtivo.id]: false };
+        try {
+          localStorage.setItem('gestao_grupos_sidebar_colapsados', JSON.stringify(novo));
+        } catch {}
+        return novo;
+      });
+    }
+  }, [activeTab]);
+
   return (
     <>
       {/* Overlay Mobile */}
@@ -228,57 +262,78 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Links de Navegação Agrupados */}
+        {/* Links de Navegação Agrupados (com opção de minimizar grupos) */}
         <nav className={`flex-1 overflow-y-auto ${isCollapsed ? 'lg:px-2' : 'px-3'} py-3 space-y-1`}>
-          {gruposFiltrados.map((grupo, gIdx) => (
-            <div key={grupo.id} className="space-y-1">
-              {/* Título da Seção do Menu */}
-              {!isCollapsed ? (
-                <div className={`px-3.5 pb-1 ${gIdx > 0 ? 'pt-3.5' : 'pt-1'}`}>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400/80 block select-none">
-                    {grupo.titulo}
-                  </span>
-                </div>
-              ) : (
-                gIdx > 0 && <div className="my-2 border-t border-slate-800/80 mx-2" />
-              )}
+          {gruposFiltrados.map((grupo, gIdx) => {
+            const isRecolhido = !isCollapsed && Boolean(gruposRecolhidos[grupo.id]);
 
-              {/* Itens do Grupo */}
-              {grupo.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
+            return (
+              <div key={grupo.id} className="space-y-1">
+                {/* Título da Seção do Menu (com botão de minimizar/expandir) */}
+                {!isCollapsed ? (
                   <button
-                    key={item.id}
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      setIsOpen(false);
-                    }}
-                    title={item.label}
-                    className={`
-                      w-full flex items-center ${isCollapsed ? 'lg:justify-center lg:px-0' : 'px-3.5'} py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 text-left gap-3
-                      ${isActive 
-                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white shadow-md shadow-black/20 font-bold` 
-                        : item.highlight
-                          ? `${temaAtual.textoHighlight} hover:bg-slate-800/80 bg-slate-800/40 border ${temaAtual.borderHighlight}/30`
-                          : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                      }
-                    `}
+                    type="button"
+                    onClick={() => toggleGrupo(grupo.id)}
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-left group hover:bg-slate-800/40 transition-colors ${
+                      gIdx > 0 ? 'mt-2.5' : 'mt-0.5'
+                    }`}
+                    title={isRecolhido ? `Expandir ${grupo.titulo}` : `Minimizar ${grupo.titulo}`}
                   >
-                    <Icon size={18} className={`shrink-0 ${isActive ? 'text-white' : item.highlight ? 'opacity-90' : 'text-slate-400'}`} />
-                    <span className={`truncate whitespace-nowrap ${isCollapsed ? 'lg:hidden' : ''}`}>
-                      {isOperador && item.id === 'relatorios' ? 'Minhas Vendas' : item.label}
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 group-hover:text-slate-300 select-none">
+                      {grupo.titulo}
                     </span>
-                    {item.highlight && !isActive && (
-                      <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${temaAtual.accentBadge} ${isCollapsed ? 'lg:hidden' : ''}`}>
-                        PDV
-                      </span>
-                    )}
+                    <ChevronDown
+                      size={13}
+                      className={`text-slate-500 group-hover:text-slate-300 transition-transform duration-200 ${
+                        isRecolhido ? '-rotate-90' : 'rotate-0'
+                      }`}
+                    />
                   </button>
-                );
-              })}
-            </div>
-          ))}
+                ) : (
+                  gIdx > 0 && <div className="my-2 border-t border-slate-800/80 mx-2" />
+                )}
+
+                {/* Itens do Grupo */}
+                {(!isRecolhido || isCollapsed) && (
+                  <div className="space-y-1 animate-in fade-in duration-150">
+                    {grupo.items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            setActiveTab(item.id);
+                            setIsOpen(false);
+                          }}
+                          title={item.label}
+                          className={`
+                            w-full flex items-center ${isCollapsed ? 'lg:justify-center lg:px-0' : 'px-3.5'} py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 text-left gap-3
+                            ${isActive 
+                              ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white shadow-md shadow-black/20 font-bold` 
+                              : item.highlight
+                                ? `${temaAtual.textoHighlight} hover:bg-slate-800/80 bg-slate-800/40 border ${temaAtual.borderHighlight}/30`
+                                : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                            }
+                          `}
+                        >
+                          <Icon size={18} className={`shrink-0 ${isActive ? 'text-white' : item.highlight ? 'opacity-90' : 'text-slate-400'}`} />
+                          <span className={`truncate whitespace-nowrap ${isCollapsed ? 'lg:hidden' : ''}`}>
+                            {isOperador && item.id === 'relatorios' ? 'Minhas Vendas' : item.label}
+                          </span>
+                          {item.highlight && !isActive && (
+                            <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${temaAtual.accentBadge} ${isCollapsed ? 'lg:hidden' : ''}`}>
+                              PDV
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Botão Assistente de Configuração para Administradores */}
