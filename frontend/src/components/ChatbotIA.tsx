@@ -52,7 +52,7 @@ const FAQ_KNOWLEDGE_BASE: FAQItem[] = [
   {
     titulo: 'Aporte de Capital e Retirada Bancária',
     keywords: ['aporte', 'retirada', 'deposito bancario', 'colocar dinheiro no cofre', 'tirar dinheiro do cofre', 'despesa cofre'],
-    resposta: 'Na tela de Financeiro & Cofre você conta com botões rápidos:\n• "+ Aporte no Cofre": registra entrada de dinheiro vivo na empresa (ex: sócios colocando capital ou saque bancário para reforço);\n• "- Retirada / Depósito": registra retirada física do cofre para depósito na conta bancária ou pagamento de despesa em espécie com validação de saldo disponível.',
+    resposta: 'Na tela de Financeiro & Cofre você conta com botões rápidos:\n• "Aporte no Cofre": registra entrada de dinheiro vivo na empresa (ex: sócios colocando capital ou saque bancário para reforço);\n• "Retirada / Depósito": registra retirada física do cofre para depósito na conta bancária ou pagamento de despesa em espécie com validação de saldo disponível.',
     acao: { label: 'Abrir Financeiro', tab: 'financeiro' }
   },
   {

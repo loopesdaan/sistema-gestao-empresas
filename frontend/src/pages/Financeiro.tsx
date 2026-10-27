@@ -214,7 +214,7 @@ export const Financeiro: React.FC = () => {
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-white text-slate-900 hover:bg-slate-100 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors"
           >
             <Plus size={16} className="text-emerald-600" />
-            <span>+ Aporte no Cofre</span>
+            <span>Aporte no Cofre</span>
           </button>
 
           <button
@@ -227,7 +227,7 @@ export const Financeiro: React.FC = () => {
             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-black/20 hover:bg-black/30 text-white border border-white/20 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors"
           >
             <Minus size={16} className="text-rose-300" />
-            <span>- Retirada / Depósito</span>
+            <span>Retirada / Depósito</span>
           </button>
 
           <button
