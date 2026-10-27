@@ -350,32 +350,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
       {/* Grid Secundário: Vendas dos Últimos Dias & Top Produtos */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Histórico Visual dos Últimos 7 Dias */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between mb-6">
+        {/* Histórico Visual dos Últimos 7 Dias (Totalmente Responsivo para Mobile e Tablet) */}
+        <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs min-w-0">
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
             <div>
               <h3 className="text-base font-bold text-slate-800">Evolução de Vendas (Últimos 7 dias)</h3>
               <p className="text-xs text-slate-500">Faturamento diário registrado no PDV</p>
             </div>
           </div>
 
-          <div className="h-56 flex items-end justify-between gap-2 pt-6">
+          <div className="h-48 sm:h-56 flex items-end justify-between gap-1 sm:gap-2 pt-8 w-full min-w-0">
             {metrics?.vendas_ultimos_dias?.map((dia, idx) => {
               const maxVal = Math.max(...metrics.vendas_ultimos_dias.map(d => Number(d.total)), 100);
               const percent = Math.min(Math.round((Number(dia.total) / maxVal) * 100), 100);
 
               return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
-                  <span className="text-[11px] font-semibold text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div key={idx} className="flex-1 min-w-0 flex flex-col items-center group h-full justify-end relative">
+                  {/* Tooltip flutuante absoluto (não ocupa largura no layout flexível, evitando estouro de tela no mobile) */}
+                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-md pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20">
                     {formatMoney(dia.total)}
-                  </span>
-                  <div className="w-full max-w-[42px] bg-slate-100 rounded-t-lg h-full flex items-end overflow-hidden">
+                  </div>
+                  <div className="w-full max-w-[28px] sm:max-w-[42px] bg-slate-100 rounded-t-lg h-full flex items-end overflow-hidden">
                     <div 
                       style={{ height: `${Math.max(percent, 6)}%` }}
                       className="w-full bg-sky-500 group-hover:bg-sky-600 rounded-t-lg transition-all duration-300"
                     />
                   </div>
-                  <span className="text-xs font-medium text-slate-500">{dia.data}</span>
+                  <span className="text-[10px] sm:text-xs font-medium text-slate-500 truncate w-full text-center mt-2" title={dia.data}>
+                    {dia.data}
+                  </span>
                 </div>
               );
             })}

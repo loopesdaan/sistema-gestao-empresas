@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { apiService } from '../services/api';
+import { apiService, resolveImageUrl } from '../services/api';
 import { Usuario, PerfilUsuario } from '../types';
 import { useToast } from '../contexts/ToastContext';
-import { UserCheck, Shield, Plus, Edit, Lock, CheckCircle2, AlertCircle, Camera, Upload, X, Trash2 } from 'lucide-react';
+import { UserCheck, Shield, Plus, Edit, Lock, CheckCircle2, AlertCircle, Camera, Upload, X, Trash2, Mail } from 'lucide-react';
 
 export const Usuarios: React.FC = () => {
   const { toast, confirmar } = useToast();
@@ -115,7 +115,7 @@ export const Usuarios: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold text-slate-800">Equipe & Permissões de Acesso</h2>
@@ -136,16 +136,96 @@ export const Usuarios: React.FC = () => {
             perfil: 'OPERADOR_CAIXA',
             ativo: true
           })}
-          className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors"
+          className="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold shadow-xs transition-colors w-full sm:w-auto"
         >
           <Plus size={16} />
           <span>Novo Membro da Equipe</span>
         </button>
       </div>
 
-      {/* Tabela de Usuários */}
+      {/* Lista de Usuários - Modo Responsivo: Cards no Mobile (Zero Rolagem Lateral) e Tabela no Desktop */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Visualização em Cards para Mobile (Sem rolagem horizontal) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {usuarios.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              {loading ? 'Carregando equipe...' : 'Nenhum membro da equipe cadastrado.'}
+            </div>
+          ) : (
+            usuarios.map((u) => {
+              const pInfo = perfilLabels[u.perfil] || { label: u.perfil, badge: 'bg-slate-100 text-slate-700' };
+              return (
+                <div key={u.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {u.foto_url ? (
+                        <img
+                          src={resolveImageUrl(u.foto_url)}
+                          alt={u.nome}
+                          onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                          className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-2xs shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-bold text-sm text-slate-700 shrink-0">
+                          {u.nome.charAt(0)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-slate-900 text-sm truncate">{u.nome}</h4>
+                        <div className="flex items-center gap-1 text-xs text-slate-500 truncate mt-0.5">
+                          <Mail size={12} className="text-slate-400 shrink-0" />
+                          <span className="truncate">{u.email}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                      u.ativo ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}>
+                      {u.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${pInfo.badge} truncate max-w-[170px]`}>
+                      {pInfo.label.split('(')[0].trim()}
+                    </span>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setModalUsuario({
+                          id: u.id,
+                          nome: u.nome,
+                          email: u.email,
+                          password: '',
+                          perfil: u.perfil,
+                          ativo: u.ativo,
+                          foto_url: u.foto_url
+                        })}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1"
+                      >
+                        <Edit size={13} />
+                        <span>Editar</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExcluirUsuario(u.id, u.nome)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-rose-50 transition-colors"
+                        title={`Excluir ${u.nome}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Visualização em Tabela para Tablet e Desktop */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
               <tr>
@@ -164,7 +244,7 @@ export const Usuarios: React.FC = () => {
                     <td className="py-3 px-4 font-semibold text-slate-900 flex items-center gap-3">
                       {u.foto_url ? (
                         <img
-                          src={u.foto_url.startsWith('http') ? u.foto_url : `http://localhost:8000${u.foto_url}`}
+                          src={resolveImageUrl(u.foto_url)}
                           alt={u.nome}
                           onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
                           className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-2xs"

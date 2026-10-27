@@ -363,72 +363,126 @@ export const Financeiro: React.FC = () => {
             Nenhuma movimentação registrada na tesouraria com este filtro.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold">
-                  <th className="py-2.5 px-3">Data / Hora</th>
-                  <th className="py-2.5 px-3">Operação</th>
-                  <th className="py-2.5 px-3">Descrição / Justificativa</th>
-                  <th className="py-2.5 px-3 text-center">Comprovante</th>
-                  <th className="py-2.5 px-3">Responsável</th>
-                  <th className="py-2.5 px-3 text-right">Valor</th>
-                  <th className="py-2.5 px-3 text-right">Saldo Anterior</th>
-                  <th className="py-2.5 px-3 text-right">Saldo no Cofre</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {extrato.map((m) => {
-                  const info = badgeTipo(m.tipo);
-                  return (
-                    <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3 text-slate-500 font-mono text-[11px] whitespace-nowrap">
-                        {new Date(m.created_at).toLocaleString('pt-BR')}
-                      </td>
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${info.bg}`}>
-                          {info.isEntrada ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}
+          <div>
+            {/* Visualização em Cards para Mobile (Zero Rolagem Lateral) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {extrato.map((m) => {
+                const info = badgeTipo(m.tipo);
+                return (
+                  <div key={m.id} className="p-4 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${info.bg}`}>
+                          {info.isEntrada ? <ArrowDownLeft size={11} /> : <ArrowUpRight size={11} />}
                           <span>{info.label}</span>
                         </span>
-                      </td>
-                      <td className="py-3 px-3 text-slate-700 font-medium">
-                        <div>{m.motivo || 'Movimentação sem descrição'}</div>
-                        {m.caixa_id && (
-                          <span className="text-[10px] text-slate-400 font-mono">Caixa #{m.caixa_id}</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 text-center whitespace-nowrap">
-                        {m.comprovante_url ? (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewComprovanteModal(resolveImageUrl(m.comprovante_url))}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-[11px] font-bold border border-sky-200 transition-colors cursor-pointer shadow-2xs"
-                            title="Visualizar Comprovante / Anexo R2"
-                          >
-                            <Paperclip size={12} />
-                            <span>Ver Anexo</span>
-                          </button>
-                        ) : (
-                          <span className="text-slate-300 text-[11px]">-</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
-                        {m.usuario_nome || 'Sistema'}
-                      </td>
-                      <td className={`py-3 px-3 text-right font-black whitespace-nowrap ${info.isEntrada ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        <p className="text-[11px] font-mono text-slate-400">
+                          {new Date(m.created_at).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+
+                      <span className={`font-black text-sm whitespace-nowrap ${info.isEntrada ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {info.isEntrada ? '+' : '-'} {formatMoney(m.valor)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono text-slate-500 whitespace-nowrap">
-                        {formatMoney(m.saldo_anterior)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
-                        {formatMoney(m.saldo_posterior)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-xl space-y-1">
+                      <p className="font-medium">{m.motivo || 'Movimentação sem descrição'}</p>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                        <span>Resp: <strong className="text-slate-700">{m.usuario_nome || 'Sistema'}</strong></span>
+                        {m.caixa_id && <span className="font-mono text-slate-400">Caixa #{m.caixa_id}</span>}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-0.5">
+                      <span className="text-[11px] text-slate-500">
+                        Saldo Cofre: <strong className="text-slate-900 font-mono">{formatMoney(m.saldo_posterior)}</strong>
+                      </span>
+
+                      {m.comprovante_url && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewComprovanteModal(resolveImageUrl(m.comprovante_url))}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-[11px] font-bold border border-sky-200 transition-colors cursor-pointer"
+                        >
+                          <Paperclip size={12} />
+                          <span>Comprovante</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Visualização em Tabela para Tablet e Desktop */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-bold">
+                    <th className="py-2.5 px-3">Data / Hora</th>
+                    <th className="py-2.5 px-3">Operação</th>
+                    <th className="py-2.5 px-3">Descrição / Justificativa</th>
+                    <th className="py-2.5 px-3 text-center">Comprovante</th>
+                    <th className="py-2.5 px-3">Responsável</th>
+                    <th className="py-2.5 px-3 text-right">Valor</th>
+                    <th className="py-2.5 px-3 text-right">Saldo Anterior</th>
+                    <th className="py-2.5 px-3 text-right">Saldo no Cofre</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {extrato.map((m) => {
+                    const info = badgeTipo(m.tipo);
+                    return (
+                      <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-3 text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                          {new Date(m.created_at).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${info.bg}`}>
+                            {info.isEntrada ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}
+                            <span>{info.label}</span>
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-700 font-medium">
+                          <div>{m.motivo || 'Movimentação sem descrição'}</div>
+                          {m.caixa_id && (
+                            <span className="text-[10px] text-slate-400 font-mono">Caixa #{m.caixa_id}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          {m.comprovante_url ? (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewComprovanteModal(resolveImageUrl(m.comprovante_url))}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-[11px] font-bold border border-sky-200 transition-colors cursor-pointer shadow-2xs"
+                              title="Visualizar Comprovante / Anexo R2"
+                            >
+                              <Paperclip size={12} />
+                              <span>Ver Anexo</span>
+                            </button>
+                          ) : (
+                            <span className="text-slate-300 text-[11px]">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
+                          {m.usuario_nome || 'Sistema'}
+                        </td>
+                        <td className={`py-3 px-3 text-right font-black whitespace-nowrap ${info.isEntrada ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {info.isEntrada ? '+' : '-'} {formatMoney(m.valor)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-slate-500 whitespace-nowrap">
+                          {formatMoney(m.saldo_anterior)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                          {formatMoney(m.saldo_posterior)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
