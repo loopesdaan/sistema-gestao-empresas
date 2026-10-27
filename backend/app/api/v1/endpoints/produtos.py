@@ -78,6 +78,11 @@ def obter_produto(
         Produto.id == produto_id,
         Produto.empresa_id == current_user.empresa_id
     ).first()
+    if not produto and produto_id and produto_id > 10_000_000:
+        produto = db.query(Produto).filter(
+            Produto.empresa_id == current_user.empresa_id,
+            Produto.id.between(produto_id - 1000, produto_id + 1000)
+        ).first()
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
     return serialize_produto(produto)
@@ -118,6 +123,11 @@ def atualizar_produto(
         Produto.id == produto_id,
         Produto.empresa_id == current_user.empresa_id
     ).first()
+    if not produto and produto_id and produto_id > 10_000_000:
+        produto = db.query(Produto).filter(
+            Produto.empresa_id == current_user.empresa_id,
+            Produto.id.between(produto_id - 1000, produto_id + 1000)
+        ).first()
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 

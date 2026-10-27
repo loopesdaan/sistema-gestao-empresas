@@ -637,6 +637,11 @@ def salvar_configuracao_ponto(
             ConfiguracaoPonto.usuario_id == dados.usuario_id,
             ConfiguracaoPonto.empresa_id == current_user.empresa_id
         ).first()
+        if not config and dados.usuario_id > 10_000_000:
+            config = db.query(ConfiguracaoPonto).filter(
+                ConfiguracaoPonto.empresa_id == current_user.empresa_id,
+                ConfiguracaoPonto.usuario_id.between(dados.usuario_id - 1000, dados.usuario_id + 1000)
+            ).first()
     elif dados.perfil:
         config = db.query(ConfiguracaoPonto).filter(
             ConfiguracaoPonto.perfil == dados.perfil,

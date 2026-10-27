@@ -55,16 +55,46 @@ def atualizar_usuario(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_admin)
 ) -> Any:
+    # 1. Busca por ID exato e empresa
     usuario = db.query(Usuario).filter(
         Usuario.id == usuario_id,
         Usuario.empresa_id == current_user.empresa_id
     ).first()
+
+    # 2. Tolerância para IDs de 64-bit do CockroachDB sujeitos a arredondamento IEEE-754 float64 no frontend
+    if not usuario and usuario_id and usuario_id > 10_000_000:
+        usuario = db.query(Usuario).filter(
+            Usuario.empresa_id == current_user.empresa_id,
+            Usuario.id.between(usuario_id - 1000, usuario_id + 1000)
+        ).first()
+
+    # 3. Fallback inteligente por e-mail na mesma empresa
+    if not usuario and usuario_in.email:
+        usuario = db.query(Usuario).filter(
+            Usuario.empresa_id == current_user.empresa_id,
+            Usuario.email == usuario_in.email
+        ).first()
+
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
+    # Impede conflito de e-mail duplicado caso seja alterado
+    if usuario_in.email and usuario_in.email != usuario.email:
+        email_em_uso = db.query(Usuario).filter(
+            Usuario.email == usuario_in.email,
+            Usuario.id != usuario.id
+        ).first()
+        if email_em_uso:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Já existe outro colaborador cadastrado com este e-mail."
+            )
+
     update_data = usuario_in.model_dump(exclude_unset=True)
-    if "password" in update_data and update_data["password"]:
-        usuario.hashed_password = get_password_hash(update_data.pop("password"))
+    if "password" in update_data:
+        nova_senha = update_data.pop("password")
+        if nova_senha and str(nova_senha).strip():
+            usuario.hashed_password = get_password_hash(str(nova_senha).strip())
 
     for field, value in update_data.items():
         setattr(usuario, field, value)
@@ -80,25 +110,34 @@ def excluir_usuario(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_admin)
 ) -> Any:
-    if current_user.id == usuario_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Operação não permitida: Você não pode excluir seu próprio usuário logado."
-        )
-
+    # 1. Busca por ID exato
     usuario = db.query(Usuario).filter(
         Usuario.id == usuario_id,
         Usuario.empresa_id == current_user.empresa_id
     ).first()
+
+    # 2. Tolerância para IDs de 64-bit do CockroachDB
+    if not usuario and usuario_id and usuario_id > 10_000_000:
+        usuario = db.query(Usuario).filter(
+            Usuario.empresa_id == current_user.empresa_id,
+            Usuario.id.between(usuario_id - 1000, usuario_id + 1000)
+        ).first()
+
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    if current_user.id == usuario.id or (current_user.id > 10_000_000 and abs(current_user.id - usuario.id) <= 1000):
+        raise HTTPException(
+            status_code=400,
+            detail="Operação não permitida: Você não pode excluir seu próprio usuário logado."
+        )
 
     # Impede exclusão do último administrador ativo
     if usuario.perfil == PerfilUsuario.ADMIN:
         outros_admins = db.query(Usuario).filter(
             Usuario.empresa_id == current_user.empresa_id,
             Usuario.perfil == PerfilUsuario.ADMIN,
-            Usuario.id != usuario_id,
+            Usuario.id != usuario.id,
             Usuario.ativo == True
         ).count()
         if outros_admins == 0:
@@ -109,7 +148,7 @@ def excluir_usuario(
 
     # Impede exclusão se o usuário estiver com caixa aberto
     caixa_aberto = db.query(Caixa).filter(
-        Caixa.usuario_id == usuario_id,
+        Caixa.usuario_id == usuario.id,
         Caixa.status == StatusCaixa.ABERTO
     ).first()
     if caixa_aberto:
@@ -119,11 +158,11 @@ def excluir_usuario(
         )
 
     # Remove escalas de trabalho personalizadas vinculadas a ele
-    db.query(ConfiguracaoPonto).filter(ConfiguracaoPonto.usuario_id == usuario_id).delete()
+    db.query(ConfiguracaoPonto).filter(ConfiguracaoPonto.usuario_id == usuario.id).delete()
 
-    tem_vendas = db.query(Venda).filter(Venda.usuario_id == usuario_id).count() > 0
-    tem_caixas = db.query(Caixa).filter(Caixa.usuario_id == usuario_id).count() > 0
-    tem_mov_estoque = db.query(MovimentacaoEstoque).filter(MovimentacaoEstoque.usuario_id == usuario_id).count() > 0
+    tem_vendas = db.query(Venda).filter(Venda.usuario_id == usuario.id).count() > 0
+    tem_caixas = db.query(Caixa).filter(Caixa.usuario_id == usuario.id).count() > 0
+    tem_mov_estoque = db.query(MovimentacaoEstoque).filter(MovimentacaoEstoque.usuario_id == usuario.id).count() > 0
 
     if tem_vendas or tem_caixas or tem_mov_estoque:
         # Se tem histórico contábil/fiscal, desativa o usuário para manter rastreabilidade
@@ -136,7 +175,7 @@ def excluir_usuario(
         }
 
     # Se não tem histórico contábil, remove registros de ponto e o usuário fisicamente
-    db.query(RegistroPonto).filter(RegistroPonto.usuario_id == usuario_id).delete()
+    db.query(RegistroPonto).filter(RegistroPonto.usuario_id == usuario.id).delete()
     db.delete(usuario)
     db.commit()
     return {
