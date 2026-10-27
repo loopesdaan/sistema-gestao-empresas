@@ -81,6 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'dashboard', sempreAdmin: true },
         { id: 'pdv', label: 'Frente de Caixa (PDV)', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
         { id: 'os', label: labelServicos, icon: Wrench, modulo: 'os' },
+        { id: 'notificacoes', label: 'Notificações & Ações', icon: Bell, sempreVisivel: true, modulo: 'notificacoes' },
       ]
     },
     {
@@ -105,7 +106,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       titulo: 'Equipe & Ponto CLT',
       items: [
         { id: 'ponto', label: 'Ponto Eletrônico CLT', icon: Clock, sempreVisivel: true, modulo: 'ponto' },
-        { id: 'notificacoes', label: 'Notificações & Ações', icon: Bell, sempreVisivel: true, modulo: 'notificacoes' },
         { id: 'usuarios', label: 'Equipe & Usuários', icon: Shield, adminOnly: true, modulo: 'usuarios' },
       ]
     },
@@ -170,17 +170,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Header da Sidebar com Tema do Segmento */}
-        <div className={`p-4 border-b border-slate-800/80 flex items-center ${isCollapsed ? 'lg:justify-center' : 'justify-between'} gap-2`}>
-          <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
+        <div className={`border-b border-slate-800/80 flex transition-all duration-200 ${
+          isCollapsed 
+            ? 'p-4 lg:px-2 lg:py-3 lg:flex-col lg:items-center lg:gap-2.5 items-center justify-between' 
+            : 'p-4 items-center justify-between gap-2'
+        }`}>
+          <div className={`flex items-center ${isCollapsed ? 'lg:justify-center lg:w-full' : 'gap-3 min-w-0 flex-1 overflow-hidden'}`}>
             {empresa.logo_url && !logoFalhou ? (
               <img
                 src={resolveImageUrl(empresa.logo_url)}
                 alt={nomeExibicao}
+                title={nomeExibicao}
                 onError={() => setLogoFalhou(true)}
                 className="w-10 h-10 rounded-xl object-contain border border-slate-700/80 shadow-md shrink-0 bg-white p-0.5"
               />
             ) : (
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${temaAtual.bgGradiente} flex items-center justify-center text-white text-xl shadow-md shrink-0 border border-white/20`}>
+              <div 
+                title={nomeExibicao}
+                className={`w-10 h-10 rounded-xl bg-gradient-to-br ${temaAtual.bgGradiente} flex items-center justify-center text-white text-xl shadow-md shrink-0 border border-white/20`}
+              >
                 {temaAtual.emoji}
               </div>
             )}
@@ -198,7 +206,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               type="button"
               onClick={onToggleCollapse}
               title={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-              className="hidden lg:flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors shrink-0"
+              className={`
+                hidden lg:flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors shrink-0
+                ${isCollapsed ? 'w-8 h-8' : 'p-1.5'}
+              `}
             >
               {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
             </button>
