@@ -22,6 +22,12 @@ class UsuarioUpdate(BaseModel):
     password: Optional[str] = None
     foto_url: Optional[str] = None
 
+class UsuarioPerfilUpdate(BaseModel):
+    nome: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    foto_url: Optional[str] = None
+
 class UsuarioResponse(UsuarioBase):
     id: int
     empresa_id: int

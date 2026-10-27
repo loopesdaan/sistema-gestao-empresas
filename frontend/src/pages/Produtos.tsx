@@ -648,7 +648,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
           onClick={() => setModalProduto(null)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100 animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -687,7 +687,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Código de Barras (EAN/GTIN)</label>
                   <input
@@ -710,7 +710,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Unidade</label>
                   <select
@@ -752,7 +752,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {modalProduto.id ? (
                   /* Modo Edição: Mostra o estoque físico atual auditado e um botão direto para movimentar */
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col justify-between">

@@ -496,7 +496,7 @@ export const Clientes: React.FC = () => {
           onClick={() => setModalCliente(null)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100 animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -535,7 +535,7 @@ export const Clientes: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">CPF ou CNPJ</label>
                   <input
@@ -570,7 +570,7 @@ export const Clientes: React.FC = () => {
               </div>
 
               {/* Endereço com Busca Automática por CEP */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block font-semibold text-slate-700 text-[11px]">CEP</label>
@@ -597,7 +597,7 @@ export const Clientes: React.FC = () => {
                     className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1 sm:col-span-2">
                   <label className="block font-semibold text-slate-700 text-[11px] mb-1">Endereço Completo</label>
                   <input
                     type="text"
@@ -617,7 +617,7 @@ export const Clientes: React.FC = () => {
                     <span>Dados do Veículo (Mecânica / Lava Rápido)</span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-600 mb-1">Placa</label>
                       <input
@@ -654,7 +654,7 @@ export const Clientes: React.FC = () => {
 
               {/* Informações Financeiras: Limite de Crédito e Saldo Devedor */}
               {!ehAutomotivo && (
-                <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Limite de Crédito (R$)</label>
                     <input

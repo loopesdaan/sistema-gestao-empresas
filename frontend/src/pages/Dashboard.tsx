@@ -224,86 +224,127 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Faturamento Hoje */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Faturamento Hoje</span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <DollarSign size={20} />
+        <div
+          onClick={() => onNavigate('relatorios')}
+          role="button"
+          tabIndex={0}
+          title="Clique para ver o relatório detalhado de vendas de hoje"
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-emerald-300 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 group-hover:text-emerald-700 transition-colors">Faturamento Hoje</span>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <DollarSign size={20} />
+              </div>
+            </div>
+            <div className="mt-3">
+              <h3 className="text-2xl font-bold text-slate-800">{formatMoney(metrics?.faturamento_hoje)}</h3>
+              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                <span className="font-semibold text-slate-700">{metrics?.quantidade_vendas_hoje || 0}</span> vendas hoje
+              </p>
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-bold text-slate-800">{formatMoney(metrics?.faturamento_hoje)}</h3>
-            <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-              <span className="font-semibold text-slate-700">{metrics?.quantidade_vendas_hoje || 0}</span> vendas hoje
-            </p>
-          </div>
+          <span className="text-[11px] text-emerald-600 font-semibold group-hover:underline flex items-center gap-1 mt-3 pt-2 border-t border-slate-100">
+            Ver vendas de hoje →
+          </span>
         </div>
 
         {/* Faturamento Mês */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Faturamento no Mês</span>
-            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-              <TrendingUp size={20} />
+        <div
+          onClick={() => onNavigate('relatorios')}
+          role="button"
+          tabIndex={0}
+          title="Clique para ver o relatório mensal de vendas e fechamentos"
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-sky-300 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 group-hover:text-sky-700 transition-colors">Faturamento no Mês</span>
+              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <TrendingUp size={20} />
+              </div>
+            </div>
+            <div className="mt-3">
+              <h3 className="text-2xl font-bold text-slate-800">{formatMoney(metrics?.faturamento_mes)}</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Ticket Médio: <span className="font-semibold text-slate-700">{formatMoney(metrics?.ticket_medio)}</span>
+              </p>
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-bold text-slate-800">{formatMoney(metrics?.faturamento_mes)}</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Ticket Médio: <span className="font-semibold text-slate-700">{formatMoney(metrics?.ticket_medio)}</span>
-            </p>
-          </div>
+          <span className="text-[11px] text-sky-600 font-semibold group-hover:underline flex items-center gap-1 mt-3 pt-2 border-t border-slate-100">
+            Ver relatório do mês →
+          </span>
         </div>
 
         {/* OS Abertas ou Clientes Ativos */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              {modulosAtivos.includes('os') ? temaAtual.terminologia.servicos : temaAtual.terminologia.cliente}
-            </span>
-            <div className={`w-10 h-10 rounded-xl ${temaAtual.bgSuave} ${temaAtual.textoHighlight} flex items-center justify-center`}>
-              {modulosAtivos.includes('os') ? <Wrench size={20} /> : <Users size={20} />}
+        <div
+          onClick={() => onNavigate(modulosAtivos.includes('os') ? 'os' : 'clientes')}
+          role="button"
+          tabIndex={0}
+          title={modulosAtivos.includes('os') ? 'Clique para gerenciar ordens de serviço' : 'Clique para ver clientes'}
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-amber-300 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 group-hover:text-amber-700 transition-colors">
+                {modulosAtivos.includes('os') ? temaAtual.terminologia.servicos : temaAtual.terminologia.cliente}
+              </span>
+              <div className={`w-10 h-10 rounded-xl ${temaAtual.bgSuave} ${temaAtual.textoHighlight} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                {modulosAtivos.includes('os') ? <Wrench size={20} /> : <Users size={20} />}
+              </div>
+            </div>
+            <div className="mt-3">
+              <h3 className="text-2xl font-bold text-slate-800">
+                {modulosAtivos.includes('os') ? (metrics?.ordens_servico_abertas || 0) : (metrics?.quantidade_vendas_hoje || 0)}
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-1 flex items-center gap-1">
+                {modulosAtivos.includes('os') ? 'Atendimentos em andamento' : 'Atendimentos realizados'}
+              </p>
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-2xl font-bold text-slate-800">
-              {modulosAtivos.includes('os') ? (metrics?.ordens_servico_abertas || 0) : (metrics?.quantidade_vendas_hoje || 0)}
-            </h3>
-            <p className="text-xs text-slate-500 font-medium mt-1 flex items-center gap-1">
-              {modulosAtivos.includes('os') ? 'Atendimentos em andamento' : 'Atendimentos realizados'}
-            </p>
-          </div>
+          <span className="text-[11px] text-amber-600 font-semibold group-hover:underline flex items-center gap-1 mt-3 pt-2 border-t border-slate-100">
+            {modulosAtivos.includes('os') ? 'Gerenciar ordens de serviço →' : 'Ver clientes cadastrados →'}
+          </span>
         </div>
 
         {/* Estoque Baixo Alerta */}
         <div 
           onClick={() => onNavigate('produtos')}
-          className={`p-5 rounded-2xl border cursor-pointer transition-all ${
+          role="button"
+          tabIndex={0}
+          title="Clique para ver o catálogo e repor itens com estoque baixo"
+          className={`p-5 rounded-2xl border cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all group flex flex-col justify-between ${
             (metrics?.produtos_estoque_baixo || 0) > 0
               ? 'bg-amber-50/50 border-amber-200 hover:border-amber-300'
-              : 'bg-white border-slate-200/80'
+              : 'bg-white border-slate-200/80 hover:border-rose-300'
           }`}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-amber-700">Alerta de Estoque</span>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-              (metrics?.produtos_estoque_baixo || 0) > 0
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-slate-100 text-slate-500'
-            }`}>
-              <AlertTriangle size={20} />
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-amber-700 group-hover:text-amber-800 transition-colors">Alerta de Estoque</span>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${
+                (metrics?.produtos_estoque_baixo || 0) > 0
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-slate-100 text-slate-500'
+              }`}>
+                <AlertTriangle size={20} />
+              </div>
+            </div>
+            <div className="mt-3">
+              <h3 className={`text-2xl font-bold ${
+                (metrics?.produtos_estoque_baixo || 0) > 0 ? 'text-amber-800' : 'text-slate-800'
+              }`}>
+                {metrics?.produtos_estoque_baixo || 0}
+              </h3>
+              <p className="text-xs text-amber-700 font-medium mt-1 flex items-center gap-1">
+                Produtos no nível mínimo ou esgotados
+              </p>
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className={`text-2xl font-bold ${
-              (metrics?.produtos_estoque_baixo || 0) > 0 ? 'text-amber-800' : 'text-slate-800'
-            }`}>
-              {metrics?.produtos_estoque_baixo || 0}
-            </h3>
-            <p className="text-xs text-amber-700 font-medium mt-1 flex items-center gap-1">
-              Produtos no nível mínimo ou esgotados
-            </p>
-          </div>
+          <span className="text-[11px] text-amber-700 font-semibold group-hover:underline flex items-center gap-1 mt-3 pt-2 border-t border-amber-200/40">
+            Ver produtos em alerta →
+          </span>
         </div>
       </div>
 

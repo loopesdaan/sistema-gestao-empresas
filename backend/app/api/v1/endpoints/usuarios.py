@@ -9,7 +9,7 @@ from app.models.caixa import Caixa, StatusCaixa
 from app.models.venda import Venda
 from app.models.estoque import MovimentacaoEstoque
 from app.models.ponto import RegistroPonto, ConfiguracaoPonto
-from app.schemas.usuario import UsuarioCreate, UsuarioUpdate, UsuarioResponse
+from app.schemas.usuario import UsuarioCreate, UsuarioUpdate, UsuarioPerfilUpdate, UsuarioResponse
 from app.api.deps import get_current_admin, get_current_user
 
 router = APIRouter()
@@ -47,6 +47,52 @@ def criar_usuario(
     db.commit()
     db.refresh(novo_usuario)
     return novo_usuario
+
+@router.get("/me", response_model=UsuarioResponse)
+def obter_meu_perfil(
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Retorna os dados do usuário atualmente autenticado"""
+    return current_user
+
+@router.put("/me", response_model=UsuarioResponse)
+def atualizar_proprio_perfil(
+    perfil_in: UsuarioPerfilUpdate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Permite que qualquer colaborador autenticado altere seu nome, e-mail, senha e foto de perfil"""
+    if perfil_in.nome is not None and perfil_in.nome.strip():
+        current_user.nome = perfil_in.nome.strip()
+
+    if perfil_in.email is not None and perfil_in.email != current_user.email:
+        em_uso = db.query(Usuario).filter(
+            Usuario.email == perfil_in.email,
+            Usuario.id != current_user.id
+        ).first()
+        if em_uso:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este e-mail já está sendo utilizado por outro usuário."
+            )
+        current_user.email = perfil_in.email
+
+    if perfil_in.foto_url is not None:
+        current_user.foto_url = perfil_in.foto_url
+
+    if perfil_in.password and str(perfil_in.password).strip():
+        nova_senha = str(perfil_in.password).strip()
+        if len(nova_senha) < 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A nova senha deve possuir no mínimo 6 caracteres."
+            )
+        current_user.hashed_password = get_password_hash(nova_senha)
+
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 @router.put("/{usuario_id}", response_model=UsuarioResponse)
 def atualizar_usuario(

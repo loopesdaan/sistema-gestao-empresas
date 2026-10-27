@@ -17,6 +17,7 @@ import { Onboarding } from './pages/Onboarding';
 import { Financeiro } from './pages/Financeiro';
 import { ChatbotIA } from './components/ChatbotIA';
 import { TourModal } from './components/TourModal';
+import { MeuPerfilModal } from './components/MeuPerfilModal';
 import { apiService } from './services/api';
 import { Usuario, Caixa as CaixaType, StatusJornada } from './types';
 import { Clock } from 'lucide-react';
@@ -67,6 +68,7 @@ const AppContent: React.FC = () => {
   // Controla exibição do wizard de onboarding inicial
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [showPerfilModal, setShowPerfilModal] = useState(false);
 
   // Sincroniza dados da empresa e verifica onboarding assim que o usuário loga ou entra na página
   useEffect(() => {
@@ -259,7 +261,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-slate-50 flex w-full max-w-full overflow-x-hidden">
       {/* Sidebar de Navegação */}
       <Sidebar
         activeTab={activeTab}
@@ -269,14 +271,16 @@ const AppContent: React.FC = () => {
         onLogout={handleLogout}
         userName={usuario.nome}
         userPerfil={usuario.perfil}
+        userFotoUrl={usuario.foto_url}
         isAdmin={isAdmin}
         onOpenOnboarding={() => setShowOnboarding(true)}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleToggleSidebarCollapse}
+        onOpenPerfil={() => setShowPerfilModal(true)}
       />
 
       {/* Área Principal de Conteúdo */}
-      <div className={`flex-1 flex flex-col ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-80'} transition-all duration-300`}>
+      <div className={`flex-1 flex flex-col min-w-0 w-full max-w-full overflow-x-hidden ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-80'} transition-all duration-300`}>
         <Navbar
           onMenuToggle={() => setSidebarOpen(true)}
           activeTitle={getPageTitle()}
@@ -286,13 +290,23 @@ const AppContent: React.FC = () => {
           caixaAberto={caixaAberto}
           caixaAtual={caixaAtual}
           userName={usuario.nome}
+          userFotoUrl={usuario.foto_url}
           isAdmin={isAdmin}
+          onOpenPerfil={() => setShowPerfilModal(true)}
         />
 
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3 sm:p-6 max-w-7xl w-full mx-auto min-w-0">
           {renderContent()}
         </main>
       </div>
+
+      {/* Modal Meu Perfil */}
+      <MeuPerfilModal
+        isOpen={showPerfilModal}
+        onClose={() => setShowPerfilModal(false)}
+        usuario={usuario}
+        onUsuarioAtualizado={(u) => setUsuario(u)}
+      />
 
       {/* Chatbot IA Integrado & Tour Interativo */}
       <ChatbotIA

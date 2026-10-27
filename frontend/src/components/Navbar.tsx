@@ -3,7 +3,7 @@ import { Menu, Bell, ShoppingCart, User, CheckCheck, X, Clock, ArrowRight, Check
 import { useNotificacoes, Notificacao } from '../contexts/NotificationContext';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { Caixa } from '../types';
-import { apiService } from '../services/api';
+import { apiService, resolveImageUrl } from '../services/api';
 
 interface NavbarProps {
   onMenuToggle: () => void;
@@ -14,7 +14,9 @@ interface NavbarProps {
   caixaAberto: boolean;
   caixaAtual?: Caixa | null;
   userName?: string;
+  userFotoUrl?: string;
   isAdmin?: boolean;
+  onOpenPerfil?: () => void;
 }
 
 // Retorna classes de cor baseadas no tipo da notificação
@@ -53,7 +55,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   caixaAberto,
   caixaAtual,
   userName = 'Administrador',
-  isAdmin = false
+  userFotoUrl,
+  isAdmin = false,
+  onOpenPerfil
 }) => {
   const { notificacoes, naoLidas, marcarLida, marcarTodasLidas } = useNotificacoes();
   const { temaAtual } = useEmpresa();
@@ -390,13 +394,29 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
-        {/* Usuário info */}
-        <div className="flex items-center gap-2 pl-2 border-l border-slate-200 text-slate-700">
-          <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600">
-            <User size={16} />
+        {/* Usuário info com Abertura de Meu Perfil ao Clicar */}
+        <button
+          type="button"
+          onClick={onOpenPerfil}
+          title="Meu Perfil (Alterar foto, nome e senha)"
+          className="flex items-center gap-2 pl-2 border-l border-slate-200 text-slate-700 hover:text-sky-600 group transition-colors focus:outline-none cursor-pointer text-left"
+        >
+          <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 overflow-hidden group-hover:ring-2 group-hover:ring-sky-400 group-hover:border-sky-400 transition-all shrink-0">
+            {userFotoUrl ? (
+              <img
+                src={resolveImageUrl(userFotoUrl)}
+                alt={userName}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+              />
+            ) : (
+              <span className="text-xs font-bold text-slate-700">{userName.charAt(0).toUpperCase()}</span>
+            )}
           </div>
-          <span className="hidden md:inline text-xs font-semibold">{userName}</span>
-        </div>
+          <span className="hidden md:inline text-xs font-semibold group-hover:text-sky-600 transition-colors truncate max-w-[120px]">
+            {userName}
+          </span>
+        </button>
       </div>
     </header>
   );
