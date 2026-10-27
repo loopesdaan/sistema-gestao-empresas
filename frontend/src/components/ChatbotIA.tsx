@@ -388,7 +388,7 @@ export const ChatbotIA: React.FC<ChatbotIAProps> = ({ onNavigateTab, onOpenTour 
           </div>
 
           {/* Sugestões Rápidas de Perguntas */}
-          <div className="p-2.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto text-[10px] shrink-0">
+          <div className="p-2.5 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar text-[10px] shrink-0">
             {sugestoesChips.map((sugestao, idx) => (
               <button
                 key={idx}

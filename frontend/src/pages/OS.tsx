@@ -1342,43 +1342,75 @@ export const OS: React.FC = () => {
                 </div>
               ) : (
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
-                      <tr>
-                        <th className="py-2.5 px-3">{cfg.termoSingular} #</th>
-                        <th className="py-2.5 px-3">Data Canc.</th>
-                        <th className="py-2.5 px-3">{cfg.labelEquipamento.includes('Veículo') ? 'Cliente / Veículo' : 'Cliente / Referência'}</th>
-                        <th className="py-2.5 px-3">Motivo Informado</th>
-                        <th className="py-2.5 px-3">Operador</th>
-                        <th className="py-2.5 px-3 text-right">Valor Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {relatorioCancelamentos.ordens.map((o) => (
-                        <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-2.5 px-3 font-mono font-bold text-rose-700">{formatarNumeroOS(o)}</td>
-                          <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
-                            {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span className="font-bold text-slate-800 block truncate max-w-[150px]">{o.cliente_nome}</span>
-                            <span className="text-[11px] text-slate-400 block truncate max-w-[150px]">{o.equipamento || o.titulo}</span>
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-700 font-medium">
-                            <span className="bg-rose-50 text-rose-900 border border-rose-100 px-2 py-1 rounded-lg block max-w-xs text-[11px] line-clamp-2">
-                              {o.motivo_cancelamento || 'Motivo não informado'}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
-                            {o.usuario_cancelamento_nome || 'Sistema'}
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-black text-slate-800 whitespace-nowrap">
+                  {/* Visualização em Cartões para Mobile (elimina rolagem lateral) */}
+                  <div className="md:hidden divide-y divide-slate-100">
+                    {relatorioCancelamentos.ordens.map((o) => (
+                      <div key={o.id} className="p-3.5 space-y-2 bg-white">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="font-mono font-bold text-rose-700 text-xs">{formatarNumeroOS(o)}</span>
+                            <h5 className="font-bold text-slate-800 text-xs mt-0.5">{o.cliente_nome}</h5>
+                          </div>
+                          <span className="font-black text-slate-900 text-xs shrink-0">
                             {formatMoney(o.valor_total)}
-                          </td>
+                          </span>
+                        </div>
+
+                        <div className="space-y-1 text-xs text-slate-500">
+                          <p><span className="text-slate-400">{cfg.labelEquipamento.includes('Veículo') ? 'Veículo:' : 'Referência:'}</span> {o.equipamento || o.titulo}</p>
+                          <p><span className="text-slate-400">Cancelado em:</span> {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}</p>
+                          <p><span className="text-slate-400">Operador:</span> {o.usuario_cancelamento_nome || 'Sistema'}</p>
+                        </div>
+
+                        {o.motivo_cancelamento && (
+                          <p className="text-[11px] bg-rose-50 text-rose-900 border border-rose-100 p-2 rounded-lg">
+                            <strong>Motivo:</strong> {o.motivo_cancelamento}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Tabela para Tablet e Desktop */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                        <tr>
+                          <th className="py-2.5 px-3">{cfg.termoSingular} #</th>
+                          <th className="py-2.5 px-3">Data Canc.</th>
+                          <th className="py-2.5 px-3">{cfg.labelEquipamento.includes('Veículo') ? 'Cliente / Veículo' : 'Cliente / Referência'}</th>
+                          <th className="py-2.5 px-3">Motivo Informado</th>
+                          <th className="py-2.5 px-3">Operador</th>
+                          <th className="py-2.5 px-3 text-right">Valor Total</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {relatorioCancelamentos.ordens.map((o) => (
+                          <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-2.5 px-3 font-mono font-bold text-rose-700">{formatarNumeroOS(o)}</td>
+                            <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
+                              {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="font-bold text-slate-800 block truncate max-w-[150px]">{o.cliente_nome}</span>
+                              <span className="text-[11px] text-slate-400 block truncate max-w-[150px]">{o.equipamento || o.titulo}</span>
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-700 font-medium">
+                              <span className="bg-rose-50 text-rose-900 border border-rose-100 px-2 py-1 rounded-lg block max-w-xs text-[11px] line-clamp-2">
+                                {o.motivo_cancelamento || 'Motivo não informado'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
+                              {o.usuario_cancelamento_nome || 'Sistema'}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-black text-slate-800 whitespace-nowrap">
+                              {formatMoney(o.valor_total)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

@@ -235,7 +235,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
       </div>
 
       {/* Navegação entre Abas: Catálogo / Dashboard de Estoque / Histórico */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto no-scrollbar whitespace-nowrap">
         <button
           type="button"
           onClick={() => setAbaAtiva('catalogo')}
@@ -310,9 +310,93 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
             </button>
           </div>
 
-          {/* Tabela de Produtos */}
+          {/* Tabela e Cartões de Produtos */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Visualização em Cartões para Mobile (elimina rolagem lateral) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {produtos.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-xs">
+                  {loading ? 'Carregando catálogo...' : 'Nenhum item encontrado.'}
+                </div>
+              ) : (
+                produtos.map((p) => {
+                  const estoqueBaixo = Number(p.estoque_atual) <= Number(p.estoque_minimo);
+                  const zerado = Number(p.estoque_atual) <= 0;
+                  return (
+                    <div key={p.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-slate-900 text-sm leading-snug">{p.nome}</h4>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {p.codigo_barras && (
+                              <span className="font-mono text-[11px] text-slate-400">
+                                {p.codigo_barras}
+                              </span>
+                            )}
+                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-medium">
+                              {p.categoria || 'Geral'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {zerado ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                            Esgotado
+                          </span>
+                        ) : estoqueBaixo ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                            Baixo ({p.estoque_minimo})
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                            Normal
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Preço de Venda</span>
+                          <span className="text-base font-black text-slate-900">{formatMoney(p.preco_venda)}</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Custo: {formatMoney(p.preco_custo)}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block">Estoque Atual</span>
+                          <span className={`text-base font-black ${zerado ? 'text-rose-600' : estoqueBaixo ? 'text-amber-600' : 'text-slate-800'}`}>
+                            {formatEstoque(p.estoque_atual)} {p.unidade}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Mínimo: {p.estoque_minimo} {p.unidade}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                        {podeMovimentarEstoque && (
+                          <button
+                            type="button"
+                            onClick={() => setModalMov({ produto: p, tipo: 'ENTRADA', qtd: 1, motivo: '' })}
+                            className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
+                          >
+                            <ArrowUpDown size={13} />
+                            <span>Movimentar</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setModalProduto(p)}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
+                        >
+                          <Edit size={13} />
+                          <span>Editar</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Tabela de Produtos para Tablet e Desktop */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-200/80">
                   <tr>
@@ -486,7 +570,68 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                   </button>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Visualização em Cartões para Mobile (elimina rolagem lateral) */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {!metricasEstoque?.produtos_criticos || metricasEstoque.produtos_criticos.length === 0 ? (
+                    <div className="py-6 text-center text-emerald-600 font-semibold text-xs">
+                      ✅ Nenhum item crítico! Todo o estoque está acima do nível mínimo.
+                    </div>
+                  ) : (
+                    metricasEstoque.produtos_criticos.map((pc) => (
+                      <div key={pc.id} className="p-3.5 space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h4 className="font-bold text-slate-800 text-xs">{pc.nome}</h4>
+                            <span className="text-[10px] text-slate-400">{pc.categoria || 'Geral'}</span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                            pc.status === 'ZERADO' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {pc.status === 'ZERADO' ? 'Esgotado' : 'Estoque Baixo'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-xl border border-slate-100">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block">Estoque Atual</span>
+                            <span className={`font-black ${pc.status === 'ZERADO' ? 'text-rose-600' : 'text-amber-600'}`}>
+                              {pc.estoque_atual} {pc.unidade}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 block">Mínimo Recomendado</span>
+                            <span className="font-semibold text-slate-600">{pc.estoque_minimo} {pc.unidade}</span>
+                          </div>
+                        </div>
+                        <div className="flex justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const prod = produtos.find(p => p.id === pc.id) || {
+                                id: pc.id,
+                                nome: pc.nome,
+                                preco_venda: pc.preco_venda,
+                                preco_custo: 0,
+                                estoque_atual: pc.estoque_atual,
+                                estoque_minimo: pc.estoque_minimo,
+                                unidade: pc.unidade,
+                                ativo: true,
+                                empresa_id: 1,
+                                created_at: new Date().toISOString()
+                              };
+                              setModalMov({ produto: prod as any, tipo: 'ENTRADA', qtd: 10, motivo: 'Reposição de estoque crítico' });
+                            }}
+                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold transition-colors"
+                          >
+                            Dar Entrada (+)
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Tabela para Tablet e Desktop */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-[10px] tracking-wider">
                       <tr>
@@ -580,7 +725,58 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Visualização em Cartões para Mobile (elimina rolagem lateral) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {historicoGeral.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                Nenhuma movimentação registrada no histórico.
+              </div>
+            ) : (
+              historicoGeral.map((h) => (
+                <div key={h.id} className="p-3.5 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-xs leading-tight">{h.produto_nome}</h4>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">
+                        {h.created_at ? new Date(h.created_at).toLocaleString('pt-BR') : '-'}
+                      </span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                      h.tipo === 'ENTRADA'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : h.tipo === 'SAIDA'
+                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                          : h.tipo === 'VENDA'
+                            ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}>
+                      {h.tipo}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">Quantidade</span>
+                      <span className="font-black text-slate-800">{h.quantidade} un</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block">Operador</span>
+                      <span className="font-semibold text-slate-700">{h.usuario_nome || 'Sistema'}</span>
+                    </div>
+                  </div>
+
+                  {h.motivo && (
+                    <p className="text-[11px] text-slate-500 italic bg-slate-50/60 p-2 rounded-lg border border-slate-100">
+                      "{h.motivo}"
+                    </p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Tabela para Tablet e Desktop */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-[10px] tracking-wider border-b border-slate-200/80">
                 <tr>

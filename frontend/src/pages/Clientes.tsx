@@ -304,7 +304,7 @@ export const Clientes: React.FC = () => {
         </div>
 
         {/* Filtro Rápido de Status */}
-        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setFiltroStatus('TODOS')}
