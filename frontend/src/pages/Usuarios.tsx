@@ -199,7 +199,8 @@ export const Usuarios: React.FC = () => {
                             email: u.email,
                             password: '',
                             perfil: u.perfil,
-                            ativo: u.ativo
+                            ativo: u.ativo,
+                            foto_url: u.foto_url
                           })}
                           className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1"
                         >
