@@ -340,7 +340,26 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                       </span>
                     </div>
 
-                    <h4 className="font-bold text-slate-900 text-sm">{c.usuario_nome || `Operador #${c.usuario_id}`}</h4>
+                    {/* Dono / Proprietário do Caixa */}
+                    <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100 my-2">
+                      <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+                        {c.usuario_foto ? (
+                          <img src={c.usuario_foto} alt={c.usuario_nome} className="w-full h-full object-cover" />
+                        ) : (
+                          (c.usuario_nome || 'O').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-slate-900 text-sm truncate">{c.usuario_nome || `Operador #${c.usuario_id}`}</h4>
+                        {c.usuario_email && (
+                          <p className="text-[11px] text-slate-500 truncate">{c.usuario_email}</p>
+                        )}
+                        <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200/80 text-slate-700">
+                          {c.usuario_perfil === 'ADMIN' ? 'Administrador' : 'Operador de Caixa'}
+                        </span>
+                      </div>
+                    </div>
+
                     <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
                       <Clock size={12} />
                       Aberto em {new Date(c.data_abertura).toLocaleString('pt-BR')}
@@ -601,10 +620,32 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                       excedeu ? 'border-rose-300 bg-rose-50/50 ring-2 ring-rose-200' : 'border-slate-200 bg-white'
                     }`}>
                       <div className="flex items-center justify-between text-xs mb-2">
-                        <span className="font-bold text-slate-800">Caixa #{op.caixa_id} - {op.usuario_nome}</span>
+                        <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                          Terminal #{op.caixa_id}
+                        </span>
                         <span className="font-mono text-[11px] text-slate-500 flex items-center gap-1">
                           <Clock size={12} /> {op.tempo_aberto_formatado}
                         </span>
+                      </div>
+
+                      {/* Dono / Proprietário da Conta */}
+                      <div className="flex items-center gap-2.5 p-2 bg-slate-50 rounded-xl border border-slate-100 mb-2">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
+                          {op.usuario_foto ? (
+                            <img src={op.usuario_foto} alt={op.usuario_nome} className="w-full h-full object-cover" />
+                          ) : (
+                            (op.usuario_nome || 'O').charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-800 text-xs truncate leading-tight">{op.usuario_nome}</p>
+                          {op.usuario_email && (
+                            <p className="text-[10px] text-slate-400 truncate">{op.usuario_email}</p>
+                          )}
+                          <span className="inline-block text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200/80 text-slate-600">
+                            {op.usuario_perfil === 'ADMIN' ? 'Administrador' : 'Operador'}
+                          </span>
+                        </div>
                       </div>
 
                       <div className="space-y-1.5 my-3">
@@ -934,6 +975,31 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
               >
                 <X size={20} />
               </button>
+            </div>
+
+            {/* Conta Proprietária do Caixa */}
+            <div className="flex items-center gap-3 p-3 bg-purple-50/70 border border-purple-100 rounded-2xl">
+              <div className="w-10 h-10 rounded-full bg-purple-200 text-purple-800 flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+                {resumoInspecionado.caixa.usuario_foto ? (
+                  <img src={resumoInspecionado.caixa.usuario_foto} alt={resumoInspecionado.caixa.usuario_nome} className="w-full h-full object-cover" />
+                ) : (
+                  (resumoInspecionado.caixa.usuario_nome || 'O').charAt(0).toUpperCase()
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] uppercase font-bold text-purple-600 block">Conta Proprietária</span>
+                <p className="font-bold text-slate-900 text-sm truncate">{resumoInspecionado.caixa.usuario_nome || 'Operador'}</p>
+                {resumoInspecionado.caixa.usuario_email && (
+                  <p className="text-xs text-slate-500 truncate">{resumoInspecionado.caixa.usuario_email}</p>
+                )}
+                <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                  <span className="font-bold text-purple-700">
+                    {resumoInspecionado.caixa.usuario_perfil === 'ADMIN' ? 'Administrador' : 'Operador de Caixa'}
+                  </span>
+                  <span>•</span>
+                  <span>Aberto em {new Date(resumoInspecionado.caixa.data_abertura).toLocaleString('pt-BR')}</span>
+                </div>
+              </div>
             </div>
 
             <div className="p-4 bg-slate-900 text-white rounded-xl flex items-center justify-between">

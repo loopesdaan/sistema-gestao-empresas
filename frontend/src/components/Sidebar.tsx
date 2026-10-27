@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, ShoppingCart, Wallet, Package, Users, 
-  Wrench, BarChart3, Settings, LogOut, X, Shield, Sparkles, Clock, Bell 
+  Wrench, BarChart3, Settings, LogOut, X, Shield, Sparkles, Clock, Bell,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { resolveImageUrl } from '../services/api';
@@ -17,6 +18,8 @@ interface SidebarProps {
   empresaNome?: string;
   isAdmin?: boolean;
   onOpenOnboarding?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -29,7 +32,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   userPerfil = 'ADMIN',
   empresaNome = 'Gestão PME',
   isAdmin = false,
-  onOpenOnboarding
+  onOpenOnboarding,
+  isCollapsed = false,
+  onToggleCollapse
 }) => {
   const { modulosAtivos, temaAtual, empresa } = useEmpresa();
   const nomeExibicao = empresa.nome_fantasia || empresaNome;
@@ -98,11 +103,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Sidebar Container */}
       <aside className={`
-        fixed top-0 bottom-0 left-0 z-50 w-72 bg-slate-900 bg-gradient-to-b ${temaAtual.sidebarGradiente} text-slate-200 flex flex-col transition-transform duration-300 ease-in-out border-r border-slate-800
+        fixed top-0 bottom-0 left-0 z-50 ${isCollapsed ? 'lg:w-20' : 'lg:w-72'} w-72 bg-slate-900 bg-gradient-to-b ${temaAtual.sidebarGradiente} text-slate-200 flex flex-col transition-all duration-300 ease-in-out border-r border-slate-800
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Header da Sidebar com Tema do Segmento */}
-        <div className="p-4 border-b border-slate-800/80 flex items-center justify-between gap-2">
+        <div className={`p-4 border-b border-slate-800/80 flex items-center ${isCollapsed ? 'lg:justify-center' : 'justify-between'} gap-2`}>
           <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
             {empresa.logo_url && !logoFalhou ? (
               <img
@@ -116,13 +121,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {temaAtual.emoji}
               </div>
             )}
-            <div className="overflow-hidden min-w-0 flex-1">
+            <div className={`overflow-hidden min-w-0 flex-1 ${isCollapsed ? 'lg:hidden' : ''}`}>
               <h1 className="font-bold text-white text-sm leading-snug truncate" title={nomeExibicao}>{nomeExibicao}</h1>
               <span className={`text-[11px] font-semibold ${temaAtual.textoHighlight} block truncate`} title={temaAtual.label}>
                 {temaAtual.label}
               </span>
             </div>
           </div>
+
+          {/* Botão de Toggle Expandir / Recolher Menu no Desktop */}
+          {onToggleCollapse && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              title={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+              className="hidden lg:flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors shrink-0"
+            >
+              {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            </button>
+          )}
+
           <button 
             onClick={() => setIsOpen(false)} 
             className="lg:hidden text-slate-400 hover:text-white p-1 rounded-md shrink-0"
@@ -132,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Links de Navegação */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
+        <nav className={`flex-1 overflow-y-auto ${isCollapsed ? 'lg:px-2' : 'px-3'} py-4 space-y-1.5`}>
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -143,8 +161,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   setActiveTab(item.id);
                   setIsOpen(false);
                 }}
+                title={item.label}
                 className={`
-                  w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-left
+                  w-full flex items-center ${isCollapsed ? 'lg:justify-center lg:px-0' : 'px-3.5'} py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-left gap-3
                   ${isActive 
                     ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white shadow-md shadow-black/20 font-bold` 
                     : item.highlight
@@ -154,11 +173,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 `}
               >
                 <Icon size={19} className={`shrink-0 ${isActive ? 'text-white' : item.highlight ? 'opacity-90' : 'text-slate-400'}`} />
-                <span className="truncate whitespace-nowrap">
+                <span className={`truncate whitespace-nowrap ${isCollapsed ? 'lg:hidden' : ''}`}>
                   {isOperador && item.id === 'relatorios' ? 'Minhas Vendas' : item.label}
                 </span>
                 {item.highlight && !isActive && (
-                  <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${temaAtual.accentBadge}`}>
+                  <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${temaAtual.accentBadge} ${isCollapsed ? 'lg:hidden' : ''}`}>
                     Rápido
                   </span>
                 )}
@@ -175,22 +194,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onOpenOnboarding();
                 setIsOpen(false);
               }}
-              className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r ${temaAtual.bgGradiente} hover:opacity-95 text-white shadow-md shadow-black/20 transition-all border border-white/20`}
+              title="Personalizar Módulos"
+              className={`w-full flex items-center justify-center gap-2 ${isCollapsed ? 'lg:px-0' : 'px-3'} py-2 rounded-xl text-xs font-semibold bg-gradient-to-r ${temaAtual.bgGradiente} hover:opacity-95 text-white shadow-md shadow-black/20 transition-all border border-white/20`}
             >
-              <Sparkles size={14} />
-              <span>Personalizar Módulos</span>
+              <Sparkles size={14} className="shrink-0" />
+              <span className={isCollapsed ? 'lg:hidden' : ''}>Personalizar Módulos</span>
             </button>
           </div>
         )}
 
         {/* Footer do Usuário */}
         <div className="p-3 border-t border-slate-800 bg-slate-950/40">
-          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900/80">
+          <div className={`flex items-center ${isCollapsed ? 'lg:flex-col lg:gap-2' : 'justify-between'} p-2 rounded-lg bg-slate-900/80`}>
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-200">
+              <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-200 shrink-0">
                 {userName.charAt(0).toUpperCase()}
               </div>
-              <div className="truncate">
+              <div className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>
                 <p className="text-xs font-medium text-white truncate">{userName}</p>
                 <p className="text-[11px] text-sky-400 font-medium">
                   {userPerfil === 'ADMIN' || isAdmin
@@ -204,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onLogout}
               title="Sair do sistema"
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors"
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors shrink-0"
             >
               <LogOut size={16} />
             </button>

@@ -19,16 +19,31 @@ from app.api.deps import get_current_user, verificar_ponto_trabalho
 
 router = APIRouter()
 
-def serialize_caixa(caixa: Caixa) -> CaixaResponse:
+def serialize_caixa(caixa: Caixa, db: Optional[Session] = None) -> CaixaResponse:
     diferenca = None
     if caixa.saldo_final_informado is not None and caixa.saldo_final_calculado is not None:
         diferenca = Decimal(str(caixa.saldo_final_informado)) - Decimal(str(caixa.saldo_final_calculado))
+
+    usuario = caixa.usuario
+    if not usuario and db and caixa.usuario_id:
+        usuario = db.query(Usuario).filter(Usuario.id == caixa.usuario_id).first()
+        if not usuario and caixa.usuario_id > 10_000_000:
+            usuario = db.query(Usuario).filter(
+                Usuario.id.between(caixa.usuario_id - 1000, caixa.usuario_id + 1000)
+            ).first()
+
+    usuario_perfil_str = None
+    if usuario and hasattr(usuario, "perfil"):
+        usuario_perfil_str = usuario.perfil.value if hasattr(usuario.perfil, "value") else str(usuario.perfil)
 
     return CaixaResponse(
         id=caixa.id,
         empresa_id=caixa.empresa_id,
         usuario_id=caixa.usuario_id,
-        usuario_nome=caixa.usuario.nome if caixa.usuario else None,
+        usuario_nome=usuario.nome if usuario else None,
+        usuario_email=usuario.email if usuario else None,
+        usuario_perfil=usuario_perfil_str,
+        usuario_foto=usuario.foto_url if usuario else None,
         data_abertura=caixa.data_abertura,
         data_fechamento=caixa.data_fechamento,
         saldo_inicial=Decimal(str(caixa.saldo_inicial or 0)),
@@ -116,7 +131,7 @@ def calcular_resumo_caixa(caixa: Caixa, db: Session) -> ResumoCaixaResponse:
         diferenca = Decimal(str(caixa.saldo_final_informado)) - saldo_esperado
 
     return ResumoCaixaResponse(
-        caixa=serialize_caixa(caixa),
+        caixa=serialize_caixa(caixa, db),
         saldo_inicial=saldo_inicial,
         total_vendas_dinheiro=totais_por_forma[FormaPagamento.DINHEIRO],
         total_vendas_pix=totais_por_forma[FormaPagamento.PIX],
@@ -163,7 +178,7 @@ def obter_caixa_atual(
             db.commit()
             db.refresh(caixa)
 
-    return serialize_caixa(caixa) if caixa else None
+    return serialize_caixa(caixa, db) if caixa else None
 
 @router.get("/abertos", response_model=List[CaixaResponse])
 def listar_caixas_abertos(
@@ -175,7 +190,7 @@ def listar_caixas_abertos(
         Caixa.empresa_id == current_user.empresa_id,
         Caixa.status == StatusCaixa.ABERTO
     ).order_by(Caixa.data_abertura.desc()).all()
-    return [serialize_caixa(c) for c in caixas]
+    return [serialize_caixa(c, db) for c in caixas]
 
 @router.post("/abrir", response_model=CaixaResponse)
 def abrir_caixa(
@@ -208,7 +223,7 @@ def abrir_caixa(
     db.add(novo_caixa)
     db.commit()
     db.refresh(novo_caixa)
-    return serialize_caixa(novo_caixa)
+    return serialize_caixa(novo_caixa, db)
 
 @router.post("/movimentacao", response_model=MovimentacaoCaixaResponse)
 def lancar_movimentacao(
@@ -344,7 +359,7 @@ def historico_caixas(
     if current_user.perfil != PerfilUsuario.ADMIN:
         query = query.filter(Caixa.usuario_id == current_user.id)
     caixas = query.order_by(Caixa.data_abertura.desc()).limit(100).all()
-    return [serialize_caixa(c) for c in caixas]
+    return [serialize_caixa(c, db) for c in caixas]
 
 class TicketCaixaSchema(BaseModel):
     tipo: TipoSolicitacaoCaixa
@@ -623,10 +638,23 @@ def monitor_tempo_real(
 
         total_vendas = getattr(resumo, "quantidade_vendas", 0) or len(c.vendas or [])
 
+        usuario = c.usuario
+        if not usuario and c.usuario_id:
+            usuario = db.query(Usuario).filter(Usuario.id == c.usuario_id).first()
+            if not usuario and c.usuario_id > 10_000_000:
+                usuario = db.query(Usuario).filter(Usuario.id.between(c.usuario_id - 1000, c.usuario_id + 1000)).first()
+
+        usuario_perfil_str = None
+        if usuario and hasattr(usuario, "perfil"):
+            usuario_perfil_str = usuario.perfil.value if hasattr(usuario.perfil, "value") else str(usuario.perfil)
+
         operando.append({
             "caixa_id": c.id,
             "usuario_id": c.usuario_id,
-            "usuario_nome": c.usuario.nome if c.usuario else "",
+            "usuario_nome": usuario.nome if usuario else f"Operador #{c.usuario_id}",
+            "usuario_email": usuario.email if usuario else "",
+            "usuario_perfil": usuario_perfil_str,
+            "usuario_foto": usuario.foto_url if usuario else None,
             "data_abertura": c.data_abertura,
             "tempo_aberto_formatado": f"{horas}h {minutos:02d}m",
             "saldo_dinheiro": float(saldo_dinheiro),
