@@ -3,7 +3,8 @@ import {
   Landmark, ArrowDownLeft, ArrowUpRight, Plus, Minus, Download, 
   Wallet, RefreshCw, AlertCircle, CheckCircle2, X, DollarSign,
   Building2, CreditCard, QrCode, TrendingUp, ShieldCheck,
-  Paperclip, UploadCloud, Eye, ExternalLink, Image as ImageIcon
+  Paperclip, UploadCloud, Eye, ExternalLink, Image as ImageIcon,
+  Filter, ChevronDown
 } from 'lucide-react';
 import { apiService, resolveImageUrl } from '../services/api';
 import { StatusFinanceiro, MovimentacaoTesouraria, TipoMovimentacaoTesouraria } from '../types';
@@ -328,8 +329,27 @@ export const Financeiro: React.FC = () => {
             </div>
           </div>
 
-          {/* Filtros Rápidos */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs">
+          {/* Seletor Mobile (Zero Rolagem Lateral) */}
+          <div className="sm:hidden w-full relative">
+            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <select
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-sky-500"
+            >
+              <option value="TODOS">Todas as Operações ({extrato.length})</option>
+              <option value="APORTE">Aportes (+ Entrada no Cofre)</option>
+              <option value="RETIRADA">Retiradas (- Saída)</option>
+              <option value="LIBERACAO_FUNDO">Fundos de Troco</option>
+              <option value="RECOLHIMENTO">Recolhimentos</option>
+              <option value="SUPRIMENTO_CAIXA">Suprimentos de Caixa</option>
+              <option value="SANGRIA_CAIXA">Sangrias de Caixa</option>
+            </select>
+            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+
+          {/* Filtros em Pílulas para Tablet e Desktop (flex-wrap) */}
+          <div className="hidden sm:flex flex-wrap items-center gap-1.5 text-xs">
             {[
               { id: 'TODOS', label: 'Todos' },
               { id: 'APORTE', label: 'Aportes' },
