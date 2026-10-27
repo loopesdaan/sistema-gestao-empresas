@@ -917,17 +917,22 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
 
                 {/* Quebra das Vendas por Método de Pagamento */}
                 <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-                    Totalizadores por Forma de Pagamento
-                  </h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+                      Vendas Faturadas por Forma de Pagamento
+                    </h3>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      * O fundo de troco não é contabilizado como venda
+                    </span>
+                  </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-xs text-slate-500 font-medium">Dinheiro</span>
+                      <span className="text-xs text-slate-500 font-medium">Vendas em Dinheiro</span>
                       <p className="text-base font-bold text-slate-800 mt-0.5">{formatMoney(resumoEfetivo.total_vendas_dinheiro)}</p>
                     </div>
                     <div className="p-3 bg-sky-50/50 rounded-xl border border-sky-100">
-                      <span className="text-xs text-sky-700 font-medium">PIX</span>
+                      <span className="text-xs text-sky-700 font-medium">Vendas no PIX</span>
                       <p className="text-base font-bold text-sky-900 mt-0.5">{formatMoney(resumoEfetivo.total_vendas_pix)}</p>
                     </div>
                     <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-100">
