@@ -11,7 +11,8 @@ import {
   Search, Barcode, Trash2, Plus, Minus, CreditCard, 
   Banknote, QrCode, UserCheck, CheckCircle2, AlertCircle, 
   ShoppingCart, RefreshCw, X, Copy, Check, Sparkles, Wrench,
-  Lock, Clock, Receipt, Shield, AlertTriangle, Smartphone
+  Lock, Clock, Receipt, Shield, AlertTriangle, Smartphone,
+  Tag, Percent
 } from 'lucide-react';
 
 interface CartItem {
@@ -43,6 +44,8 @@ export const PDV: React.FC = () => {
   // Carrinho
   const [carrinho, setCarrinho] = useState<CartItem[]>([]);
   const [desconto, setDesconto] = useState<number>(0);
+  const [tipoDesconto, setTipoDesconto] = useState<'VALOR' | 'PORCENTAGEM'>('VALOR');
+  const [valorDescontoInput, setValorDescontoInput] = useState<string>('');
   const [acrescimo, setAcrescimo] = useState<number>(0);
 
   // Modal de Checkout / Pagamento
@@ -301,6 +304,58 @@ export const PDV: React.FC = () => {
 
   // Cálculos financeiros
   const subtotalBruto = carrinho.reduce((acc, it) => acc + it.subtotal, 0);
+
+  const handleTrocarTipoDesconto = (novoTipo: 'VALOR' | 'PORCENTAGEM') => {
+    setTipoDesconto(novoTipo);
+    setValorDescontoInput('');
+    setDesconto(0);
+  };
+
+  const handleAlterarValorDesconto = (valStr: string) => {
+    setValorDescontoInput(valStr);
+    const num = parseFloat(valStr) || 0;
+    if (num <= 0) {
+      setDesconto(0);
+      return;
+    }
+    if (tipoDesconto === 'PORCENTAGEM') {
+      const pct = Math.min(100, Math.max(0, num));
+      const calc = (subtotalBruto * pct) / 100;
+      setDesconto(Math.min(subtotalBruto, Math.round(calc * 100) / 100));
+    } else {
+      setDesconto(Math.min(subtotalBruto, num));
+    }
+  };
+
+  const handleAplicarPresetPorcentagem = (pct: number) => {
+    setTipoDesconto('PORCENTAGEM');
+    setValorDescontoInput(String(pct));
+    const calc = (subtotalBruto * pct) / 100;
+    setDesconto(Math.min(subtotalBruto, Math.round(calc * 100) / 100));
+  };
+
+  const handleAplicarPresetValor = (v: number) => {
+    setTipoDesconto('VALOR');
+    setValorDescontoInput(String(v));
+    setDesconto(Math.min(subtotalBruto, v));
+  };
+
+  const handleLimparDesconto = () => {
+    setValorDescontoInput('');
+    setDesconto(0);
+  };
+
+  useEffect(() => {
+    if (tipoDesconto === 'PORCENTAGEM' && valorDescontoInput) {
+      const pct = Math.min(100, Math.max(0, parseFloat(valorDescontoInput) || 0));
+      const calc = (subtotalBruto * pct) / 100;
+      setDesconto(Math.min(subtotalBruto, Math.round(calc * 100) / 100));
+    } else if (tipoDesconto === 'VALOR' && valorDescontoInput) {
+      const v = parseFloat(valorDescontoInput) || 0;
+      setDesconto(Math.min(subtotalBruto, v));
+    }
+  }, [subtotalBruto]);
+
   const totalLiquido = Math.max(0, subtotalBruto - (Number(desconto) || 0) + (Number(acrescimo) || 0));
 
   const numRecebido = Number(valorRecebido) || 0;
@@ -461,6 +516,8 @@ export const PDV: React.FC = () => {
       setModalPagamentoAberto(false);
       setCarrinho([]);
       setDesconto(0);
+      setValorDescontoInput('');
+      setTipoDesconto('VALOR');
       setAcrescimo(0);
       setClienteSelecionado(null);
       setOsVinculadaId(null);
@@ -612,7 +669,7 @@ export const PDV: React.FC = () => {
   return (
     <div className="h-[calc(100vh-6rem)] flex flex-col lg:flex-row gap-5">
       {/* Coluna Esquerda: Busca & Catálogo Rápido */}
-      <div className="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div className="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-xs relative">
         {/* Barra de Busca de Produtos */}
         <div className="p-4 border-b border-slate-200 bg-slate-50/50">
           <div className="relative">
@@ -641,32 +698,35 @@ export const PDV: React.FC = () => {
                 <X size={18} />
               </button>
             )}
-          </div>
 
-          {/* Lista Flutuante de Sugestões de Busca */}
-          {produtosSugestoes.length > 0 && (
-            <div className="absolute z-20 left-4 right-4 lg:right-auto lg:w-[500px] mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-72 overflow-y-auto divide-y divide-slate-100">
-              {produtosSugestoes.map((p) => (
-                <div
-                  key={p.id}
-                  onClick={() => adicionarAoCarrinho(p)}
-                  className="p-3 hover:bg-sky-50 cursor-pointer flex items-center justify-between transition-colors"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{p.nome}</p>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <span>{p.codigo_barras || 'Sem código'}</span>
-                      <span>•</span>
-                      <span className={p.estoque_atual <= 0 ? 'text-rose-600 font-semibold' : ''}>
-                        Estoque: {p.estoque_atual} {p.unidade}
-                      </span>
+            {/* Lista Flutuante de Sugestões de Busca - ancorada estritamente abaixo do input para nunca sobrepor a sidebar */}
+            {produtosSugestoes.length > 0 && (
+              <div className="absolute z-30 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 ring-1 ring-slate-900/5">
+                {produtosSugestoes.map((p) => (
+                  <div
+                    key={p.id}
+                    onClick={() => {
+                      adicionarAoCarrinho(p);
+                      setBusca('');
+                    }}
+                    className="p-3 hover:bg-sky-50 cursor-pointer flex items-center justify-between transition-colors"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{p.nome}</p>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>{p.codigo_barras || 'Sem código'}</span>
+                        <span>•</span>
+                        <span className={p.estoque_atual <= 0 ? 'text-rose-600 font-semibold' : ''}>
+                          Estoque: {p.estoque_atual} {p.unidade}
+                        </span>
+                      </div>
                     </div>
+                    <span className="text-sm font-bold text-sky-600">{formatMoney(p.preco_venda)}</span>
                   </div>
-                  <span className="text-sm font-bold text-sky-600">{formatMoney(p.preco_venda)}</span>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Grade de Produtos Frequentes / Rápidos */}
@@ -803,17 +863,110 @@ export const PDV: React.FC = () => {
             <span>{formatMoney(subtotalBruto)}</span>
           </div>
 
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-slate-600">Desconto (R$)</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={desconto || ''}
-              onChange={(e) => setDesconto(parseFloat(e.target.value) || 0)}
-              placeholder="0,00"
-              className="w-20 px-2 py-1 text-right bg-white border border-slate-300 rounded text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none"
-            />
+          {/* Seção Moderna de Aplicação de Desconto */}
+          <div className="bg-white p-3 rounded-xl border border-slate-200/90 space-y-2 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                <Tag size={13} className="text-amber-500" />
+                <span>Desconto</span>
+              </div>
+              
+              {/* Seletor R$ vs % */}
+              <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[10px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => handleTrocarTipoDesconto('VALOR')}
+                  className={`px-2 py-0.5 rounded-md transition-all ${tipoDesconto === 'VALOR' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  R$
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTrocarTipoDesconto('PORCENTAGEM')}
+                  className={`px-2 py-0.5 rounded-md transition-all ${tipoDesconto === 'PORCENTAGEM' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  %
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <span className="absolute inset-y-0 left-2.5 flex items-center text-xs font-bold text-slate-400">
+                  {tipoDesconto === 'VALOR' ? 'R$' : '%'}
+                </span>
+                <input
+                  type="number"
+                  step={tipoDesconto === 'VALOR' ? '0.01' : '1'}
+                  min="0"
+                  max={tipoDesconto === 'PORCENTAGEM' ? '100' : subtotalBruto}
+                  value={valorDescontoInput}
+                  onChange={(e) => handleAlterarValorDesconto(e.target.value)}
+                  placeholder={tipoDesconto === 'VALOR' ? '0,00' : '0'}
+                  className="w-full pl-8 pr-7 py-1.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 rounded-lg text-xs font-bold text-right text-slate-800 focus:ring-1 focus:ring-sky-500 focus:outline-none transition-all"
+                />
+                {valorDescontoInput && (
+                  <button
+                    type="button"
+                    onClick={handleLimparDesconto}
+                    className="absolute inset-y-0 right-2 flex items-center text-slate-400 hover:text-slate-600"
+                    title="Remover desconto"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+
+              {/* Botões Rápidos de Desconto */}
+              <div className="flex gap-1 shrink-0">
+                {tipoDesconto === 'PORCENTAGEM' ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleAplicarPresetPorcentagem(5)}
+                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-md transition-colors"
+                      title="5% de desconto"
+                    >
+                      5%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAplicarPresetPorcentagem(10)}
+                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-md transition-colors"
+                      title="10% de desconto"
+                    >
+                      10%
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleAplicarPresetValor(5)}
+                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-md transition-colors"
+                      title="R$ 5,00 de desconto"
+                    >
+                      5,00
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAplicarPresetValor(10)}
+                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-md transition-colors"
+                      title="R$ 10,00 de desconto"
+                    >
+                      10,00
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {desconto > 0 && (
+              <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px] text-emerald-700 font-semibold">
+                <span>Desconto concedido:</span>
+                <span>- {formatMoney(desconto)} {tipoDesconto === 'PORCENTAGEM' && `(${valorDescontoInput}%)`}</span>
+              </div>
+            )}
           </div>
 
           <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">

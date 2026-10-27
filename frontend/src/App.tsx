@@ -42,6 +42,23 @@ const AppContent: React.FC = () => {
   });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('gestao_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleSidebarCollapse = () => {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('gestao_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
   const [caixaAberto, setCaixaAberto] = useState(false);
   const [caixaAtual, setCaixaAtual] = useState<CaixaType | null>(null);
   const [statusPonto, setStatusPonto] = useState<StatusJornada | null>(null);
@@ -247,10 +264,12 @@ const AppContent: React.FC = () => {
         userPerfil={usuario.perfil}
         isAdmin={isAdmin}
         onOpenOnboarding={() => setShowOnboarding(true)}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebarCollapse}
       />
 
       {/* Área Principal de Conteúdo */}
-      <div className="flex-1 flex flex-col lg:pl-72 transition-all duration-300">
+      <div className={`flex-1 flex flex-col ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'} transition-all duration-300`}>
         <Navbar
           onMenuToggle={() => setSidebarOpen(true)}
           activeTitle={getPageTitle()}

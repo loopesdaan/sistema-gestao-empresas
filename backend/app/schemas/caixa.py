@@ -35,6 +35,9 @@ class CaixaResponse(BaseModel):
     empresa_id: int
     usuario_id: int
     usuario_nome: Optional[str] = None
+    usuario_email: Optional[str] = None
+    usuario_perfil: Optional[str] = None
+    usuario_foto: Optional[str] = None
     data_abertura: datetime
     data_fechamento: Optional[datetime] = None
     saldo_inicial: Decimal

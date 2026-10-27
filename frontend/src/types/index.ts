@@ -84,6 +84,9 @@ export interface Caixa {
   empresa_id: number;
   usuario_id: number;
   usuario_nome?: string;
+  usuario_email?: string;
+  usuario_perfil?: string;
+  usuario_foto?: string;
   data_abertura: string;
   data_fechamento?: string;
   saldo_inicial: number;

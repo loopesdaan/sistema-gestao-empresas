@@ -546,7 +546,7 @@ export const OS: React.FC = () => {
           onClick={() => setModalNovaOS(false)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto overflow-x-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -643,46 +643,51 @@ export const OS: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="flex gap-2">
-                  <select
-                    value={produtoSelecionadoId}
-                    onChange={(e) => {
-                      const pid = Number(e.target.value) || '';
-                      setProdutoSelecionadoId(pid);
-                      if (pid) {
-                        const p = produtos.find(prod => prod.id === pid);
-                        if (p) setValorUnitarioItem(p.preco_venda);
-                      } else {
-                        setValorUnitarioItem(0);
-                      }
-                    }}
-                    className="flex-1 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
-                  >
-                    <option value="">Selecione um produto do catálogo...</option>
-                    {produtos.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.nome} ({formatMoney(p.preco_venda)} - Est: {p.estoque_atual})
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1 min-w-0">
+                    <select
+                      value={produtoSelecionadoId}
+                      onChange={(e) => {
+                        const pid = Number(e.target.value) || '';
+                        setProdutoSelecionadoId(pid);
+                        if (pid) {
+                          const p = produtos.find(prod => prod.id === pid);
+                          if (p) setValorUnitarioItem(p.preco_venda);
+                        } else {
+                          setValorUnitarioItem(0);
+                        }
+                      }}
+                      className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs truncate bg-white outline-none focus:ring-1 focus:ring-sky-500"
+                    >
+                      <option value="">Selecione um produto do catálogo...</option>
+                      {produtos.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.nome} ({formatMoney(p.preco_venda)} - Est: {p.estoque_atual})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                  <input
-                    type="number"
-                    min="1"
-                    value={quantidadeItem}
-                    onChange={(e) => setQuantidadeItem(Math.max(1, parseInt(e.target.value) || 1))}
-                    placeholder="Qtd"
-                    className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-xs text-center font-bold"
-                  />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <input
+                      type="number"
+                      min="1"
+                      value={quantidadeItem}
+                      onChange={(e) => setQuantidadeItem(Math.max(1, parseInt(e.target.value) || 1))}
+                      placeholder="Qtd"
+                      className="w-16 px-2 py-2 border border-slate-300 rounded-xl text-xs text-center font-bold outline-none focus:ring-1 focus:ring-sky-500"
+                    />
 
-                  <button
-                    type="button"
-                    disabled={!produtoSelecionadoId}
-                    onClick={handleAdicionarItemNovaOS}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold disabled:opacity-40 transition-colors"
-                  >
-                    + Adicionar
-                  </button>
+                    <button
+                      type="button"
+                      disabled={!produtoSelecionadoId}
+                      onClick={handleAdicionarItemNovaOS}
+                      className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold disabled:opacity-40 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1 shadow-2xs"
+                    >
+                      <Plus size={14} />
+                      <span>Adicionar</span>
+                    </button>
+                  </div>
                 </div>
 
                 {itensNovaOS.length > 0 && (
