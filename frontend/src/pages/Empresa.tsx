@@ -321,31 +321,33 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
         {!modoEdicao ? (
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-sky-100 text-sky-700">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3 min-w-0">
+                <div className="p-2 rounded-lg bg-sky-100 text-sky-700 shrink-0">
                   <Phone size={18} />
                 </div>
-                <div className="overflow-hidden">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Telefone</span>
-                  <p className="text-sm font-semibold text-slate-800 mt-0.5">{empresa.telefone || 'Não informado'}</p>
+                  <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{empresa.telefone || 'Não informado'}</p>
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-purple-100 text-purple-700">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3 min-w-0">
+                <div className="p-2 rounded-lg bg-purple-100 text-purple-700 shrink-0">
                   <Mail size={18} />
                 </div>
-                <div className="overflow-hidden">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">E-mail</span>
-                  <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{empresa.email || 'Não informado'}</p>
+                  <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate break-all" title={empresa.email || 'Não informado'}>
+                    {empresa.email || 'Não informado'}
+                  </p>
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3 min-w-0">
+                <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 shrink-0">
                   <MapPin size={18} />
                 </div>
-                <div className="overflow-hidden">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
                     Localização & CEP
                   </span>

@@ -7,6 +7,24 @@ import {
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { resolveImageUrl } from '../services/api';
 
+interface MenuItemDef {
+  id: string;
+  label: string;
+  icon: any;
+  highlight?: boolean;
+  adminOnly?: boolean;
+  adminOuFinanceiro?: boolean;
+  modulo: string;
+  sempreVisivel?: boolean;
+  sempreAdmin?: boolean;
+}
+
+interface MenuGroupDef {
+  id: string;
+  titulo: string;
+  items: MenuItemDef[];
+}
+
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -54,24 +72,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
     ? (temaAtual.terminologia.servicos.includes('OS') ? temaAtual.terminologia.servicos : `${temaAtual.terminologia.servicos} (OS)`)
     : 'Ordens de Serviço (OS)';
 
-  // Mapeamento de itens do menu para chaves de módulo com nomenclaturas padronizadas
-  const allMenuItems = [
-    { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'dashboard', sempreAdmin: true },
-    { id: 'pdv', label: 'Frente de Caixa (PDV)', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
-    { id: 'caixa', label: 'Controle de Caixa', icon: Wallet, modulo: 'caixa' },
-    { id: 'financeiro', label: 'Financeiro & Cofre', icon: Landmark, adminOuFinanceiro: true, modulo: 'financeiro' },
-    { id: 'notificacoes', label: 'Notificações & Ações', icon: Bell, sempreVisivel: true, modulo: 'notificacoes' },
-    { id: 'ponto', label: 'Ponto Eletrônico CLT', icon: Clock, sempreVisivel: true, modulo: 'ponto' },
-    { id: 'produtos', label: 'Produtos & Estoque', icon: Package, modulo: 'produtos' },
-    { id: 'clientes', label: 'Clientes & Crediário', icon: Users, modulo: 'clientes' },
-    { id: 'os', label: labelServicos, icon: Wrench, modulo: 'os' },
-    { id: 'relatorios', label: 'Relatórios de Vendas', icon: BarChart3, modulo: 'relatorios' },
-    { id: 'usuarios', label: 'Equipe & Usuários', icon: Shield, adminOnly: true, modulo: 'usuarios' },
-    { id: 'empresa', label: 'Dados da Empresa', icon: Settings, modulo: 'empresa' },
+  // Estrutura organizada por grupos lógicos (Padrão de Mercado para ERP / SaaS)
+  const menuGrupos: MenuGroupDef[] = [
+    {
+      id: 'operacao',
+      titulo: 'Operação & Vendas',
+      items: [
+        { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'dashboard', sempreAdmin: true },
+        { id: 'pdv', label: 'Frente de Caixa (PDV)', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
+        { id: 'os', label: labelServicos, icon: Wrench, modulo: 'os' },
+      ]
+    },
+    {
+      id: 'financeiro',
+      titulo: 'Financeiro & Caixa',
+      items: [
+        { id: 'caixa', label: 'Controle de Caixa', icon: Wallet, modulo: 'caixa' },
+        { id: 'financeiro', label: 'Financeiro & Cofre', icon: Landmark, adminOuFinanceiro: true, modulo: 'financeiro' },
+        { id: 'relatorios', label: 'Relatórios de Vendas', icon: BarChart3, modulo: 'relatorios' },
+      ]
+    },
+    {
+      id: 'catalogo',
+      titulo: 'Catálogo & Clientes',
+      items: [
+        { id: 'produtos', label: 'Produtos & Estoque', icon: Package, modulo: 'produtos' },
+        { id: 'clientes', label: 'Clientes & Crediário', icon: Users, modulo: 'clientes' },
+      ]
+    },
+    {
+      id: 'gestao',
+      titulo: 'Equipe & Ponto CLT',
+      items: [
+        { id: 'ponto', label: 'Ponto Eletrônico CLT', icon: Clock, sempreVisivel: true, modulo: 'ponto' },
+        { id: 'notificacoes', label: 'Notificações & Ações', icon: Bell, sempreVisivel: true, modulo: 'notificacoes' },
+        { id: 'usuarios', label: 'Equipe & Usuários', icon: Shield, adminOnly: true, modulo: 'usuarios' },
+      ]
+    },
+    {
+      id: 'sistema',
+      titulo: 'Configurações',
+      items: [
+        { id: 'empresa', label: 'Dados da Empresa', icon: Settings, modulo: 'empresa' },
+      ]
+    }
   ];
 
   // Filtra por permissão de perfil e respeita rigorosamente os módulos ativos da empresa
-  const menuItems = allMenuItems.filter(item => {
+  const filtrarItem = (item: MenuItemDef) => {
     // 1. Recursos essenciais de conformidade e gestão interna
     if (item.id === 'ponto' || item.id === 'notificacoes') return true;
     if (item.id === 'empresa') return true;
@@ -80,7 +128,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (item.id === 'financeiro') return isAdminOuFinanceiro;
 
     // 2. Módulos operacionais do negócio: DEVEM respeitar os módulos ativos na empresa!
-    // Se o módulo (ex: 'os') foi desativado, NINGUÉM visualiza (inclusive Administrador)
     if (!modulosAtivos.includes(item.modulo)) {
       return false;
     }
@@ -98,7 +145,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     // Operador de Caixa e Administrador: visualizam todos os módulos operacionais ativos
     return true;
-  });
+  };
+
+  const gruposFiltrados = menuGrupos
+    .map(grupo => ({
+      ...grupo,
+      items: grupo.items.filter(filtrarItem)
+    }))
+    .filter(grupo => grupo.items.length > 0);
 
   return (
     <>
@@ -158,41 +212,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Links de Navegação */}
-        <nav className={`flex-1 overflow-y-auto ${isCollapsed ? 'lg:px-2' : 'px-3'} py-4 space-y-1.5`}>
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setIsOpen(false);
-                }}
-                title={item.label}
-                className={`
-                  w-full flex items-center ${isCollapsed ? 'lg:justify-center lg:px-0' : 'px-3.5'} py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-left gap-3
-                  ${isActive 
-                    ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white shadow-md shadow-black/20 font-bold` 
-                    : item.highlight
-                      ? `${temaAtual.textoHighlight} hover:bg-slate-800/80 bg-slate-800/40 border ${temaAtual.borderHighlight}/30`
-                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                  }
-                `}
-              >
-                <Icon size={19} className={`shrink-0 ${isActive ? 'text-white' : item.highlight ? 'opacity-90' : 'text-slate-400'}`} />
-                <span className={`truncate whitespace-nowrap ${isCollapsed ? 'lg:hidden' : ''}`}>
-                  {isOperador && item.id === 'relatorios' ? 'Minhas Vendas' : item.label}
-                </span>
-                {item.highlight && !isActive && (
-                  <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${temaAtual.accentBadge} ${isCollapsed ? 'lg:hidden' : ''}`}>
-                    Rápido
+        {/* Links de Navegação Agrupados */}
+        <nav className={`flex-1 overflow-y-auto ${isCollapsed ? 'lg:px-2' : 'px-3'} py-3 space-y-1`}>
+          {gruposFiltrados.map((grupo, gIdx) => (
+            <div key={grupo.id} className="space-y-1">
+              {/* Título da Seção do Menu */}
+              {!isCollapsed ? (
+                <div className={`px-3.5 pb-1 ${gIdx > 0 ? 'pt-3.5' : 'pt-1'}`}>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400/80 block select-none">
+                    {grupo.titulo}
                   </span>
-                )}
-              </button>
-            );
-          })}
+                </div>
+              ) : (
+                gIdx > 0 && <div className="my-2 border-t border-slate-800/80 mx-2" />
+              )}
+
+              {/* Itens do Grupo */}
+              {grupo.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setIsOpen(false);
+                    }}
+                    title={item.label}
+                    className={`
+                      w-full flex items-center ${isCollapsed ? 'lg:justify-center lg:px-0' : 'px-3.5'} py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 text-left gap-3
+                      ${isActive 
+                        ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white shadow-md shadow-black/20 font-bold` 
+                        : item.highlight
+                          ? `${temaAtual.textoHighlight} hover:bg-slate-800/80 bg-slate-800/40 border ${temaAtual.borderHighlight}/30`
+                          : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                      }
+                    `}
+                  >
+                    <Icon size={18} className={`shrink-0 ${isActive ? 'text-white' : item.highlight ? 'opacity-90' : 'text-slate-400'}`} />
+                    <span className={`truncate whitespace-nowrap ${isCollapsed ? 'lg:hidden' : ''}`}>
+                      {isOperador && item.id === 'relatorios' ? 'Minhas Vendas' : item.label}
+                    </span>
+                    {item.highlight && !isActive && (
+                      <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded ${temaAtual.accentBadge} ${isCollapsed ? 'lg:hidden' : ''}`}>
+                        Rápido
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Botão Assistente de Configuração para Administradores */}
@@ -221,12 +291,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>
                 <p className="text-xs font-medium text-white truncate">{userName}</p>
-                <p className="text-[11px] text-sky-400 font-medium">
+                <p className="text-[11px] text-sky-400 font-medium truncate">
                   {userPerfil === 'ADMIN' || isAdmin
                     ? 'Gerente Geral'
-                    : userPerfil === 'ESTOQUISTA'
-                      ? 'Controlador de Estoque'
-                      : 'Operador de Caixa'}
+                    : userPerfil === 'FINANCEIRO'
+                      ? 'Financeiro & Tesouraria'
+                      : userPerfil === 'ESTOQUISTA'
+                        ? 'Controlador de Estoque'
+                        : 'Operador de Caixa'}
                 </p>
               </div>
             </div>
