@@ -4,17 +4,21 @@ import { apiService } from '../services/api';
 import { OrdemServico, Cliente, Produto, StatusOS, FormaPagamento, Caixa, Venda, RelatorioCancelamentosOS } from '../types';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { useToast } from '../contexts/ToastContext';
+import { useEmpresa } from '../contexts/EmpresaContext';
+import { getOSConfig } from '../utils/segmentoOS';
 import { formatarNumeroOS, formatarNumeroVenda } from '../utils/formatters';
 import { 
   Wrench, Plus, Search, Clock, CheckCircle2, 
   AlertCircle, ChevronRight, User, Calendar, Edit, Package,
   CreditCard, Banknote, QrCode, UserCheck, Receipt, Printer,
   Sparkles, RefreshCw, X, AlertTriangle, Check, Copy, Smartphone,
-  Ban, FileText, Download, FileSpreadsheet, History
+  Ban, FileText, Download, FileSpreadsheet, History, Trash2
 } from 'lucide-react';
 
 export const OS: React.FC = () => {
   const { toast } = useToast();
+  const { perfilNegocio, temaAtual } = useEmpresa();
+  const cfg = getOSConfig(perfilNegocio);
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<string>('TODOS');
@@ -69,6 +73,39 @@ export const OS: React.FC = () => {
   const [equipamento, setEquipamento] = useState('');
   const [defeitoRelatado, setDefeitoRelatado] = useState('');
   const [valorServicos, setValorServicos] = useState<number>(0);
+  
+  // Itens / Produtos adicionados à nova OS
+  const [itensNovaOS, setItensNovaOS] = useState<Array<{ produto_id: number; nome: string; quantidade: number; valor_unitario: number; subtotal: number }>>([]);
+  const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<number | ''>('');
+  const [quantidadeItem, setQuantidadeItem] = useState<number>(1);
+  const [valorUnitarioItem, setValorUnitarioItem] = useState<number>(0);
+
+  const handleAdicionarItemNovaOS = () => {
+    if (!produtoSelecionadoId) return;
+    const prod = produtos.find(p => p.id === Number(produtoSelecionadoId));
+    if (!prod) return;
+    const qtd = Math.max(1, Number(quantidadeItem) || 1);
+    const vUnit = Number(valorUnitarioItem) > 0 ? Number(valorUnitarioItem) : Number(prod.preco_venda);
+    const sub = qtd * vUnit;
+
+    setItensNovaOS(prev => [
+      ...prev,
+      {
+        produto_id: prod.id,
+        nome: prod.nome,
+        quantidade: qtd,
+        valor_unitario: vUnit,
+        subtotal: sub
+      }
+    ]);
+    setProdutoSelecionadoId('');
+    setQuantidadeItem(1);
+    setValorUnitarioItem(0);
+  };
+
+  const handleRemoverItemNovaOS = (index: number) => {
+    setItensNovaOS(prev => prev.filter((_, idx) => idx !== index));
+  };
 
   const carregarDados = async () => {
     setLoading(true);
@@ -104,9 +141,14 @@ export const OS: React.FC = () => {
       await apiService.criarOS({
         cliente_id: Number(clienteId),
         titulo,
-        equipamento,
-        defeito_relatado: defeitoRelatado,
-        valor_servicos: valorServicos
+        equipamento: equipamento || undefined,
+        defeito_relatado: defeitoRelatado || undefined,
+        valor_servicos: valorServicos,
+        itens: itensNovaOS.map(it => ({
+          produto_id: it.produto_id,
+          quantidade: it.quantidade,
+          valor_unitario: it.valor_unitario
+        }))
       });
       setModalNovaOS(false);
       setTitulo('');
@@ -114,7 +156,11 @@ export const OS: React.FC = () => {
       setDefeitoRelatado('');
       setValorServicos(0);
       setClienteId('');
-      toast.sucesso('Ordem de Serviço aberta com sucesso!');
+      setItensNovaOS([]);
+      setProdutoSelecionadoId('');
+      setQuantidadeItem(1);
+      setValorUnitarioItem(0);
+      toast.sucesso(`${cfg.termoSingular} aberta com sucesso!`);
       carregarDados();
     } catch (err: any) {
       toast.erro(err.response?.data?.detail || 'Erro ao criar ordem de serviço');
@@ -127,7 +173,7 @@ export const OS: React.FC = () => {
       if (modalDetalheOS && modalDetalheOS.id === osId) {
         setModalDetalheOS(osAtualizada);
       }
-      toast.sucesso(`Status da OS #${osId} atualizado com sucesso!`);
+      toast.sucesso(`Status de ${cfg.termoSingular} #${osId} atualizado com sucesso!`);
       carregarDados();
     } catch (err: any) {
       toast.erro(err.response?.data?.detail || 'Erro ao atualizar status da OS');
@@ -153,7 +199,7 @@ export const OS: React.FC = () => {
       if (modalDetalheOS && modalDetalheOS.id === modalCancelarOS.id) {
         setModalDetalheOS(null);
       }
-      toast.sucesso(`Ordem de Serviço ${formatarNumeroOS(modalCancelarOS)} cancelada com sucesso.`);
+      toast.sucesso(`${cfg.termoSingular} ${formatarNumeroOS(modalCancelarOS)} cancelada com sucesso.`);
       setModalCancelarOS(null);
       setMotivoCancelamento('');
       carregarDados();
@@ -300,22 +346,32 @@ export const OS: React.FC = () => {
   };
 
   const statusColors: Record<StatusOS, { bg: string; text: string; label: string }> = {
-    ABERTA: { bg: 'bg-blue-50', text: 'text-blue-700', label: 'Aberta' },
-    EM_ANDAMENTO: { bg: 'bg-amber-50', text: 'text-amber-700', label: 'Em Andamento' },
-    AGUARDANDO_PECAS: { bg: 'bg-purple-50', text: 'text-purple-700', label: 'Aguardando Peças' },
-    CONCLUIDA: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: 'Concluída' },
-    ENTREGUE: { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Entregue / Faturada' },
-    CANCELADA: { bg: 'bg-rose-50', text: 'text-rose-700', label: 'Cancelada' },
+    ABERTA: cfg.statusLabels.ABERTA,
+    EM_ANDAMENTO: cfg.statusLabels.EM_ANDAMENTO,
+    AGUARDANDO_PECAS: cfg.statusLabels.AGUARDANDO_PECAS,
+    CONCLUIDA: cfg.statusLabels.CONCLUIDA,
+    ENTREGUE: cfg.statusLabels.ENTREGUE,
+    CANCELADA: cfg.statusLabels.CANCELADA,
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
+      {/* Top Header Dinâmico por Segmento */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Ordens de Serviço (OS) & Faturamento</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Gerencie atendimentos técnicos, controle peças aplicadas e realize a cobrança direta no caixa com recibo.
+          <div className="flex items-center gap-2.5">
+            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${temaAtual.bgGradiente} flex items-center justify-center text-white shadow-xs shrink-0`}>
+              <cfg.icone size={20} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">{cfg.tituloTela}</h2>
+              <span className={`text-[11px] font-semibold ${temaAtual.textoHighlight}`}>
+                {temaAtual.label}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+            {cfg.subtituloTela}
           </p>
         </div>
 
@@ -330,10 +386,10 @@ export const OS: React.FC = () => {
 
           <button
             onClick={() => setModalNovaOS(true)}
-            className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-colors"
+            className={`flex items-center gap-1.5 bg-gradient-to-r ${temaAtual.bgGradiente} hover:opacity-95 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-colors`}
           >
             <Plus size={16} />
-            <span>Nova Ordem de Serviço</span>
+            <span>{cfg.botaoNovaOS}</span>
           </button>
         </div>
       </div>
@@ -350,7 +406,7 @@ export const OS: React.FC = () => {
                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
           >
-            {st === 'TODOS' ? 'Todas as OS' : statusColors[st as StatusOS]?.label || st}
+            {st === 'TODOS' ? `Todos (${cfg.termoSingular === 'Ordem de Serviço' ? 'OS' : cfg.termoSingular + 's'})` : statusColors[st as StatusOS]?.label || st}
           </button>
         ))}
       </div>
@@ -359,7 +415,7 @@ export const OS: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {ordens.length === 0 ? (
           <div className="col-span-full bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
-            Nenhuma ordem de serviço encontrada.
+            Nenhum registro de {cfg.termoSingular.toLowerCase()} encontrado.
           </div>
         ) : (
           ordens.map((os) => {
@@ -381,7 +437,10 @@ export const OS: React.FC = () => {
 
                   <h3 className="font-bold text-slate-900 text-sm mb-1 leading-snug">{os.titulo}</h3>
                   {os.equipamento && (
-                    <p className="text-xs font-medium text-sky-700 mb-2">{os.equipamento}</p>
+                    <p className="text-xs font-medium text-sky-700 mb-2 flex items-center gap-1">
+                      <span className="text-[10px] text-slate-400 font-semibold">{cfg.labelEquipamento.split('/')[0].trim()}:</span>
+                      <span>{os.equipamento}</span>
+                    </p>
                   )}
 
                   <div className="space-y-1 text-xs text-slate-500 pt-2 border-t border-slate-100">
@@ -419,7 +478,7 @@ export const OS: React.FC = () => {
                         className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1 transition-all"
                       >
                         <CreditCard size={13} />
-                        <span>Cobrar</span>
+                        <span>{cfg.statusAcoes.cobrar.split(' ')[0]}</span>
                       </button>
                     )}
 
@@ -431,10 +490,10 @@ export const OS: React.FC = () => {
                           handleAtualizarStatus(os.id, 'CONCLUIDA');
                         }}
                         className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 transition-all"
-                        title="Concluir serviço para liberar cobrança no caixa"
+                        title={cfg.statusAcoes.concluir}
                       >
                         <CheckCircle2 size={13} />
-                        <span>Concluir</span>
+                        <span>{cfg.statusAcoes.concluir.split(' ')[0]}</span>
                       </button>
                     )}
 
@@ -446,10 +505,10 @@ export const OS: React.FC = () => {
                           handleAtualizarStatus(os.id, 'EM_ANDAMENTO');
                         }}
                         className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 transition-all"
-                        title="Iniciar execução do serviço"
+                        title={cfg.statusAcoes.iniciar}
                       >
                         <Clock size={13} />
-                        <span>Iniciar</span>
+                        <span>{cfg.statusAcoes.iniciar.split(' ')[0]}</span>
                       </button>
                     )}
 
@@ -461,10 +520,10 @@ export const OS: React.FC = () => {
                           handleAtualizarStatus(os.id, 'EM_ANDAMENTO');
                         }}
                         className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1 transition-all"
-                        title="Retomar execução do serviço"
+                        title={cfg.statusAcoes.retomar}
                       >
                         <RefreshCw size={13} />
-                        <span>Retomar</span>
+                        <span>{cfg.statusAcoes.retomar.split(' ')[0]}</span>
                       </button>
                     )}
 
@@ -491,7 +550,15 @@ export const OS: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <h3 className="font-bold text-slate-800 text-base leading-tight">Nova Ordem de Serviço</h3>
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${temaAtual.bgGradiente} flex items-center justify-center text-white shadow-xs shrink-0`}>
+                  <cfg.icone size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-base leading-tight">{cfg.tituloModalNovo}</h3>
+                  <span className={`text-[10px] font-semibold ${temaAtual.textoHighlight}`}>{temaAtual.label}</span>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setModalNovaOS(false)}
@@ -503,14 +570,14 @@ export const OS: React.FC = () => {
 
             <form onSubmit={handleCriarOS} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Cliente *</label>
+                <label className="block font-semibold text-slate-700 mb-1">{cfg.labelCliente}</label>
                 <select
                   required
                   value={clienteId}
                   onChange={(e) => setClienteId(Number(e.target.value) || '')}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
                 >
-                  <option value="">Selecione o cliente...</option>
+                  <option value="">{cfg.placeholderCliente}</option>
                   {clientes.map(c => (
                     <option key={c.id} value={c.id}>{c.nome} ({c.telefone || 'Sem tel'})</option>
                   ))}
@@ -518,33 +585,35 @@ export const OS: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Título do Serviço / Resumo *</label>
+                <label className="block font-semibold text-slate-700 mb-1">{cfg.labelTitulo}</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Troca de óleo e revisão de suspensão"
+                  placeholder={cfg.placeholderTitulo}
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
                 />
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Veículo / Equipamento</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Honda Civic 2.0 - Placa ABC-1234"
-                  value={equipamento}
-                  onChange={(e) => setEquipamento(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
+              {cfg.exibirEquipamento && (
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{cfg.labelEquipamento}</label>
+                  <input
+                    type="text"
+                    placeholder={cfg.placeholderEquipamento}
+                    value={equipamento}
+                    onChange={(e) => setEquipamento(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
+              )}
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Defeito Relatado pelo Cliente</label>
+                <label className="block font-semibold text-slate-700 mb-1">{cfg.labelDefeito}</label>
                 <textarea
                   rows={2}
-                  placeholder="Descreva o que o cliente informou..."
+                  placeholder={cfg.placeholderDefeito}
                   value={defeitoRelatado}
                   onChange={(e) => setDefeitoRelatado(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
@@ -552,7 +621,7 @@ export const OS: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Valor da Mão de Obra / Serviço (R$)</label>
+                <label className="block font-semibold text-slate-700 mb-1">{cfg.labelValorServico}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -563,19 +632,124 @@ export const OS: React.FC = () => {
                 />
               </div>
 
-              <div className="flex gap-2 pt-3">
+              {/* Seção Opcional: Vincular Itens / Produtos do Estoque */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-slate-700 block text-xs">
+                    {cfg.labelItensVinculados} (Opcional)
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {itensNovaOS.length} item(ns) adicionado(s)
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <select
+                    value={produtoSelecionadoId}
+                    onChange={(e) => {
+                      const pid = Number(e.target.value) || '';
+                      setProdutoSelecionadoId(pid);
+                      if (pid) {
+                        const p = produtos.find(prod => prod.id === pid);
+                        if (p) setValorUnitarioItem(p.preco_venda);
+                      } else {
+                        setValorUnitarioItem(0);
+                      }
+                    }}
+                    className="flex-1 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+                  >
+                    <option value="">Selecione um produto do catálogo...</option>
+                    {produtos.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.nome} ({formatMoney(p.preco_venda)} - Est: {p.estoque_atual})
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="number"
+                    min="1"
+                    value={quantidadeItem}
+                    onChange={(e) => setQuantidadeItem(Math.max(1, parseInt(e.target.value) || 1))}
+                    placeholder="Qtd"
+                    className="w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-xs text-center font-bold"
+                  />
+
+                  <button
+                    type="button"
+                    disabled={!produtoSelecionadoId}
+                    onClick={handleAdicionarItemNovaOS}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold disabled:opacity-40 transition-colors"
+                  >
+                    + Adicionar
+                  </button>
+                </div>
+
+                {itensNovaOS.length > 0 && (
+                  <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/80 space-y-1.5 max-h-36 overflow-y-auto">
+                    {itensNovaOS.map((it, idx) => (
+                      <div key={idx} className="flex items-center justify-between gap-2 text-[11px] bg-white p-2 rounded-lg border border-slate-100 shadow-2xs">
+                        <div className="overflow-hidden">
+                          <span className="font-semibold text-slate-800 block truncate">{it.nome}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {it.quantidade}x {formatMoney(it.valor_unitario)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-bold text-slate-700">{formatMoney(it.subtotal)}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoverItemNovaOS(idx)}
+                            className="text-slate-400 hover:text-rose-600 p-0.5"
+                            title="Remover item"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="flex justify-between items-center pt-1 border-t border-slate-200 text-xs font-bold text-slate-700">
+                      <span>Subtotal dos Itens:</span>
+                      <span>{formatMoney(itensNovaOS.reduce((acc, it) => acc + it.subtotal, 0))}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Resumo Financeiro da Nova OS */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>{cfg.labelMaoDeObra}</span>
+                  <span className="font-semibold">{formatMoney(valorServicos || 0)}</span>
+                </div>
+                {itensNovaOS.length > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>{cfg.labelPecasInsumos}</span>
+                    <span className="font-semibold">{formatMoney(itensNovaOS.reduce((acc, it) => acc + it.subtotal, 0))}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-slate-800 pt-1 border-t border-slate-200">
+                  <span>Total Previsto:</span>
+                  <span className="text-emerald-700 text-sm">
+                    {formatMoney((valorServicos || 0) + itensNovaOS.reduce((acc, it) => acc + it.subtotal, 0))}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalNovaOS(false)}
-                  className="flex-1 py-2 border border-slate-300 text-slate-700 rounded-xl font-semibold text-sm"
+                  className="flex-1 py-2.5 border border-slate-300 text-slate-700 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-semibold text-sm shadow-xs"
+                  className={`flex-1 py-2.5 bg-gradient-to-r ${temaAtual.bgGradiente} hover:opacity-95 text-white rounded-xl font-bold text-sm shadow-xs transition-all`}
                 >
-                  Abrir Ordem de Serviço
+                  Confirmar e Abrir {cfg.termoSingular}
                 </button>
               </div>
             </form>
@@ -608,8 +782,11 @@ export const OS: React.FC = () => {
 
             <div className="space-y-3.5 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl space-y-1">
-                <p><strong>Cliente:</strong> {modalDetalheOS.cliente_nome}</p>
-                <p><strong>Equipamento / Veículo:</strong> {modalDetalheOS.equipamento || 'Não especificado'}</p>
+                <p><strong>{cfg.labelCliente.replace('*', '').trim()}:</strong> {modalDetalheOS.cliente_nome}</p>
+                <p><strong>{cfg.labelEquipamento}:</strong> {modalDetalheOS.equipamento || 'Não especificado'}</p>
+                {modalDetalheOS.defeito_relatado && (
+                  <p><strong>{cfg.labelDefeito}:</strong> {modalDetalheOS.defeito_relatado}</p>
+                )}
               </div>
 
               {/* Stepper Visual de Fases */}
@@ -623,10 +800,10 @@ export const OS: React.FC = () => {
 
                 <div className="grid grid-cols-4 gap-1.5 py-1">
                   {[
-                    { st: 'ABERTA', label: '1. Aberta', active: true },
-                    { st: 'EM_ANDAMENTO', label: '2. Em Execução', active: ['EM_ANDAMENTO', 'AGUARDANDO_PECAS', 'CONCLUIDA', 'ENTREGUE'].includes(modalDetalheOS.status) },
-                    { st: 'CONCLUIDA', label: '3. Concluída', active: ['CONCLUIDA', 'ENTREGUE'].includes(modalDetalheOS.status) },
-                    { st: 'ENTREGUE', label: '4. Faturada', active: modalDetalheOS.status === 'ENTREGUE' }
+                    { st: 'ABERTA', label: `1. ${cfg.statusLabels.ABERTA.label}`, active: true },
+                    { st: 'EM_ANDAMENTO', label: `2. ${cfg.statusLabels.EM_ANDAMENTO.label}`, active: ['EM_ANDAMENTO', 'AGUARDANDO_PECAS', 'CONCLUIDA', 'ENTREGUE'].includes(modalDetalheOS.status) },
+                    { st: 'CONCLUIDA', label: `3. ${cfg.statusLabels.CONCLUIDA.label}`, active: ['CONCLUIDA', 'ENTREGUE'].includes(modalDetalheOS.status) },
+                    { st: 'ENTREGUE', label: `4. ${cfg.statusLabels.ENTREGUE.label}`, active: modalDetalheOS.status === 'ENTREGUE' }
                   ].map((passo, idx) => (
                     <div key={idx} className="flex flex-col items-center text-center">
                       <div className={`h-1.5 w-full rounded-full transition-all ${
@@ -648,21 +825,21 @@ export const OS: React.FC = () => {
                 {modalDetalheOS.status === 'AGUARDANDO_PECAS' && (
                   <div className="p-2 bg-purple-50 border border-purple-200 rounded-xl text-purple-700 text-xs flex items-center gap-1.5 font-medium">
                     <Clock size={14} className="shrink-0" />
-                    <span>Atendimento pausado aguardando chegada de peças / insumos.</span>
+                    <span>{cfg.msgAguardandoPecas}</span>
                   </div>
                 )}
 
                 {modalDetalheOS.status === 'EM_ANDAMENTO' && (
                   <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-1.5 font-medium">
                     <Clock size={14} className="shrink-0" />
-                    <span>Serviço em execução. Conclua o atendimento técnico para liberar a cobrança.</span>
+                    <span>{cfg.msgEmAndamento}</span>
                   </div>
                 )}
 
                 {modalDetalheOS.status === 'ENTREGUE' && (
                   <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-1.5 font-medium">
                     <CheckCircle2 size={14} className="shrink-0" />
-                    <span>Ordem faturada e entregue ao cliente. Histórico bloqueado para edições.</span>
+                    <span>{cfg.msgEntregue}</span>
                   </div>
                 )}
 
@@ -670,7 +847,7 @@ export const OS: React.FC = () => {
                   <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs space-y-1">
                     <div className="flex items-center gap-1.5 font-bold text-rose-900">
                       <Ban size={15} className="shrink-0" />
-                      <span>Ordem de Serviço Cancelada</span>
+                      <span>{cfg.termoSingular} Cancelada</span>
                     </div>
                     <p><strong>Motivo:</strong> {modalDetalheOS.motivo_cancelamento || 'Não informado'}</p>
                     {modalDetalheOS.data_cancelamento && (
@@ -696,7 +873,7 @@ export const OS: React.FC = () => {
                         className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all"
                       >
                         <Clock size={15} />
-                        <span>Iniciar Atendimento (Em Execução)</span>
+                        <span>{cfg.statusAcoes.iniciar}</span>
                       </button>
                       <button
                         type="button"
@@ -704,7 +881,7 @@ export const OS: React.FC = () => {
                         className="py-2.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200 flex items-center justify-center gap-1 transition-all"
                       >
                         <Package size={15} />
-                        <span>Aguardar Peças</span>
+                        <span>{cfg.statusAcoes.aguardarPecas}</span>
                       </button>
                     </div>
                   )}
@@ -717,7 +894,7 @@ export const OS: React.FC = () => {
                         className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all"
                       >
                         <CheckCircle2 size={15} />
-                        <span>Retomar Atendimento (Em Execução)</span>
+                        <span>{cfg.statusAcoes.retomar}</span>
                       </button>
                       <button
                         type="button"
@@ -725,7 +902,7 @@ export const OS: React.FC = () => {
                         className="py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-200 flex items-center justify-center gap-1 transition-all"
                       >
                         <Check size={15} />
-                        <span>Concluir Diretamente</span>
+                        <span>{cfg.statusAcoes.concluir}</span>
                       </button>
                     </div>
                   )}
@@ -738,7 +915,7 @@ export const OS: React.FC = () => {
                         className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all"
                       >
                         <CheckCircle2 size={15} />
-                        <span>Concluir Atendimento (Pronto para Cobrança)</span>
+                        <span>{cfg.statusAcoes.concluir}</span>
                       </button>
                       <button
                         type="button"
@@ -746,7 +923,7 @@ export const OS: React.FC = () => {
                         className="py-2.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs rounded-xl border border-purple-200 flex items-center justify-center gap-1 transition-all"
                       >
                         <Package size={15} />
-                        <span>Aguardar Peças</span>
+                        <span>{cfg.statusAcoes.aguardarPecas}</span>
                       </button>
                     </div>
                   )}
@@ -763,7 +940,7 @@ export const OS: React.FC = () => {
                         className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
                       >
                         <CreditCard size={18} />
-                        <span>Cobrar e Faturar OS ({formatMoney(modalDetalheOS.valor_total)})</span>
+                        <span>{cfg.statusAcoes.cobrar} ({formatMoney(modalDetalheOS.valor_total)})</span>
                       </button>
 
                       <button
@@ -772,7 +949,7 @@ export const OS: React.FC = () => {
                         className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-1"
                       >
                         <Clock size={14} />
-                        <span>Reabrir Atendimento Técnico (Ajustes)</span>
+                        <span>{cfg.statusAcoes.reabrir}</span>
                       </button>
                     </div>
                   )}
@@ -785,7 +962,7 @@ export const OS: React.FC = () => {
                       className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs rounded-xl border border-rose-200 flex items-center justify-center gap-1.5 transition-colors"
                     >
                       <Ban size={14} />
-                      <span>Cancelar Ordem de Serviço...</span>
+                      <span>Cancelar {cfg.termoSingular}...</span>
                     </button>
                   </div>
                 </div>
@@ -793,15 +970,15 @@ export const OS: React.FC = () => {
 
               <div className="p-3 bg-slate-50 rounded-xl space-y-1 border border-slate-100">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Mão de Obra / Serviços:</span>
+                  <span className="text-slate-500">{cfg.labelMaoDeObra}:</span>
                   <span className="font-semibold text-slate-800">{formatMoney(modalDetalheOS.valor_servicos)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Peças & Insumos Utilizados:</span>
+                  <span className="text-slate-500">{cfg.labelPecasInsumos}:</span>
                   <span className="font-semibold text-slate-800">{formatMoney(modalDetalheOS.valor_pecas)}</span>
                 </div>
                 <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm">
-                  <span className="font-bold text-slate-700">Valor Total da OS:</span>
+                  <span className="font-bold text-slate-700">Valor Total:</span>
                   <span className="text-lg font-black text-emerald-600">{formatMoney(modalDetalheOS.valor_total)}</span>
                 </div>
               </div>
@@ -965,9 +1142,9 @@ export const OS: React.FC = () => {
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
                       <tr>
-                        <th className="py-2.5 px-3">OS #</th>
+                        <th className="py-2.5 px-3">{cfg.termoSingular} #</th>
                         <th className="py-2.5 px-3">Data Canc.</th>
-                        <th className="py-2.5 px-3">Cliente / Veículo</th>
+                        <th className="py-2.5 px-3">{cfg.labelEquipamento.includes('Veículo') ? 'Cliente / Veículo' : 'Cliente / Referência'}</th>
                         <th className="py-2.5 px-3">Motivo Informado</th>
                         <th className="py-2.5 px-3">Operador</th>
                         <th className="py-2.5 px-3 text-right">Valor Total</th>
@@ -1059,12 +1236,12 @@ export const OS: React.FC = () => {
               </div>
               {modalCobrarOS.equipamento && (
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Veículo / Equipamento:</span>
+                  <span className="text-slate-500">{cfg.labelEquipamento}:</span>
                   <span className="font-semibold text-slate-700">{modalCobrarOS.equipamento}</span>
                 </div>
               )}
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500">Mão de Obra + Peças:</span>
+                <span className="text-slate-500">{cfg.labelMaoDeObra} + {cfg.labelPecasInsumos}:</span>
                 <span className="font-medium text-slate-700">{formatMoney(modalCobrarOS.valor_total)}</span>
               </div>
               {desconto > 0 && (
@@ -1283,7 +1460,7 @@ export const OS: React.FC = () => {
               </div>
               {sucessoFaturamento.os.equipamento && (
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Veículo / Equipamento:</span>
+                  <span className="text-slate-400">{cfg.labelEquipamento}:</span>
                   <span className="font-medium text-slate-700">{sucessoFaturamento.os.equipamento}</span>
                 </div>
               )}

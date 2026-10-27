@@ -42,6 +42,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isEstoquista = userPerfil === 'ESTOQUISTA';
   const isOperador = userPerfil === 'OPERADOR_CAIXA';
 
+  // Nomenclatura contextual de serviços/OS de acordo com o segmento da empresa
+  const labelServicos = temaAtual?.terminologia?.servicos 
+    ? (temaAtual.terminologia.servicos.includes('OS') ? temaAtual.terminologia.servicos : `${temaAtual.terminologia.servicos} (OS)`)
+    : 'Ordens de Serviço (OS)';
+
   // Mapeamento de itens do menu para chaves de módulo com nomenclaturas padronizadas
   const allMenuItems = [
     { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'dashboard', sempreAdmin: true },
@@ -51,7 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'ponto', label: 'Ponto Eletrônico CLT', icon: Clock, sempreVisivel: true, modulo: 'ponto' },
     { id: 'produtos', label: 'Produtos & Estoque', icon: Package, modulo: 'produtos' },
     { id: 'clientes', label: 'Clientes & Crediário', icon: Users, modulo: 'clientes' },
-    { id: 'os', label: 'Ordens de Serviço (OS)', icon: Wrench, modulo: 'os' },
+    { id: 'os', label: labelServicos, icon: Wrench, modulo: 'os' },
     { id: 'relatorios', label: 'Relatórios de Vendas', icon: BarChart3, modulo: 'relatorios' },
     { id: 'usuarios', label: 'Equipe & Usuários', icon: Shield, adminOnly: true, modulo: 'usuarios' },
     { id: 'empresa', label: 'Dados da Empresa', icon: Settings, modulo: 'empresa' },

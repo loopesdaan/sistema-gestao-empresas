@@ -177,29 +177,36 @@ def criar_os(
             Produto.id == item_in.produto_id,
             Produto.empresa_id == current_user.empresa_id
         ).first()
+        if not produto and item_in.produto_id and item_in.produto_id > 10_000_000:
+            produto = db.query(Produto).filter(
+                Produto.empresa_id == current_user.empresa_id,
+                Produto.id.between(item_in.produto_id - 1000, item_in.produto_id + 1000)
+            ).first()
         if not produto:
             raise HTTPException(status_code=404, detail=f"Peça/Produto ID {item_in.produto_id} não encontrado")
 
-        subtotal = item_in.quantidade * item_in.valor_unitario
+        q_item = Decimal(str(item_in.quantidade)).quantize(Decimal("0.01"))
+        v_item = Decimal(str(item_in.valor_unitario)).quantize(Decimal("0.01"))
+        subtotal = (q_item * v_item).quantize(Decimal("0.01"))
         valor_pecas += subtotal
 
         # Baixa do estoque
-        produto.estoque_atual -= item_in.quantidade
+        produto.estoque_atual -= q_item
         mov = MovimentacaoEstoque(
             empresa_id=current_user.empresa_id,
             produto_id=produto.id,
             usuario_id=current_user.id,
             tipo=TipoMovimentacaoEstoque.OS,
-            quantidade=item_in.quantidade,
-            motivo=f"Peça utilizada em OS inicial"
+            quantidade=q_item,
+            motivo=f"Item vinculado em Ordem de Serviço"
         )
         db.add(mov)
 
         itens_processados.append(
             ItemOS(
                 produto_id=produto.id,
-                quantidade=item_in.quantidade,
-                valor_unitario=item_in.valor_unitario,
+                quantidade=q_item,
+                valor_unitario=v_item,
                 subtotal=subtotal
             )
         )

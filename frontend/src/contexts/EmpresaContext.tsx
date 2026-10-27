@@ -194,7 +194,7 @@ export const TEMAS_SEGMENTO: Record<string, TemaSegmento> = {
     terminologia: {
       pdv: 'Frente de Caixa Rápido',
       itens: 'Bebidas, Gelo & Petiscos',
-      servicos: 'Entregas & Pedidos',
+      servicos: 'Encomendas & Entregas',
       cliente: 'Clientes & Contas a Receber',
       resumo: 'Adega & Conveniência em Operação',
     },
