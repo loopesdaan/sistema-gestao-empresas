@@ -191,11 +191,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             {temaAtual.destaqueDashboard}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           {modulosAtivos.includes('pdv') && (
             <button
               onClick={() => onNavigate('pdv')}
-              className="flex items-center gap-2 bg-white text-slate-900 hover:bg-slate-100 px-4 py-2 rounded-xl text-sm font-semibold shadow-xs transition-colors"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white text-slate-900 hover:bg-slate-100 px-4 py-2 rounded-xl text-sm font-semibold shadow-xs transition-colors"
             >
               <ShoppingCart size={16} />
               <span>{temaAtual.terminologia.pdv}</span>
@@ -204,7 +204,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           {modulosAtivos.includes('os') && (
             <button
               onClick={() => onNavigate('os')}
-              className="flex items-center gap-2 bg-black/20 hover:bg-black/30 text-white px-3.5 py-2 rounded-xl text-sm font-medium border border-white/20 transition-colors"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-black/20 hover:bg-black/30 text-white px-3.5 py-2 rounded-xl text-sm font-medium border border-white/20 transition-colors"
             >
               <Wrench size={16} />
               <span>{temaAtual.terminologia.servicos}</span>
@@ -212,7 +212,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           )}
           <button
             onClick={exportarDashboardHTML}
-            className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3.5 py-2 rounded-xl text-sm font-semibold backdrop-blur-xs transition-colors shadow-xs"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3.5 py-2 rounded-xl text-sm font-semibold backdrop-blur-xs transition-colors shadow-xs"
             title="Baixar Relatório Executivo do Dashboard em HTML"
           >
             <Download size={16} />

@@ -546,7 +546,7 @@ export const OS: React.FC = () => {
           onClick={() => setModalNovaOS(false)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto overflow-x-hidden"
+            className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto overflow-x-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
@@ -769,7 +769,7 @@ export const OS: React.FC = () => {
           onClick={() => setModalDetalheOS(null)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
@@ -1006,7 +1006,7 @@ export const OS: React.FC = () => {
           onClick={() => !cancelandoOS && setModalCancelarOS(null)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-rose-100 animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 border border-rose-100 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-rose-100">
@@ -1076,7 +1076,7 @@ export const OS: React.FC = () => {
           onClick={() => setModalRelatorioCancelamentosAberto(false)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col border border-slate-100 animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-3xl max-w-4xl w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col border border-slate-100 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -1205,7 +1205,7 @@ export const OS: React.FC = () => {
           onClick={() => setModalCobrarOS(null)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-slate-100 animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-slate-100 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -1436,7 +1436,7 @@ export const OS: React.FC = () => {
           onClick={() => setSucessoFaturamento(null)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl text-center space-y-4 border border-slate-100 animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl text-center space-y-4 border border-slate-100 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto">

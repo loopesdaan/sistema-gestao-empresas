@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { 
   Usuario, Empresa, Produto, Cliente, Caixa, ResumoCaixa, 
-  Venda, OrdemServico, DashboardMetrics, FormaPagamento, StatusOS 
+  Venda, OrdemServico, DashboardMetrics, FormaPagamento, StatusOS,
+  StatusFinanceiro, MovimentacaoTesouraria 
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
@@ -474,6 +475,27 @@ export const apiService = {
   // Bypass de Teste para Ponto Eletrônico
   toggleBypassPonto: async () => {
     const { data } = await api.post('/ponto/toggle-bypass-teste');
+    return data;
+  },
+
+  // Financeiro & Tesouraria (Cofre Central)
+  getStatusFinanceiro: async (): Promise<StatusFinanceiro> => {
+    const { data } = await api.get('/financeiro/status');
+    return data;
+  },
+  fazerAporteTesouraria: async (dados: { valor: number; motivo?: string }): Promise<MovimentacaoTesouraria> => {
+    const { data } = await api.post('/financeiro/aporte', dados);
+    return data;
+  },
+  fazerRetiradaTesouraria: async (dados: { valor: number; motivo?: string }): Promise<MovimentacaoTesouraria> => {
+    const { data } = await api.post('/financeiro/retirada', dados);
+    return data;
+  },
+  getExtratoTesouraria: async (tipo?: string, limit: number = 100): Promise<MovimentacaoTesouraria[]> => {
+    const params = new URLSearchParams();
+    if (tipo && tipo !== 'TODOS') params.append('tipo', tipo);
+    params.append('limit', String(limit));
+    const { data } = await api.get(`/financeiro/extrato?${params.toString()}`);
     return data;
   },
 };

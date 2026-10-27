@@ -233,10 +233,10 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
         )}
 
         {/* Área do Cupom Digital (Estilo Impressão Térmica) */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50 flex justify-center">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-50 flex justify-center">
           <div 
             id="area-comprovante-imprimir"
-            className="w-full max-w-sm bg-white p-6 rounded-2xl border border-slate-200 shadow-sm font-mono text-xs text-slate-800 space-y-4"
+            className="w-full max-w-sm bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm font-mono text-xs text-slate-800 space-y-4"
           >
             {/* Cabeçalho Empresa */}
             <div className="text-center space-y-1 border-b border-dashed border-slate-300 pb-3">

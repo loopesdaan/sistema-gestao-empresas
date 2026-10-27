@@ -172,7 +172,7 @@ export const ChatbotIA: React.FC<ChatbotIAProps> = ({ onNavigateTab, onOpenTour 
   };
 
   return (
-    <div className="fixed bottom-6 left-6 lg:left-76 z-40">
+    <div className="fixed bottom-4 left-4 sm:bottom-6 sm:left-6 lg:left-76 z-40">
       {/* Botão Flutuante Circular Minimalista */}
       {!aberto && (
         <button
@@ -189,7 +189,7 @@ export const ChatbotIA: React.FC<ChatbotIAProps> = ({ onNavigateTab, onOpenTour 
 
       {/* Janela de Chat Aberta */}
       {aberto && (
-        <div className="w-80 sm:w-96 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col h-[520px] max-h-[85vh] overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="w-[calc(100vw-2rem)] max-w-sm sm:w-96 bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col h-[520px] max-h-[80vh] overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
           
           {/* Header do Chat */}
           <div className={`p-4 bg-gradient-to-r ${temaAtual.bgGradiente} text-white flex items-center justify-between shadow-xs`}>

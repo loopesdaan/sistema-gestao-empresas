@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, ShoppingCart, Wallet, Package, Users, 
   Wrench, BarChart3, Settings, LogOut, X, Shield, Sparkles, Clock, Bell,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Landmark
 } from 'lucide-react';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { resolveImageUrl } from '../services/api';
@@ -46,6 +46,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isEstoquista = userPerfil === 'ESTOQUISTA';
   const isOperador = userPerfil === 'OPERADOR_CAIXA';
+  const isFinanceiro = userPerfil === 'FINANCEIRO';
+  const isAdminOuFinanceiro = isAdmin || isFinanceiro;
 
   // Nomenclatura contextual de serviços/OS de acordo com o segmento da empresa
   const labelServicos = temaAtual?.terminologia?.servicos 
@@ -57,6 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'dashboard', sempreAdmin: true },
     { id: 'pdv', label: 'Frente de Caixa (PDV)', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
     { id: 'caixa', label: 'Controle de Caixa', icon: Wallet, modulo: 'caixa' },
+    { id: 'financeiro', label: 'Financeiro & Cofre', icon: Landmark, adminOuFinanceiro: true, modulo: 'financeiro' },
     { id: 'notificacoes', label: 'Notificações & Ações', icon: Bell, sempreVisivel: true, modulo: 'notificacoes' },
     { id: 'ponto', label: 'Ponto Eletrônico CLT', icon: Clock, sempreVisivel: true, modulo: 'ponto' },
     { id: 'produtos', label: 'Produtos & Estoque', icon: Package, modulo: 'produtos' },
@@ -74,6 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (item.id === 'empresa') return true;
     if (item.id === 'usuarios') return isAdmin;
     if (item.id === 'dashboard') return isAdmin;
+    if (item.id === 'financeiro') return isAdminOuFinanceiro;
 
     // 2. Módulos operacionais do negócio: DEVEM respeitar os módulos ativos na empresa!
     // Se o módulo (ex: 'os') foi desativado, NINGUÉM visualiza (inclusive Administrador)
@@ -85,6 +89,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // Controlador de Estoque: só opera o módulo de Produtos & Estoque
     if (isEstoquista) {
       return item.id === 'produtos';
+    }
+
+    // Financeiro: não opera frente de caixa PDV de balcão
+    if (isFinanceiro) {
+      return item.id !== 'pdv';
     }
 
     // Operador de Caixa e Administrador: visualizam todos os módulos operacionais ativos

@@ -10,6 +10,7 @@ class PerfilUsuario(str, enum.Enum):
     OPERADOR_CAIXA = "OPERADOR_CAIXA"
     TECNICO = "TECNICO"
     ESTOQUISTA = "ESTOQUISTA"
+    FINANCEIRO = "FINANCEIRO"
 
 class Usuario(Base):
     __tablename__ = "usuarios"

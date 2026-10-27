@@ -26,6 +26,17 @@ class Settings(BaseSettings):
     MERCADO_PAGO_ACCESS_TOKEN: str = os.getenv("MERCADO_PAGO_ACCESS_TOKEN", "")
     MERCADO_PAGO_WEBHOOK_SECRET: str = os.getenv("MERCADO_PAGO_WEBHOOK_SECRET", "")
     
+    # Cloudflare R2 Storage (Bucket: sistema-gestao-prd)
+    CLOUDFLARE_R2_ACCOUNT_ID: str = os.getenv("CLOUDFLARE_R2_ACCOUNT_ID", "3126bc469b40c4d4fd9b5a0c24930aa6")
+    CLOUDFLARE_R2_BUCKET_NAME: str = os.getenv("CLOUDFLARE_R2_BUCKET_NAME", "sistema-gestao-prd")
+    CLOUDFLARE_R2_ENDPOINT_URL: str = os.getenv(
+        "CLOUDFLARE_R2_ENDPOINT_URL", 
+        "https://3126bc469b40c4d4fd9b5a0c24930aa6.r2.cloudflarestorage.com"
+    )
+    CLOUDFLARE_R2_ACCESS_KEY_ID: str = os.getenv("CLOUDFLARE_R2_ACCESS_KEY_ID", "")
+    CLOUDFLARE_R2_SECRET_ACCESS_KEY: str = os.getenv("CLOUDFLARE_R2_SECRET_ACCESS_KEY", "")
+    CLOUDFLARE_R2_PUBLIC_URL: str = os.getenv("CLOUDFLARE_R2_PUBLIC_URL", "")
+    
     # CORS
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:5173",

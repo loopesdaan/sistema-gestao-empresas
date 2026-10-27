@@ -8,6 +8,7 @@ from app.models.venda import Venda, ItemVenda, PagamentoVenda, StatusVenda, Form
 from app.models.os import OrdemServico, ItemOS, StatusOS
 from app.models.ponto import RegistroPonto, ConfiguracaoPonto, StatusJornada
 from app.models.notificacao import Notificacao, StatusNotificacao
+from app.models.financeiro import CofreCentral, MovimentacaoTesouraria, TipoMovimentacaoTesouraria
 
 __all__ = [
     "Empresa",
@@ -37,5 +38,8 @@ __all__ = [
     "StatusJornada",
     "Notificacao",
     "StatusNotificacao",
+    "CofreCentral",
+    "MovimentacaoTesouraria",
+    "TipoMovimentacaoTesouraria",
 ]
 

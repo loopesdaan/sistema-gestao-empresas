@@ -1,4 +1,4 @@
-export type PerfilUsuario = 'ADMIN' | 'VENDEDOR' | 'OPERADOR_CAIXA' | 'TECNICO' | 'ESTOQUISTA';
+export type PerfilUsuario = 'ADMIN' | 'VENDEDOR' | 'OPERADOR_CAIXA' | 'TECNICO' | 'ESTOQUISTA' | 'FINANCEIRO';
 
 export interface Usuario {
   id: number;
@@ -393,4 +393,40 @@ export interface RelatorioOLAPResponse {
   previsao_faturamento: PrevisaoFaturamentoOLAP;
   serie_temporal: SerieTemporalItem[];
 }
+
+export type TipoMovimentacaoTesouraria = 
+  | 'APORTE'
+  | 'RETIRADA'
+  | 'LIBERACAO_FUNDO'
+  | 'RECOLHIMENTO'
+  | 'SUPRIMENTO_CAIXA'
+  | 'SANGRIA_CAIXA';
+
+export interface MovimentacaoTesouraria {
+  id: number;
+  cofre_id: number;
+  usuario_id: number;
+  usuario_nome?: string;
+  caixa_id?: number;
+  tipo: TipoMovimentacaoTesouraria;
+  valor: number;
+  saldo_anterior: number;
+  saldo_posterior: number;
+  motivo?: string;
+  comprovante_url?: string;
+  created_at: string;
+}
+
+export interface StatusFinanceiro {
+  saldo_cofre_central: number;
+  saldo_gavetas_ativas: number;
+  saldo_consolidado_dinheiro: number;
+  total_vendas_hoje_dinheiro: number;
+  total_vendas_hoje_pix: number;
+  total_vendas_hoje_cartao: number;
+  total_vendas_hoje_prazo: number;
+  total_vendas_hoje_geral: number;
+  qtd_caixas_abertos: number;
+}
+
 

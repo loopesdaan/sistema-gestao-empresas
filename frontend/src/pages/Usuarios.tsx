@@ -97,6 +97,7 @@ export const Usuarios: React.FC = () => {
 
   const perfilLabels: Record<PerfilUsuario, { label: string; badge: string }> = {
     ADMIN: { label: 'Gerente Geral (Acesso Total)', badge: 'bg-purple-100 text-purple-800 border-purple-200' },
+    FINANCEIRO: { label: 'Financeiro & Tesouraria (Cofre & Auditoria)', badge: 'bg-teal-100 text-teal-800 border-teal-200' },
     OPERADOR_CAIXA: { label: 'Operador de Caixa (PDV & OS)', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
     VENDEDOR: { label: 'Vendedor Comercial', badge: 'bg-sky-100 text-sky-800 border-sky-200' },
     TECNICO: { label: 'Técnico de Serviços', badge: 'bg-amber-100 text-amber-800 border-amber-200' },
@@ -231,7 +232,7 @@ export const Usuarios: React.FC = () => {
           onClick={() => setModalUsuario(null)}
         >
           <div 
-            className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-3xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
@@ -329,6 +330,7 @@ export const Usuarios: React.FC = () => {
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-medium bg-white"
                 >
                   <option value="ADMIN">Gerente Geral (Acesso Total, Relatórios e Equipe)</option>
+                  <option value="FINANCEIRO">Financeiro & Tesouraria (Cofre Central, Auditoria de Caixa e Relatórios)</option>
                   <option value="OPERADOR_CAIXA">Operador de Caixa (Vendas no PDV, Controle de Caixa & OS)</option>
                   <option value="ESTOQUISTA">Controlador de Estoque (Inventário, Ajustes e Balanço Físico)</option>
                   <option value="VENDEDOR">Vendedor Comercial (Balcão e Clientes)</option>
