@@ -33,11 +33,13 @@ interface SidebarProps {
   onLogout: () => void;
   userName?: string;
   userPerfil?: string;
+  userFotoUrl?: string;
   empresaNome?: string;
   isAdmin?: boolean;
   onOpenOnboarding?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onOpenPerfil?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -48,11 +50,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   userName = 'Administrador',
   userPerfil = 'ADMIN',
+  userFotoUrl,
   empresaNome = 'Gestão PME',
   isAdmin = false,
   onOpenOnboarding,
   isCollapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  onOpenPerfil
 }) => {
   const { modulosAtivos, temaAtual, empresa } = useEmpresa();
   const nomeExibicao = empresa.nome_fantasia || empresaNome;
@@ -120,19 +124,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Filtra por permissão de perfil e respeita rigorosamente os módulos ativos da empresa
   const filtrarItem = (item: MenuItemDef) => {
-    // 1. Recursos essenciais de conformidade e gestão interna
-    if (item.id === 'ponto' || item.id === 'notificacoes') return true;
+    // 1. Dados da empresa sempre visíveis para configurações
     if (item.id === 'empresa') return true;
     if (item.id === 'usuarios') return isAdmin;
-    if (item.id === 'dashboard') return isAdmin;
-    if (item.id === 'financeiro') return isAdminOuFinanceiro;
 
-    // 2. Módulos operacionais do negócio: DEVEM respeitar os módulos ativos na empresa!
-    if (!modulosAtivos.includes(item.modulo)) {
+    // 2. Módulos operacionais do negócio: respeitam os módulos ativos na empresa
+    if (modulosAtivos.length > 0 && !modulosAtivos.includes(item.modulo)) {
       return false;
     }
 
-    // 3. Regras específicas de colaboradores:
+    // 3. Regras de permissão de perfil
+    if (item.id === 'dashboard') return isAdmin;
+    if (item.id === 'financeiro') return isAdminOuFinanceiro;
+
+    // 4. Regras específicas de colaboradores:
     // Controlador de Estoque: só opera o módulo de Produtos & Estoque
     if (isEstoquista) {
       return item.id === 'produtos';
@@ -296,12 +301,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Footer do Usuário */}
         <div className="p-3 border-t border-slate-800 bg-slate-950/40">
           <div className={`flex items-center ${isCollapsed ? 'lg:flex-col lg:gap-2' : 'justify-between'} p-2 rounded-lg bg-slate-900/80`}>
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-200 shrink-0">
-                {userName.charAt(0).toUpperCase()}
+            <div 
+              onClick={onOpenPerfil}
+              role="button"
+              tabIndex={0}
+              title="Meu Perfil (Alterar foto, nome e senha)"
+              className="flex items-center gap-2.5 overflow-hidden cursor-pointer group hover:bg-slate-800/80 p-1 rounded-lg transition-colors flex-1"
+            >
+              <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-200 shrink-0 overflow-hidden group-hover:ring-2 group-hover:ring-sky-400 group-hover:border-sky-400 transition-all">
+                {userFotoUrl ? (
+                  <img
+                    src={resolveImageUrl(userFotoUrl)}
+                    alt={userName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  userName.charAt(0).toUpperCase()
+                )}
               </div>
               <div className={`truncate ${isCollapsed ? 'lg:hidden' : ''}`}>
-                <p className="text-xs font-medium text-white truncate">{userName}</p>
+                <p className="text-xs font-medium text-white group-hover:text-sky-300 transition-colors truncate">{userName}</p>
                 <p className="text-[11px] text-sky-400 font-medium truncate">
                   {userPerfil === 'ADMIN' || isAdmin
                     ? 'Gerente Geral'

@@ -6,10 +6,18 @@ import { useToast } from '../contexts/ToastContext';
 import { 
   Building, Phone, Mail, MapPin, Share2, Copy, 
   MessageCircle, ExternalLink, Edit, CheckCircle2, Save, X, Sparkles, RefreshCw, Palette, Camera, Upload,
-  Layers, ShoppingCart, Wallet, Wrench, Package, Users, BarChart3, Power
+  Layers, ShoppingCart, Wallet, Wrench, Package, Users, BarChart3, Power, LayoutDashboard, Landmark, Clock, Bell, Shield
 } from 'lucide-react';
 
 const MODULOS_SISTEMA = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard Geral & KPIs',
+    desc: 'Visão executiva com faturamento em tempo real, ticket médio e resumo analítico.',
+    icon: LayoutDashboard,
+    tag: 'Estratégico',
+    bgIcon: 'bg-indigo-100 text-indigo-700'
+  },
   {
     id: 'pdv',
     label: 'Frente de Caixa (PDV)',
@@ -24,12 +32,20 @@ const MODULOS_SISTEMA = [
     desc: 'Abertura, fechamento, suprimentos, sangrias e auditoria de gaveta.',
     icon: Wallet,
     tag: 'Financeiro',
-    bgIcon: 'bg-indigo-100 text-indigo-700'
+    bgIcon: 'bg-emerald-100 text-emerald-700'
+  },
+  {
+    id: 'financeiro',
+    label: 'Financeiro & Tesouraria',
+    desc: 'Gestão de tesouraria, cofre central da empresa, fundos de troco e depósitos.',
+    icon: Landmark,
+    tag: 'Financeiro',
+    bgIcon: 'bg-teal-100 text-teal-700'
   },
   {
     id: 'os',
     label: 'Ordens de Serviço (OS)',
-    desc: 'Abertura técnica, peças, serviços, laudo e cobrança no PDV.',
+    desc: 'Abertura técnica, peças, serviços, laudo com fotos R2 e cobrança no PDV.',
     icon: Wrench,
     tag: 'Serviços & Oficina',
     bgIcon: 'bg-amber-100 text-amber-700'
@@ -37,7 +53,7 @@ const MODULOS_SISTEMA = [
   {
     id: 'produtos',
     label: 'Produtos & Estoque',
-    desc: 'Catálogo de itens, código de barras e estoque mínimo de reposição.',
+    desc: 'Catálogo de itens, código de barras, fotos e estoque mínimo de reposição.',
     icon: Package,
     tag: 'Estoque',
     bgIcon: 'bg-emerald-100 text-emerald-700'
@@ -45,10 +61,26 @@ const MODULOS_SISTEMA = [
   {
     id: 'clientes',
     label: 'Clientes & Crediário',
-    desc: 'Cadastro de clientes, limite de crédito e contas a receber.',
+    desc: 'Cadastro de clientes, limite de crédito, histórico e contas a receber.',
     icon: Users,
     tag: 'Comercial',
     bgIcon: 'bg-cyan-100 text-cyan-700'
+  },
+  {
+    id: 'ponto',
+    label: 'Ponto Eletrônico CLT',
+    desc: 'Registro de jornadas com geolocalização, espelho de ponto e banco de horas.',
+    icon: Clock,
+    tag: 'RH & Equipe',
+    bgIcon: 'bg-blue-100 text-blue-700'
+  },
+  {
+    id: 'notificacoes',
+    label: 'Notificações & Cobranças',
+    desc: 'Central de avisos, cobranças pendentes e lembretes operacionais aos clientes.',
+    icon: Bell,
+    tag: 'Operacional',
+    bgIcon: 'bg-rose-100 text-rose-700'
   },
   {
     id: 'relatorios',
@@ -57,6 +89,14 @@ const MODULOS_SISTEMA = [
     icon: BarChart3,
     tag: 'Gerencial',
     bgIcon: 'bg-purple-100 text-purple-700'
+  },
+  {
+    id: 'usuarios',
+    label: 'Equipe & Usuários',
+    desc: 'Controle de acesso, permissões de usuários e segurança de perfis.',
+    icon: Shield,
+    tag: 'Administração',
+    bgIcon: 'bg-slate-100 text-slate-700'
   },
 ];
 
@@ -319,8 +359,8 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
 
         {/* Informações de Contato e Localização */}
         {!modoEdicao ? (
-          <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 sm:p-6 space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3 min-w-0">
                 <div className="p-2 rounded-lg bg-sky-100 text-sky-700 shrink-0">
                   <Phone size={18} />
@@ -335,15 +375,15 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
                 <div className="p-2 rounded-lg bg-purple-100 text-purple-700 shrink-0">
                   <Mail size={18} />
                 </div>
-                <div className="flex-1 min-w-0 overflow-hidden">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">E-mail</span>
-                  <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate break-all" title={empresa.email || 'Não informado'}>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">E-mail Comercial</span>
+                  <p className="break-all text-xs sm:text-[13px] font-semibold text-slate-800 mt-0.5 leading-snug" title={empresa.email || 'Não informado'}>
                     {empresa.email || 'Não informado'}
                   </p>
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3 min-w-0">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3 min-w-0 sm:col-span-2 lg:col-span-1">
                 <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 shrink-0">
                   <MapPin size={18} />
                 </div>
@@ -548,7 +588,7 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Telefone / WhatsApp Comercial</label>
                 <input

@@ -361,11 +361,11 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-200">
+      {/* Tabs com Scroll Suave no Mobile */}
+      <div className="flex gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar pb-0.5">
         <button
           onClick={() => setAbaAtiva('bater')}
-          className={`px-5 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 ${
+          className={`px-4 sm:px-5 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
             abaAtiva === 'bater'
               ? `bg-white border-t-2 ${temaAtual.borderHighlight} text-slate-900 shadow-xs border-x border-slate-200`
               : 'text-slate-500 hover:text-slate-800'
@@ -377,7 +377,7 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
 
         <button
           onClick={() => setAbaAtiva('historico')}
-          className={`px-5 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 ${
+          className={`px-4 sm:px-5 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
             abaAtiva === 'historico'
               ? `bg-white border-t-2 ${temaAtual.borderHighlight} text-slate-900 shadow-xs border-x border-slate-200`
               : 'text-slate-500 hover:text-slate-800'
@@ -390,7 +390,7 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
         {isAdmin && (
           <button
             onClick={() => setAbaAtiva('auditoria')}
-            className={`px-5 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 ${
+            className={`px-4 sm:px-5 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
               abaAtiva === 'auditoria'
                 ? `bg-white border-t-2 ${temaAtual.borderHighlight} text-slate-900 shadow-xs border-x border-slate-200`
                 : 'text-slate-500 hover:text-slate-800'
@@ -404,7 +404,7 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
         {isAdmin && (
           <button
             onClick={() => setAbaAtiva('escalas')}
-            className={`px-5 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 ${
+            className={`px-4 sm:px-5 py-2.5 text-xs font-bold rounded-t-xl transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
               abaAtiva === 'escalas'
                 ? `bg-white border-t-2 ${temaAtual.borderHighlight} text-slate-900 shadow-xs border-x border-slate-200`
                 : 'text-slate-500 hover:text-slate-800'

@@ -82,7 +82,17 @@ export const apiService = {
     return res.data;
   },
 
-  // Usuários (Apenas Admin)
+  // Usuários
+  getMeuPerfil: async (): Promise<Usuario> => {
+    const res = await api.get('/usuarios/me');
+    return res.data;
+  },
+  atualizarMeuPerfil: async (dados: { nome?: string; email?: string; password?: string; foto_url?: string }): Promise<Usuario> => {
+    const res = await api.put('/usuarios/me', dados);
+    const storage = localStorage.getItem('gestao_user') ? localStorage : sessionStorage;
+    storage.setItem('gestao_user', JSON.stringify(res.data));
+    return res.data;
+  },
   listarUsuarios: async (): Promise<Usuario[]> => {
     const res = await api.get('/usuarios');
     return res.data;

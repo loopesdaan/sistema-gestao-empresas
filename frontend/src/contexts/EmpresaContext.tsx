@@ -322,7 +322,7 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (Array.isArray(m) && m.length > 0) return m;
       }
     } catch {}
-    return ['pdv', 'caixa', 'produtos', 'estoque', 'clientes', 'os', 'relatorios', 'empresa', 'usuarios'];
+    return ['dashboard', 'pdv', 'caixa', 'financeiro', 'os', 'produtos', 'estoque', 'clientes', 'ponto', 'notificacoes', 'relatorios', 'empresa', 'usuarios'];
   });
 
   const setModulosAtivos = (modulos: string[]) => {
