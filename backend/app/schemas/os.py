@@ -29,6 +29,8 @@ class OSCreate(BaseModel):
     laudo_tecnico: Optional[str] = None
     valor_servicos: Decimal = Decimal("0.00")
     previsao_entrega: Optional[datetime] = None
+    foto_antes_url: Optional[str] = None
+    foto_depois_url: Optional[str] = None
     itens: List[ItemOSCreate] = []
 
 class OSUpdate(BaseModel):
@@ -39,6 +41,8 @@ class OSUpdate(BaseModel):
     status: Optional[StatusOS] = None
     valor_servicos: Optional[Decimal] = None
     previsao_entrega: Optional[datetime] = None
+    foto_antes_url: Optional[str] = None
+    foto_depois_url: Optional[str] = None
     itens: Optional[List[ItemOSCreate]] = None
 
 class OSResponse(BaseModel):
@@ -58,6 +62,16 @@ class OSResponse(BaseModel):
     valor_pecas: Decimal
     valor_total: Decimal
     previsao_entrega: Optional[datetime] = None
+    data_finalizacao: Optional[datetime] = None
+    motivo_cancelamento: Optional[str] = None
+    data_cancelamento: Optional[datetime] = None
+    usuario_cancelamento_id: Optional[int] = None
+    usuario_cancelamento_nome: Optional[str] = None
+    foto_antes_url: Optional[str] = None
+    foto_depois_url: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    itens: List[ItemOSResponse] = []
     data_finalizacao: Optional[datetime] = None
     motivo_cancelamento: Optional[str] = None
     data_cancelamento: Optional[datetime] = None

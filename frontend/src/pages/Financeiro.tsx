@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Landmark, ArrowDownLeft, ArrowUpRight, Plus, Minus, Download, 
   Wallet, RefreshCw, AlertCircle, CheckCircle2, X, DollarSign,
-  Building2, CreditCard, QrCode, TrendingUp, ShieldCheck
+  Building2, CreditCard, QrCode, TrendingUp, ShieldCheck,
+  Paperclip, UploadCloud, Eye, ExternalLink, Image as ImageIcon
 } from 'lucide-react';
-import { apiService } from '../services/api';
+import { apiService, resolveImageUrl } from '../services/api';
 import { StatusFinanceiro, MovimentacaoTesouraria, TipoMovimentacaoTesouraria } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
@@ -23,6 +24,8 @@ export const Financeiro: React.FC = () => {
   const [modalRetiradaAberto, setModalRetiradaAberto] = useState(false);
   const [valorOperacao, setValorOperacao] = useState('');
   const [motivoOperacao, setMotivoOperacao] = useState('');
+  const [comprovanteArquivo, setComprovanteArquivo] = useState<File | null>(null);
+  const [previewComprovanteModal, setPreviewComprovanteModal] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   const formatMoney = (val: number = 0) => {
@@ -60,14 +63,26 @@ export const Financeiro: React.FC = () => {
 
     setEnviando(true);
     try {
+      let comprovanteUrl: string | undefined = undefined;
+      if (comprovanteArquivo) {
+        try {
+          const up = await apiService.uploadImagem(comprovanteArquivo);
+          comprovanteUrl = up.url || up.data_url;
+        } catch (uploadErr) {
+          console.warn('Falha ao enviar comprovante ao R2, prosseguindo:', uploadErr);
+        }
+      }
+
       await apiService.fazerAporteTesouraria({
         valor: val,
-        motivo: motivoOperacao.trim() || 'Aporte de Capital / Entrada no Cofre'
+        motivo: motivoOperacao.trim() || 'Aporte de Capital / Entrada no Cofre',
+        comprovante_url: comprovanteUrl
       });
       toast.sucesso(`Aporte de ${formatMoney(val)} registrado no Cofre Central!`);
       setModalAporteAberto(false);
       setValorOperacao('');
       setMotivoOperacao('');
+      setComprovanteArquivo(null);
       carregarDados();
     } catch (err: any) {
       toast.erro(err?.response?.data?.detail || 'Erro ao realizar aporte.');
@@ -91,14 +106,26 @@ export const Financeiro: React.FC = () => {
 
     setEnviando(true);
     try {
+      let comprovanteUrl: string | undefined = undefined;
+      if (comprovanteArquivo) {
+        try {
+          const up = await apiService.uploadImagem(comprovanteArquivo);
+          comprovanteUrl = up.url || up.data_url;
+        } catch (uploadErr) {
+          console.warn('Falha ao enviar comprovante ao R2, prosseguindo:', uploadErr);
+        }
+      }
+
       await apiService.fazerRetiradaTesouraria({
         valor: val,
-        motivo: motivoOperacao.trim() || 'Retirada para Depósito Bancário / Despesa'
+        motivo: motivoOperacao.trim() || 'Retirada para Depósito Bancário / Despesa',
+        comprovante_url: comprovanteUrl
       });
       toast.sucesso(`Retirada de ${formatMoney(val)} registrada com sucesso!`);
       setModalRetiradaAberto(false);
       setValorOperacao('');
       setMotivoOperacao('');
+      setComprovanteArquivo(null);
       carregarDados();
     } catch (err: any) {
       toast.erro(err?.response?.data?.detail || 'Erro ao realizar retirada.');
@@ -343,6 +370,7 @@ export const Financeiro: React.FC = () => {
                   <th className="py-2.5 px-3">Data / Hora</th>
                   <th className="py-2.5 px-3">Operação</th>
                   <th className="py-2.5 px-3">Descrição / Justificativa</th>
+                  <th className="py-2.5 px-3 text-center">Comprovante</th>
                   <th className="py-2.5 px-3">Responsável</th>
                   <th className="py-2.5 px-3 text-right">Valor</th>
                   <th className="py-2.5 px-3 text-right">Saldo Anterior</th>
@@ -367,6 +395,21 @@ export const Financeiro: React.FC = () => {
                         <div>{m.motivo || 'Movimentação sem descrição'}</div>
                         {m.caixa_id && (
                           <span className="text-[10px] text-slate-400 font-mono">Caixa #{m.caixa_id}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
+                        {m.comprovante_url ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewComprovanteModal(resolveImageUrl(m.comprovante_url))}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-[11px] font-bold border border-sky-200 transition-colors cursor-pointer shadow-2xs"
+                            title="Visualizar Comprovante / Anexo R2"
+                          >
+                            <Paperclip size={12} />
+                            <span>Ver Anexo</span>
+                          </button>
+                        ) : (
+                          <span className="text-slate-300 text-[11px]">-</span>
                         )}
                       </td>
                       <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
@@ -441,6 +484,41 @@ export const Financeiro: React.FC = () => {
                   onChange={(e) => setMotivoOperacao(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Comprovante / Recibo (Cloudflare R2)</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Opcional</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 hover:border-emerald-400 rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100/70 transition-colors">
+                    <UploadCloud size={16} className="text-emerald-600 shrink-0" />
+                    <span className="text-[11px] text-slate-600 truncate">
+                      {comprovanteArquivo ? comprovanteArquivo.name : 'Anexar comprovante de aporte (foto/PDF)...'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setComprovanteArquivo(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                  {comprovanteArquivo && (
+                    <button
+                      type="button"
+                      onClick={() => setComprovanteArquivo(null)}
+                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg text-xs"
+                      title="Remover comprovante"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">
@@ -523,6 +601,41 @@ export const Financeiro: React.FC = () => {
                 />
               </div>
 
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Comprovante de Depósito Bancário (Cloudflare R2)</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Opcional</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 hover:border-rose-400 rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100/70 transition-colors">
+                    <UploadCloud size={16} className="text-rose-600 shrink-0" />
+                    <span className="text-[11px] text-slate-600 truncate">
+                      {comprovanteArquivo ? comprovanteArquivo.name : 'Anexar comprovante / canhoto de depósito...'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setComprovanteArquivo(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                  {comprovanteArquivo && (
+                    <button
+                      type="button"
+                      onClick={() => setComprovanteArquivo(null)}
+                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg text-xs"
+                      title="Remover comprovante"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -540,6 +653,60 @@ export const Financeiro: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal Visualizador de Comprovante Cloudflare R2 */}
+      {previewComprovanteModal && (
+        <div 
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setPreviewComprovanteModal(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Paperclip className="text-sky-600" size={18} />
+                <h3 className="font-bold text-slate-900 text-sm sm:text-base">Comprovante Financeiro (Cloudflare R2)</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewComprovanteModal}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-lg flex items-center gap-1 border border-sky-200"
+                  title="Abrir imagem em nova aba"
+                >
+                  <ExternalLink size={13} />
+                  <span>Abrir Original</span>
+                </a>
+                <button 
+                  type="button" 
+                  onClick={() => setPreviewComprovanteModal(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto flex items-center justify-center bg-slate-50 p-2 rounded-2xl border border-slate-200">
+              {previewComprovanteModal.endsWith('.pdf') ? (
+                <iframe 
+                  src={previewComprovanteModal} 
+                  title="Comprovante PDF" 
+                  className="w-full h-96 rounded-xl border border-slate-200"
+                />
+              ) : (
+                <img 
+                  src={previewComprovanteModal} 
+                  alt="Comprovante Anexado" 
+                  className="max-h-[65vh] max-w-full rounded-xl object-contain shadow-xs"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

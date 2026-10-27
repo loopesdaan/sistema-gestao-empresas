@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { apiService } from '../services/api';
+import { apiService, resolveImageUrl } from '../services/api';
 import { OrdemServico, Cliente, Produto, StatusOS, FormaPagamento, Caixa, Venda, RelatorioCancelamentosOS } from '../types';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { useToast } from '../contexts/ToastContext';
@@ -12,7 +12,8 @@ import {
   AlertCircle, ChevronRight, User, Calendar, Edit, Package,
   CreditCard, Banknote, QrCode, UserCheck, Receipt, Printer,
   Sparkles, RefreshCw, X, AlertTriangle, Check, Copy, Smartphone,
-  Ban, FileText, Download, FileSpreadsheet, History, Trash2
+  Ban, FileText, Download, FileSpreadsheet, History, Trash2,
+  Camera, UploadCloud, Eye, ExternalLink, Paperclip, Image as ImageIcon
 } from 'lucide-react';
 
 export const OS: React.FC = () => {
@@ -73,6 +74,30 @@ export const OS: React.FC = () => {
   const [equipamento, setEquipamento] = useState('');
   const [defeitoRelatado, setDefeitoRelatado] = useState('');
   const [valorServicos, setValorServicos] = useState<number>(0);
+  
+  // Fotos R2 na OS
+  const [fotoAntesArquivo, setFotoAntesArquivo] = useState<File | null>(null);
+  const [uploadingFotoOS, setUploadingFotoOS] = useState(false);
+  const [previewFotoModal, setPreviewFotoModal] = useState<string | null>(null);
+
+  // Upload dinâmico de foto na visualização de detalhes da OS
+  const handleUploadFotoDetalhe = async (tipo: 'antes' | 'depois', file: File) => {
+    if (!modalDetalheOS) return;
+    setUploadingFotoOS(true);
+    try {
+      const up = await apiService.uploadImagem(file);
+      const urlFinal = up.url || up.data_url;
+      const payload = tipo === 'antes' ? { foto_antes_url: urlFinal } : { foto_depois_url: urlFinal };
+      const osAtualizada = await apiService.atualizarOS(modalDetalheOS.id, payload);
+      setModalDetalheOS(osAtualizada);
+      toast.sucesso(`Foto de ${tipo === 'antes' ? 'Entrada (Antes)' : 'Conclusão (Depois)'} vinculada ao R2!`);
+      carregarDados();
+    } catch (err: any) {
+      toast.erro(err?.response?.data?.detail || 'Erro ao fazer upload da foto ao R2.');
+    } finally {
+      setUploadingFotoOS(false);
+    }
+  };
   
   // Itens / Produtos adicionados à nova OS
   const [itensNovaOS, setItensNovaOS] = useState<Array<{ produto_id: number; nome: string; quantidade: number; valor_unitario: number; subtotal: number }>>([]);
@@ -137,13 +162,25 @@ export const OS: React.FC = () => {
     e.preventDefault();
     if (!clienteId || !titulo) return;
 
+    setUploadingFotoOS(true);
     try {
+      let fotoAntesUrl: string | undefined = undefined;
+      if (fotoAntesArquivo) {
+        try {
+          const up = await apiService.uploadImagem(fotoAntesArquivo);
+          fotoAntesUrl = up.url || up.data_url;
+        } catch (uploadErr) {
+          console.warn('Falha no upload da foto de entrada ao R2:', uploadErr);
+        }
+      }
+
       await apiService.criarOS({
         cliente_id: Number(clienteId),
         titulo,
         equipamento: equipamento || undefined,
         defeito_relatado: defeitoRelatado || undefined,
         valor_servicos: valorServicos,
+        foto_antes_url: fotoAntesUrl,
         itens: itensNovaOS.map(it => ({
           produto_id: it.produto_id,
           quantidade: it.quantidade,
@@ -156,6 +193,7 @@ export const OS: React.FC = () => {
       setDefeitoRelatado('');
       setValorServicos(0);
       setClienteId('');
+      setFotoAntesArquivo(null);
       setItensNovaOS([]);
       setProdutoSelecionadoId('');
       setQuantidadeItem(1);
@@ -164,6 +202,8 @@ export const OS: React.FC = () => {
       carregarDados();
     } catch (err: any) {
       toast.erro(err.response?.data?.detail || 'Erro ao criar ordem de serviço');
+    } finally {
+      setUploadingFotoOS(false);
     }
   };
 
@@ -462,9 +502,17 @@ export const OS: React.FC = () => {
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Total</span>
-                    <span className="font-bold text-slate-800 text-sm">{formatMoney(os.valor_total)}</span>
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Total</span>
+                      <span className="font-bold text-slate-800 text-sm">{formatMoney(os.valor_total)}</span>
+                    </div>
+                    {(os.foto_antes_url || os.foto_depois_url) && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 text-[10px] font-bold border border-sky-100 shrink-0" title="Possui registro fotográfico no Cloudflare R2">
+                        <Camera size={11} />
+                        <span>{[os.foto_antes_url, os.foto_depois_url].filter(Boolean).length} foto(s)</span>
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -630,6 +678,45 @@ export const OS: React.FC = () => {
                   placeholder="0,00"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-semibold"
                 />
+              </div>
+
+              {/* Anexo de Foto de Entrada (Antes) no Cloudflare R2 */}
+              <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                <label className="block font-semibold text-slate-700 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Camera size={14} className="text-sky-600" />
+                    <span>Foto de Entrada / Recebimento (Antes)</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-normal">Cloudflare R2 • Opcional</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 flex items-center gap-2 px-3 py-2 border border-dashed border-slate-300 hover:border-sky-400 rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100/70 transition-colors">
+                    <UploadCloud size={16} className="text-sky-600 shrink-0" />
+                    <span className="text-[11px] text-slate-600 truncate">
+                      {fotoAntesArquivo ? fotoAntesArquivo.name : 'Tirar foto com câmera ou anexar do dispositivo...'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setFotoAntesArquivo(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                  {fotoAntesArquivo && (
+                    <button
+                      type="button"
+                      onClick={() => setFotoAntesArquivo(null)}
+                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg text-xs"
+                      title="Remover foto"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Seção Opcional: Vincular Itens / Produtos do Estoque */}
@@ -972,6 +1059,117 @@ export const OS: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* Galeria de Fotos / Anexos no Cloudflare R2 */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                    <Camera size={15} className="text-sky-600" />
+                    <span>Registro Fotográfico do Atendimento</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Cloudflare R2</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Foto de Entrada (Antes) */}
+                  <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                      <span>Foto Entrada (Antes)</span>
+                      {modalDetalheOS.foto_antes_url && (
+                        <span className="text-[10px] text-emerald-600 font-semibold">Anexada</span>
+                      )}
+                    </div>
+                    {modalDetalheOS.foto_antes_url ? (
+                      <div className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-900 aspect-video flex items-center justify-center">
+                        <img 
+                          src={resolveImageUrl(modalDetalheOS.foto_antes_url)} 
+                          alt="Foto Entrada" 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPreviewFotoModal(resolveImageUrl(modalDetalheOS.foto_antes_url))}
+                          className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1 cursor-pointer"
+                        >
+                          <Eye size={16} />
+                          <span>Ampliar</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="aspect-video rounded-xl border border-dashed border-slate-200 bg-slate-50/50 flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                        <ImageIcon size={22} className="opacity-40 mb-1" />
+                        <span className="text-[10px]">Sem foto de entrada</span>
+                      </div>
+                    )}
+                    {modalDetalheOS.status !== 'CANCELADA' && (
+                      <label className="mt-1 w-full py-1.5 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-center cursor-pointer text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors">
+                        <UploadCloud size={13} className="text-slate-500" />
+                        <span>{uploadingFotoOS ? 'Enviando ao R2...' : modalDetalheOS.foto_antes_url ? 'Trocar Foto Antes' : '+ Anexar Foto Antes'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingFotoOS}
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleUploadFotoDetalhe('antes', e.target.files[0]);
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Foto de Conclusão (Depois) */}
+                  <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                      <span>Foto Conclusão (Depois)</span>
+                      {modalDetalheOS.foto_depois_url && (
+                        <span className="text-[10px] text-emerald-600 font-semibold">Anexada</span>
+                      )}
+                    </div>
+                    {modalDetalheOS.foto_depois_url ? (
+                      <div className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-900 aspect-video flex items-center justify-center">
+                        <img 
+                          src={resolveImageUrl(modalDetalheOS.foto_depois_url)} 
+                          alt="Foto Conclusão" 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPreviewFotoModal(resolveImageUrl(modalDetalheOS.foto_depois_url))}
+                          className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1 cursor-pointer"
+                        >
+                          <Eye size={16} />
+                          <span>Ampliar</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="aspect-video rounded-xl border border-dashed border-slate-200 bg-slate-50/50 flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                        <ImageIcon size={22} className="opacity-40 mb-1" />
+                        <span className="text-[10px]">Sem foto de entrega</span>
+                      </div>
+                    )}
+                    {modalDetalheOS.status !== 'CANCELADA' && (
+                      <label className="mt-1 w-full py-1.5 px-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-center cursor-pointer text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors">
+                        <UploadCloud size={13} className="text-slate-500" />
+                        <span>{uploadingFotoOS ? 'Enviando ao R2...' : modalDetalheOS.foto_depois_url ? 'Trocar Foto Depois' : '+ Anexar Foto Depois'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingFotoOS}
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleUploadFotoDetalhe('depois', e.target.files[0]);
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
 
               <div className="p-3 bg-slate-50 rounded-xl space-y-1 border border-slate-100">
                 <div className="flex justify-between">
@@ -1539,6 +1737,52 @@ export const OS: React.FC = () => {
         onClose={() => setComprovanteVenda(null)}
         venda={comprovanteVenda}
       />
+
+      {/* Lightbox / Zoom da Foto da OS */}
+      {previewFotoModal && (
+        <div 
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setPreviewFotoModal(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Camera className="text-sky-600" size={18} />
+                <h3 className="font-bold text-slate-900 text-sm sm:text-base">Foto da Ordem de Serviço (Cloudflare R2)</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewFotoModal}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-lg flex items-center gap-1 border border-sky-200"
+                >
+                  <ExternalLink size={13} />
+                  <span>Abrir Original</span>
+                </a>
+                <button 
+                  type="button" 
+                  onClick={() => setPreviewFotoModal(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto flex items-center justify-center bg-slate-950 p-2 rounded-2xl">
+              <img 
+                src={previewFotoModal} 
+                alt="Foto Ampliada" 
+                className="max-h-[65vh] max-w-full rounded-xl object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -78,6 +78,10 @@ def migrar_colunas():
                     conn.execute(text("ALTER TABLE ordens_servico ADD COLUMN usuario_cancelamento_id INTEGER REFERENCES usuarios(id)"))
                 if "numero_sequencial" not in os_cols:
                     conn.execute(text("ALTER TABLE ordens_servico ADD COLUMN numero_sequencial BIGINT"))
+                if "foto_antes_url" not in os_cols:
+                    conn.execute(text("ALTER TABLE ordens_servico ADD COLUMN foto_antes_url TEXT"))
+                if "foto_depois_url" not in os_cols:
+                    conn.execute(text("ALTER TABLE ordens_servico ADD COLUMN foto_depois_url TEXT"))
                 conn.commit()
 
         if "vendas" in inspector.get_table_names():
@@ -85,6 +89,13 @@ def migrar_colunas():
             with engine.connect() as conn:
                 if "numero_sequencial" not in venda_cols:
                     conn.execute(text("ALTER TABLE vendas ADD COLUMN numero_sequencial BIGINT"))
+                conn.commit()
+
+        if "movimentacoes_tesouraria" in inspector.get_table_names():
+            mov_cols = [c["name"] for c in inspector.get_columns("movimentacoes_tesouraria")]
+            with engine.connect() as conn:
+                if "comprovante_url" not in mov_cols:
+                    conn.execute(text("ALTER TABLE movimentacoes_tesouraria ADD COLUMN comprovante_url TEXT"))
                 conn.commit()
 
         # Suporte ao Enum FINANCEIRO no PostgreSQL / CockroachDB

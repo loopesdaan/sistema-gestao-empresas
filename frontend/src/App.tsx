@@ -276,7 +276,7 @@ const AppContent: React.FC = () => {
       />
 
       {/* Área Principal de Conteúdo */}
-      <div className={`flex-1 flex flex-col ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-72'} transition-all duration-300`}>
+      <div className={`flex-1 flex flex-col ${sidebarCollapsed ? 'lg:pl-20' : 'lg:pl-80'} transition-all duration-300`}>
         <Navbar
           onMenuToggle={() => setSidebarOpen(true)}
           activeTitle={getPageTitle()}

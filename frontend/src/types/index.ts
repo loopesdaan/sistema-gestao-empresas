@@ -186,6 +186,8 @@ export interface OrdemServico {
   data_cancelamento?: string;
   usuario_cancelamento_id?: number;
   usuario_cancelamento_nome?: string;
+  foto_antes_url?: string;
+  foto_depois_url?: string;
   created_at: string;
   itens: ItemOS[];
   numero_sequencial?: number;
