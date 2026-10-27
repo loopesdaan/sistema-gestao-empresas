@@ -842,12 +842,76 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
       {/* ABA 2: MEU HISTÓRICO */}
       {abaAtiva === 'historico' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-bold text-slate-800 text-sm">Histórico dos Últimos 30 Dias</h3>
-            <span className="text-xs text-slate-500">{historico.length} registros encontrados</span>
+            <span className="text-xs text-slate-500">{historico.length} registros</span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Visualização em Cards para Mobile (Zero Rolagem Lateral) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {historico.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                Nenhum registro de ponto encontrado no período.
+              </div>
+            ) : (
+              historico.map((reg) => (
+                <div key={reg.id} className="p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold font-mono text-slate-900 text-sm">
+                      {new Date(reg.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                    </span>
+                    {reg.bloqueado_clt ? (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">
+                        Travado CLT
+                      </span>
+                    ) : reg.saida_2 ? (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px]">
+                        Concluído
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-bold text-[10px]">
+                        Em Andamento
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-1.5 p-2 bg-slate-50 rounded-xl text-center text-[10px]">
+                    <div>
+                      <span className="text-slate-400 font-bold block">1ª Ent</span>
+                      <span className="font-mono font-bold text-slate-800">{formatHora(reg.entrada_1)}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold block">2ª Alm</span>
+                      <span className="font-mono font-bold text-slate-800">{formatHora(reg.saida_1)}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold block">3ª Ret</span>
+                      <span className="font-mono font-bold text-slate-800">{formatHora(reg.entrada_2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold block">4ª Saí</span>
+                      <span className="font-mono font-bold text-slate-800">{formatHora(reg.saida_2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1 text-slate-600">
+                    <div>
+                      <span>Trabalhado: </span>
+                      <strong className="text-slate-900">{formatMinutos(reg.total_minutos_trabalhados || 0)}</strong>
+                    </div>
+                    {(reg.minutos_hora_extra_autorizada || 0) > 0 && (
+                      <span className="font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
+                        + {formatMinutos(reg.minutos_hora_extra_autorizada || 0)} extra
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Visualização em Tabela para Tablet e Desktop */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
                 <tr>
@@ -927,7 +991,74 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Visualização em Cards para Mobile (Sem rolagem horizontal) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {equipePonto.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                Nenhum registro de ponto registrado para a equipe hoje.
+              </div>
+            ) : (
+              equipePonto.map((item) => (
+                <div key={item.id} className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs shrink-0">
+                        {item.usuario_nome?.charAt(0) || 'U'}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-slate-900 text-sm truncate">{item.usuario_nome || `Usuário #${item.usuario_id}`}</h4>
+                        <span className="text-[11px] font-mono text-slate-400">{item.data}</span>
+                      </div>
+                    </div>
+
+                    {item.bloqueado_clt ? (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px] flex items-center gap-1 shrink-0">
+                        <Lock size={11} /> Caixa Travado
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center gap-1 shrink-0">
+                        <Unlock size={11} /> Operacional
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs p-2.5 bg-slate-50 rounded-xl">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] font-bold">Jornada</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        {formatHora(item.entrada_1)} → {formatHora(item.saida_2)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] font-bold">Total / Extra</span>
+                      <span className="font-bold text-slate-900">
+                        {formatMinutos(item.total_minutos_trabalhados || 0)}
+                        {(item.minutos_hora_extra_autorizada || 0) > 0 && (
+                          <span className="text-amber-600 ml-1">(+{formatMinutos(item.minutos_hora_extra_autorizada || 0)})</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setModalAprovacao({
+                      aberto: true,
+                      registroId: item.id,
+                      funcionarioNome: item.usuario_nome || 'Funcionário',
+                      minutos: 60,
+                      motivo: 'Demanda de atendimento autorizada'
+                    })}
+                    className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs shadow-xs transition-colors"
+                  >
+                    Autorizar Hora Extra (CLT)
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Visualização em Tabela para Tablet e Desktop */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
                 <tr>
