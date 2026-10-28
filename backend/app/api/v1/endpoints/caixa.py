@@ -57,7 +57,7 @@ def serialize_caixa(caixa: Caixa, db: Optional[Session] = None) -> CaixaResponse
     )
 
 def buscar_caixa_seguro(db: Session, caixa_id: int, empresa_id: int) -> Optional[Caixa]:
-    """Busca caixa pelo ID exato ou com tolerância float64 (+- 1000) apenas para IDs grandes do CockroachDB"""
+    """Busca caixa pelo ID exato ou com tolerância float64 (+- 1000) garantindo estrito isolamento de empresa"""
     # 1. Busca exata com empresa
     c = db.query(Caixa).filter(
         Caixa.id == caixa_id,
@@ -66,7 +66,7 @@ def buscar_caixa_seguro(db: Session, caixa_id: int, empresa_id: int) -> Optional
     if c:
         return c
 
-    # 2. Janela de tolerância float64 (+- 1000) APENAS SE FOR ID GRANDE (> 10_000_000)
+    # 2. Janela de tolerância float64 (+- 1000) APENAS SE FOR ID GRANDE (> 10_000_000) e na MESMA empresa
     # IDs normais (1, 2, 8, etc.) são exatos e NUNCA sofrem arredondamento
     if caixa_id and caixa_id > 10_000_000:
         c = db.query(Caixa).filter(
@@ -76,13 +76,15 @@ def buscar_caixa_seguro(db: Session, caixa_id: int, empresa_id: int) -> Optional
         if c:
             return c
 
-    # 3. Fallback sem filtro estrito de empresa
-    c = db.query(Caixa).filter(Caixa.id == caixa_id).first()
+    # 3. Fallback estritamente para registros legados órfãos (onde empresa_id é nulo)
+    c = db.query(Caixa).filter(
+        Caixa.id == caixa_id,
+        Caixa.empresa_id.is_(None)
+    ).first()
     if c:
-        return c
-
-    if caixa_id and caixa_id > 10_000_000:
-        c = db.query(Caixa).filter(Caixa.id.between(caixa_id - 1000, caixa_id + 1000)).first()
+        c.empresa_id = empresa_id
+        db.commit()
+        db.refresh(c)
         return c
 
     return None
@@ -170,9 +172,10 @@ def obter_caixa_atual(
         ).order_by(Caixa.data_abertura.desc()).first()
 
     if not caixa:
-        # Fallback de resiliência: se o usuário tiver caixa aberto ativo no banco com tenant drift
+        # Fallback de resiliência: se o usuário tiver caixa aberto ativo órfão no banco (empresa_id is None)
         caixa = db.query(Caixa).filter(
             Caixa.usuario_id == current_user.id,
+            Caixa.empresa_id.is_(None),
             Caixa.status == StatusCaixa.ABERTO
         ).order_by(Caixa.data_abertura.desc()).first()
         if caixa:

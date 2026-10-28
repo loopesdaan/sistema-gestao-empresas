@@ -80,3 +80,84 @@ export const formatarNumeroCaixa = (caixaId?: number | null): string => {
   }
   return String(caixaId).padStart(2, '0');
 };
+
+/**
+ * Formata valores numéricos ou decimais em Real (BRL) de forma consistente e segura contra null/undefined/NaN.
+ */
+export const formatMoney = (val?: number | string | null): string => {
+  if (val === null || val === undefined || isNaN(Number(val))) return 'R$ 0,00';
+  return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+/**
+ * Formata datas e horários de forma resiliente contra:
+ * 1. Formatos com espaço ("YYYY-MM-DD HH:mm:ss") que quebram no Safari / iOS Mobile Viewer (Invalid Date).
+ * 2. Formatos apenas data ("YYYY-MM-DD") que sofrem shift de -1 dia no timezone Brasil (UTC-3).
+ * 3. Valores nulos, indefinidos ou strings corrompidas.
+ */
+export const formatDateSafe = (
+  dateInput?: string | Date | null,
+  options?: {
+    includeTime?: boolean;
+    dateOnly?: boolean;
+    timeOnly?: boolean;
+    fallback?: string;
+  }
+): string => {
+  const fallback = options?.fallback ?? '-';
+  if (!dateInput) return fallback;
+
+  try {
+    if (typeof dateInput === 'string') {
+      const trimmed = dateInput.trim();
+      if (!trimmed) return fallback;
+
+      // Caso seja apenas data "YYYY-MM-DD"
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        if (options?.timeOnly) return '--:--';
+        const [ano, mes, dia] = trimmed.split('-');
+        return `${dia}/${mes}/${ano}`;
+      }
+
+      // Normaliza para padrão ISO substituindo espaço por 'T' para compatibilidade com WebKit / Safari
+      const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T');
+      const d = new Date(normalized);
+      if (isNaN(d.getTime())) return fallback;
+
+      if (options?.timeOnly) {
+        return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      if (options?.dateOnly) {
+        return d.toLocaleDateString('pt-BR');
+      }
+
+      if (options?.includeTime) {
+        return d.toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      return d.toLocaleString('pt-BR');
+    }
+
+    if (dateInput instanceof Date) {
+      if (isNaN(dateInput.getTime())) return fallback;
+      if (options?.timeOnly) {
+        return dateInput.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }
+      if (options?.dateOnly) {
+        return dateInput.toLocaleDateString('pt-BR');
+      }
+      return dateInput.toLocaleString('pt-BR');
+    }
+
+    return fallback;
+  } catch {
+    return fallback;
+  }
+};

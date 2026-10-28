@@ -27,6 +27,12 @@ def criar_usuario(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_admin)
 ) -> Any:
+    if len(usuario_in.password.strip()) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A senha deve possuir no mínimo 6 caracteres."
+        )
+
     usuario_existente = db.query(Usuario).filter(Usuario.email == usuario_in.email).first()
     if usuario_existente:
         raise HTTPException(
@@ -140,7 +146,13 @@ def atualizar_usuario(
     if "password" in update_data:
         nova_senha = update_data.pop("password")
         if nova_senha and str(nova_senha).strip():
-            usuario.hashed_password = get_password_hash(str(nova_senha).strip())
+            senha_limpa = str(nova_senha).strip()
+            if len(senha_limpa) < 6:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A nova senha deve possuir no mínimo 6 caracteres."
+                )
+            usuario.hashed_password = get_password_hash(senha_limpa)
 
     for field, value in update_data.items():
         setattr(usuario, field, value)

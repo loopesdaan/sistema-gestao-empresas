@@ -10,6 +10,7 @@ import { apiService, resolveImageUrl } from '../services/api';
 import { StatusFinanceiro, MovimentacaoTesouraria, TipoMovimentacaoTesouraria } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
+import { formatDateSafe } from '../utils/formatters';
 
 export const Financeiro: React.FC = () => {
   const { temaAtual, empresa } = useEmpresa();
@@ -163,7 +164,7 @@ export const Financeiro: React.FC = () => {
     let csv = '\uFEFF';
     csv += 'ID;Data;Tipo;Motivo;Operador;Valor (R$);Saldo Anterior (R$);Saldo Resultante (R$)\n';
     extrato.forEach((m) => {
-      const dataStr = new Date(m.created_at).toLocaleString('pt-BR');
+      const dataStr = formatDateSafe(m.created_at, { includeTime: true });
       const info = badgeTipo(m.tipo);
       const valStr = (info.isEntrada ? m.valor : -m.valor).toFixed(2).replace('.', ',');
       const antStr = m.saldo_anterior.toFixed(2).replace('.', ',');
@@ -397,7 +398,7 @@ export const Financeiro: React.FC = () => {
                           <span>{info.label}</span>
                         </span>
                         <p className="text-[11px] font-mono text-slate-400">
-                          {new Date(m.created_at).toLocaleString('pt-BR')}
+                          {formatDateSafe(m.created_at, { includeTime: true })}
                         </p>
                       </div>
 
@@ -456,7 +457,7 @@ export const Financeiro: React.FC = () => {
                     return (
                       <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-3 text-slate-500 font-mono text-[11px] whitespace-nowrap">
-                          {new Date(m.created_at).toLocaleString('pt-BR')}
+                          {formatDateSafe(m.created_at, { includeTime: true })}
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${info.bg}`}>

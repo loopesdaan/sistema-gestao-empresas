@@ -9,6 +9,7 @@ import { apiService } from '../services/api';
 import { RegistroPonto, StatusJornada, ConfiguracaoPonto, Usuario } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useNotificacoes } from '../contexts/NotificationContext';
+import { formatDateSafe } from '../utils/formatters';
 
 interface PontoProps {
   isAdmin?: boolean;
@@ -908,7 +909,7 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
                 <div key={reg.id} className="p-4 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="font-bold font-mono text-slate-900 text-sm">
-                      {new Date(reg.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                      {formatDateSafe(reg.data, { dateOnly: true })}
                     </span>
                     {reg.bloqueado_clt ? (
                       <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">
@@ -986,7 +987,7 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
                   historico.map((reg) => (
                     <tr key={reg.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="p-3.5 font-bold font-mono text-slate-900">
-                        {new Date(reg.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                        {formatDateSafe(reg.data, { dateOnly: true })}
                       </td>
                       <td className="p-3.5 font-mono">{formatHora(reg.entrada_1)}</td>
                       <td className="p-3.5 font-mono">{formatHora(reg.saida_1)}</td>
