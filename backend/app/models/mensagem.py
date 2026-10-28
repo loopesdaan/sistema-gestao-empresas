@@ -23,3 +23,4 @@ class MensagemInterna(Base):
 
     empresa = relationship("Empresa")
     usuario = relationship("Usuario")
+

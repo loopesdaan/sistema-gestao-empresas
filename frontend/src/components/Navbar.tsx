@@ -182,21 +182,21 @@ export const Navbar: React.FC<NavbarProps> = ({
   const ultimas10 = notificacoes.slice(0, 10);
 
   return (
-    <header className="fixed top-0 left-0 right-0 lg:sticky z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs h-16 flex items-center justify-between px-4 sm:px-6">
-      <div className="flex items-center gap-3">
+    <header className="fixed top-0 left-0 right-0 lg:sticky z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-xs h-16 flex items-center justify-between px-3 sm:px-6 transition-colors duration-150">
+      <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={onMenuToggle}
-          className="lg:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
+          className="lg:hidden p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
           aria-label="Abrir Menu"
         >
           <Menu size={22} />
         </button>
-        <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight capitalize truncate max-w-[130px] xs:max-w-[180px] sm:max-w-none" title={activeTitle}>
+        <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 tracking-tight capitalize truncate max-w-[120px] xs:max-w-[160px] sm:max-w-none" title={activeTitle}>
           {activeTitle}
         </h2>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex items-center gap-1.5 sm:gap-4">
         {/* Badge do Caixa */}
         <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
           caixaAberto 
@@ -315,33 +315,33 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           type="button"
           onClick={() => setChatAberto(true)}
-          className="relative p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+          className="relative p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           title="Canal da Equipe (Chat de Mensagens)"
           aria-label="Abrir Mensagens da Equipe"
         >
           <MessageSquare size={19} />
-          <span className="w-2 h-2 rounded-full bg-emerald-500 absolute top-1.5 right-1.5" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute top-1 right-1 ring-2 ring-white dark:ring-slate-900" />
         </button>
 
         {/* Alternador de Tema Dark / Light */}
         <button
           type="button"
           onClick={toggleModoTema}
-          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+          className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           title={modoTema === 'dark' ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro (Dark Mode)'}
           aria-label="Alternar Tema"
         >
-          {modoTema === 'dark' ? <Sun size={19} className="text-amber-400" /> : <Moon size={19} />}
+          {modoTema === 'dark' ? <Sun size={19} className="text-amber-400" /> : <Moon size={19} className="text-slate-600 dark:text-slate-300" />}
         </button>
 
         {/* Sino de Notificações */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownAberto(prev => !prev)}
-            className="relative p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+            className="relative p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
             aria-label="Notificações"
           >
-            <Bell size={20} />
+            <Bell size={19} />
             {totalNaoLidas > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
                 {totalNaoLidas > 99 ? '99+' : totalNaoLidas}
@@ -351,20 +351,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Dropdown de Notificações */}
           {dropdownAberto && (
-            <div className="fixed sm:absolute right-2 sm:right-0 mt-2 w-[calc(100vw-1rem)] sm:w-80 max-w-sm bg-white rounded-2xl border border-slate-200 shadow-xl z-50 overflow-hidden">
+            <div className="fixed sm:absolute right-2 sm:right-0 mt-2 w-[calc(100vw-1rem)] sm:w-80 max-w-sm bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl z-50 overflow-hidden text-slate-800 dark:text-slate-100">
               {/* Cabeçalho do dropdown */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90">
                 <div>
-                  <span className="font-bold text-slate-800 text-sm">Notificações</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-100 text-sm">Notificações</span>
                   {notifPendentesDB.length > 0 && (
-                    <span className="ml-2 bg-rose-100 text-rose-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    <span className="ml-2 bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                       {notifPendentesDB.length} pendente{notifPendentesDB.length > 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
                 <button
                   onClick={marcarTodasLidas}
-                  className="flex items-center gap-1 text-xs text-sky-600 hover:text-sky-800 font-semibold transition-colors"
+                  className="flex items-center gap-1 text-xs text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 font-semibold transition-colors"
                   title="Marcar todas como lidas"
                 >
                   <CheckCheck size={14} />
@@ -373,28 +373,28 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
 
               {/* Abas: Recentes (toasts) | Histórico (banco) */}
-              <div className="flex border-b border-slate-100">
+              <div className="flex border-b border-slate-100 dark:border-slate-800">
                 <button
                   onClick={() => setAbaDropdown('recentes')}
                   className={`flex-1 py-2 text-xs font-bold transition-colors flex items-center justify-center gap-1 ${
                     abaDropdown === 'recentes'
-                      ? 'text-slate-900 border-b-2 border-slate-900 bg-white'
-                      : 'text-slate-400 hover:text-slate-700 bg-slate-50'
+                      ? 'text-slate-900 dark:text-white border-b-2 border-slate-900 dark:border-sky-400 bg-white dark:bg-slate-900'
+                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-50 dark:bg-slate-950/50'
                   }`}
                 >
                   <Bell size={12} />
-                  Recentes {naoLidas > 0 && <span className="bg-rose-100 text-rose-600 text-[9px] px-1 rounded-full">{naoLidas}</span>}
+                  Recentes {naoLidas > 0 && <span className="bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-300 text-[9px] px-1 rounded-full">{naoLidas}</span>}
                 </button>
                 <button
                   onClick={() => setAbaDropdown('historico')}
                   className={`flex-1 py-2 text-xs font-bold transition-colors flex items-center justify-center gap-1 ${
                     abaDropdown === 'historico'
-                      ? 'text-slate-900 border-b-2 border-slate-900 bg-white'
-                      : 'text-slate-400 hover:text-slate-700 bg-slate-50'
+                      ? 'text-slate-900 dark:text-white border-b-2 border-slate-900 dark:border-sky-400 bg-white dark:bg-slate-900'
+                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 bg-slate-50 dark:bg-slate-950/50'
                   }`}
                 >
                   <History size={12} />
-                  Histórico {notifResolvidasDB.length > 0 && <span className="bg-emerald-100 text-emerald-700 text-[9px] px-1 rounded-full">{notifResolvidasDB.length}</span>}
+                  Histórico {notifResolvidasDB.length > 0 && <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[9px] px-1 rounded-full">{notifResolvidasDB.length}</span>}
                 </button>
               </div>
 
@@ -531,9 +531,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           type="button"
           onClick={onOpenPerfil}
           title="Meu Perfil (Alterar foto, nome e senha)"
-          className="flex items-center gap-2 pl-2 border-l border-slate-200 text-slate-700 hover:text-sky-600 group transition-colors focus:outline-none cursor-pointer text-left"
+          className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-400 group transition-colors focus:outline-none cursor-pointer text-left"
         >
-          <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 overflow-hidden group-hover:ring-2 group-hover:ring-sky-400 group-hover:border-sky-400 transition-all shrink-0">
+          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 overflow-hidden group-hover:ring-2 group-hover:ring-sky-400 group-hover:border-sky-400 transition-all shrink-0">
             {userFotoUrl ? (
               <img
                 src={resolveImageUrl(userFotoUrl)}
@@ -542,10 +542,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onError={(e) => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
               />
             ) : (
-              <span className="text-xs font-bold text-slate-700">{userName.charAt(0).toUpperCase()}</span>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{userName.charAt(0).toUpperCase()}</span>
             )}
           </div>
-          <span className="hidden md:inline text-xs font-semibold group-hover:text-sky-600 transition-colors truncate max-w-[120px]">
+          <span className="hidden md:inline text-xs font-semibold group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate max-w-[120px]">
             {userName}
           </span>
         </button>
