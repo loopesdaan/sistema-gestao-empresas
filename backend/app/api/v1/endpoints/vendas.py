@@ -325,10 +325,15 @@ def registrar_venda(
             if not cliente:
                 raise HTTPException(status_code=400, detail="Vendas a prazo necessitam de um cliente cadastrado selecionado.")
             novo_saldo = (cliente.saldo_devedor + v_pg).quantize(Decimal("0.01"))
-            if cliente.limite_credito > 0 and novo_saldo > cliente.limite_credito:
+            if cliente.limite_credito <= 0:
                 raise HTTPException(
-                    status_code=400, 
-                    detail=f"Limite de crédito excedido para {cliente.nome}. Limite: R$ {cliente.limite_credito}, Atual devedor: R$ {cliente.saldo_devedor}, Tentativa: R$ {v_pg}."
+                    status_code=400,
+                    detail=f"Venda a prazo não permitida: o cliente {cliente.nome} não possui limite de crédito cadastrado. Configure um limite em Clientes antes de vender a prazo."
+                )
+            if novo_saldo > cliente.limite_credito:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Limite de crédito excedido para {cliente.nome}. Limite: R$ {cliente.limite_credito:.2f}, Devedor atual: R$ {cliente.saldo_devedor:.2f}, Solicitado: R$ {v_pg:.2f}."
                 )
             cliente.saldo_devedor = novo_saldo
 
