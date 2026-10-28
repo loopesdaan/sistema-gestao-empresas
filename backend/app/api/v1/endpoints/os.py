@@ -16,6 +16,7 @@ from app.models.os import OrdemServico, ItemOS, StatusOS
 from app.schemas.os import OSCreate, OSUpdate, OSResponse, OSFaturarRequest, OSFaturarResponse, OSCancelarRequest
 from app.api.deps import get_current_user
 from app.api.v1.endpoints.vendas import buscar_caixa_aberto_seguro
+from app.services.produtos import buscar_produto_seguro
 
 router = APIRouter()
 
@@ -221,15 +222,7 @@ def criar_os(
     itens_processados = []
 
     for item_in in dados.itens:
-        produto = db.query(Produto).filter(
-            Produto.id == item_in.produto_id,
-            Produto.empresa_id == current_user.empresa_id
-        ).first()
-        if not produto and item_in.produto_id and item_in.produto_id > 10_000_000:
-            produto = db.query(Produto).filter(
-                Produto.empresa_id == current_user.empresa_id,
-                Produto.id.between(item_in.produto_id - 1000, item_in.produto_id + 1000)
-            ).first()
+        produto = buscar_produto_seguro(item_in.produto_id, db, current_user)
         if not produto:
             raise HTTPException(status_code=404, detail=f"Peça/Produto ID {item_in.produto_id} não encontrado")
 
@@ -350,10 +343,7 @@ def atualizar_os(
     if dados.itens is not None:
         # Remove peças antigas e estorna
         for it in os.itens:
-            prod = db.query(Produto).filter(
-                Produto.id == it.produto_id,
-                Produto.empresa_id == current_user.empresa_id
-            ).first()
+            prod = buscar_produto_seguro(it.produto_id, db, current_user)
             if prod:
                 prod.estoque_atual += it.quantidade
             db.delete(it)
@@ -361,10 +351,7 @@ def atualizar_os(
         valor_pecas = Decimal("0.00")
         novos_itens = []
         for item_in in dados.itens:
-            produto = db.query(Produto).filter(
-                Produto.id == item_in.produto_id,
-                Produto.empresa_id == current_user.empresa_id
-            ).first()
+            produto = buscar_produto_seguro(item_in.produto_id, db, current_user)
             if not produto:
                 raise HTTPException(status_code=404, detail=f"Peça ID {item_in.produto_id} não encontrada")
 
@@ -584,10 +571,7 @@ def cancelar_os(
 
     # Estorna as peças da OS para o estoque
     for it in os.itens:
-        prod = db.query(Produto).filter(
-            Produto.id == it.produto_id,
-            Produto.empresa_id == current_user.empresa_id
-        ).first()
+        prod = buscar_produto_seguro(it.produto_id, db, current_user)
         if prod:
             prod.estoque_atual += it.quantidade
             mov = MovimentacaoEstoque(

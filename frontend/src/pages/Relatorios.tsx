@@ -9,7 +9,8 @@ import {
   BarChart3, Search, Ban, CheckCircle, Calendar, 
   ArrowRight, User, DollarSign, ShoppingCart, TrendingUp, 
   Filter, Eye, X, Receipt, Download, FileText, Printer, Table, Layers, ChevronDown,
-  Crown, Award, Sparkles, TrendingDown, ArrowUpRight, AlertTriangle, Package, RefreshCw
+  Crown, Award, Sparkles, TrendingDown, ArrowUpRight, AlertTriangle, Package, RefreshCw,
+  RotateCcw, CreditCard
 } from 'lucide-react';
 
 interface RelatoriosProps {
@@ -25,6 +26,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
   const [busca, setBusca] = useState('');
   const [filtroVendedor, setFiltroVendedor] = useState<string>('TODOS');
   const [filtroStatus, setFiltroStatus] = useState<string>('TODOS');
+  const [filtroForma, setFiltroForma] = useState<string>('TODOS');
   const [vendaDetalhe, setVendaDetalhe] = useState<Venda | null>(null);
   const [comprovanteModalAberto, setComprovanteModalAberto] = useState(false);
   const [indiceVendaComprovante, setIndiceVendaComprovante] = useState(0);
@@ -167,6 +169,12 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
       const nomeVendedor = v.usuario_nome || `Operador #${v.usuario_id}`;
       if (filtroVendedor !== 'TODOS' && nomeVendedor !== filtroVendedor) return false;
 
+      // Filtro forma de pagamento
+      if (filtroForma !== 'TODOS') {
+        const temForma = (v.pagamentos || []).some(p => p.forma_pagamento === filtroForma);
+        if (!temForma) return false;
+      }
+
       // Busca texto (ID, Cliente ou Vendedor)
       if (busca.trim()) {
         const termo = busca.toLowerCase();
@@ -178,7 +186,21 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
 
       return true;
     });
-  }, [vendas, busca, filtroVendedor, filtroStatus, isAdmin, usuarioAtual]);
+  }, [vendas, busca, filtroVendedor, filtroStatus, filtroForma, isAdmin, usuarioAtual]);
+
+  const temFiltroAtivo = Boolean(
+    busca.trim() || 
+    filtroVendedor !== 'TODOS' || 
+    filtroStatus !== 'TODOS' || 
+    filtroForma !== 'TODOS'
+  );
+
+  const limparFiltros = () => {
+    setBusca('');
+    setFiltroVendedor('TODOS');
+    setFiltroStatus('TODOS');
+    setFiltroForma('TODOS');
+  };
 
   // Métricas calculadas sobre vendas concluídas
   const metricas = useMemo(() => {
@@ -591,25 +613,23 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
               </p>
             </div>
 
-            {/* 8 Horizontes Pills */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            {/* Seletor de Horizonte Temporal Compacto e Elegante */}
+            <div className="flex items-center gap-1 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80 overflow-x-auto max-w-full">
               {[
-                { id: 'SEMANAL', label: 'Semanal (7d)' },
-                { id: 'QUINZENAL', label: 'Quinzenal (15d)' },
-                { id: 'MENSAL', label: 'Mensal (30d)' },
-                { id: 'BIMESTRAL', label: 'Bimestral (60d)' },
-                { id: 'TRIMESTRAL', label: 'Trimestral (90d)' },
-                { id: 'QUADRIMESTRAL', label: 'Quadrimestral (120d)' },
-                { id: 'SEMESTRAL', label: 'Semestral (180d)' },
-                { id: 'ANUAL', label: 'Anual (365d)' }
+                { id: 'SEMANAL', label: '7 dias' },
+                { id: 'QUINZENAL', label: '15 dias' },
+                { id: 'MENSAL', label: '30 dias' },
+                { id: 'TRIMESTRAL', label: '90 dias' },
+                { id: 'SEMESTRAL', label: '6 meses' },
+                { id: 'ANUAL', label: '1 ano' }
               ].map(p => (
                 <button
                   key={p.id}
                   onClick={() => setPeriodoOLAP(p.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                     periodoOLAP === p.id
-                      ? 'bg-slate-900 text-white shadow-xs scale-102'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                      ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/20'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                   }`}
                 >
                   {p.label}
@@ -1313,53 +1333,117 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
             </div>
           </div>
 
-          {/* Barra de Filtros */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-            <div className="relative w-full md:w-80">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <Search size={15} />
+          {/* Barra de Filtros Reformulada */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3">
+            {/* Linha Superior: Contagem de Vendas e Ação de Limpar */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                  {vendasFiltradas.length} {vendasFiltradas.length === 1 ? 'venda localizada' : 'vendas localizadas'}
+                </span>
+                {vendasFiltradas.length !== vendas.length && (
+                  <span className="text-[11px] text-slate-400">
+                    (de um total de {vendas.length})
+                  </span>
+                )}
               </div>
-              <input
-                type="text"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar por #ID ou cliente..."
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
-              />
+
+              {temFiltroAtivo && (
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 border border-rose-200 cursor-pointer"
+                >
+                  <RotateCcw size={12} />
+                  <span>Limpar Filtros</span>
+                </button>
+              )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Linha de Filtros: Busca e Dropdowns Estruturados */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5 text-xs">
+              {/* Campo de Busca Texto */}
+              <div className="relative sm:col-span-2 lg:col-span-5">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Search size={15} />
+                </div>
+                <input
+                  type="text"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar por código (#0001), cliente ou vendedor..."
+                  className="w-full pl-9 pr-8 py-2.5 bg-slate-50 hover:bg-slate-100/60 focus:bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 focus:outline-none transition-all"
+                />
+                {busca && (
+                  <button
+                    type="button"
+                    onClick={() => setBusca('')}
+                    className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
               {/* Filtro de Vendedor (Apenas para Gerente / Administrador) */}
               {isAdmin && (
-                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-                  <User size={14} className="text-slate-500" />
-                  <span className="font-semibold text-slate-600">Vendedor:</span>
-                  <select
-                    value={filtroVendedor}
-                    onChange={(e) => setFiltroVendedor(e.target.value)}
-                    className="bg-transparent font-bold text-slate-800 focus:outline-none text-xs cursor-pointer"
-                  >
-                    <option value="TODOS">Todos os Vendedores</option>
-                    {vendedoresDisponiveis.map(vend => (
-                      <option key={vend} value={vend}>{vend}</option>
-                    ))}
-                  </select>
+                <div className="relative sm:col-span-1 lg:col-span-3">
+                  <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/60 focus-within:bg-white border border-slate-200 rounded-xl px-3 py-2 transition-all focus-within:ring-2 focus-within:ring-sky-500/20 focus-within:border-sky-500">
+                    <User size={14} className="text-slate-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <select
+                        value={filtroVendedor}
+                        onChange={(e) => setFiltroVendedor(e.target.value)}
+                        className="w-full bg-transparent font-semibold text-slate-800 focus:outline-none text-xs cursor-pointer truncate"
+                      >
+                        <option value="TODOS">Todos os Vendedores</option>
+                        {vendedoresDisponiveis.map(vend => (
+                          <option key={vend} value={vend}>{vend}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Filtro de Status */}
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-                <Filter size={14} className="text-slate-500" />
-                <span className="font-semibold text-slate-600">Status:</span>
-                <select
-                  value={filtroStatus}
-                  onChange={(e) => setFiltroStatus(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 focus:outline-none text-xs cursor-pointer"
-                >
-                  <option value="TODOS">Todos</option>
-                  <option value="CONCLUIDA">Concluídas</option>
-                  <option value="CANCELADA">Canceladas</option>
-                </select>
+              <div className={`relative sm:col-span-1 ${isAdmin ? 'lg:col-span-2' : 'lg:col-span-4'}`}>
+                <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/60 focus-within:bg-white border border-slate-200 rounded-xl px-3 py-2 transition-all focus-within:ring-2 focus-within:ring-sky-500/20 focus-within:border-sky-500">
+                  <Filter size={14} className="text-slate-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <select
+                      value={filtroStatus}
+                      onChange={(e) => setFiltroStatus(e.target.value)}
+                      className="w-full bg-transparent font-semibold text-slate-800 focus:outline-none text-xs cursor-pointer truncate"
+                    >
+                      <option value="TODOS">Todos os Status</option>
+                      <option value="CONCLUIDA">✅ Concluídas</option>
+                      <option value="CANCELADA">❌ Canceladas</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filtro de Forma de Pagamento */}
+              <div className={`relative sm:col-span-1 ${isAdmin ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+                <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/60 focus-within:bg-white border border-slate-200 rounded-xl px-3 py-2 transition-all focus-within:ring-2 focus-within:ring-sky-500/20 focus-within:border-sky-500">
+                  <CreditCard size={14} className="text-slate-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <select
+                      value={filtroForma}
+                      onChange={(e) => setFiltroForma(e.target.value)}
+                      className="w-full bg-transparent font-semibold text-slate-800 focus:outline-none text-xs cursor-pointer truncate"
+                    >
+                      <option value="TODOS">Todas as Formas</option>
+                      <option value="DINHEIRO">Dinheiro</option>
+                      <option value="PIX">PIX</option>
+                      <option value="CARTAO_DEBITO">Cartão Débito</option>
+                      <option value="CARTAO_CREDITO">Cartão Crédito</option>
+                      <option value="CREDIARIO">Crediário</option>
+                      <option value="OUTRO">Outros</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

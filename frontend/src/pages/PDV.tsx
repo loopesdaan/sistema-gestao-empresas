@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { apiService } from '../services/api';
 import { Produto, Cliente, Caixa, FormaPagamento, StatusJornada, Venda } from '../types';
@@ -36,6 +36,7 @@ export const PDV: React.FC = () => {
 
   // Produtos e Busca
   const [busca, setBusca] = useState('');
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState<string>('TODAS');
   const [produtosSugestoes, setProdutosSugestoes] = useState<Produto[]>([]);
   const [todosProdutos, setTodosProdutos] = useState<Produto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -124,18 +125,48 @@ export const PDV: React.FC = () => {
     inicializarPDV();
   }, []);
 
-  // Busca de produtos com debounce simples
+  // Categorias únicas presentes nos produtos
+  const categorias = useMemo(() => {
+    const setCats = new Set<string>();
+    todosProdutos.forEach(p => {
+      if (p.categoria && p.categoria.trim()) {
+        setCats.add(p.categoria.trim());
+      }
+    });
+    return Array.from(setCats).sort((a, b) => a.localeCompare(b));
+  }, [todosProdutos]);
+
+  // Função utilitária que filtra produtos por Tokens (Nome, Categoria e Código de Barras) e Categoria Selecionada
+  const matchProduto = (p: Produto): boolean => {
+    if (categoriaSelecionada !== 'TODAS' && (p.categoria || '').trim().toLowerCase() !== categoriaSelecionada.toLowerCase()) {
+      return false;
+    }
+    const termoLimpo = busca.trim().toLowerCase();
+    if (!termoLimpo) return true;
+
+    const tokens = termoLimpo.split(/\s+/).filter(Boolean);
+    const nome = (p.nome || '').toLowerCase();
+    const cat = (p.categoria || '').toLowerCase();
+    const cod = (p.codigo_barras || '').toLowerCase();
+
+    // O produto deve atender a todos os termos digitados (ex: "Bebidas Coca" ou "Oleo 5W30")
+    return tokens.every(t => nome.includes(t) || cat.includes(t) || cod.includes(t));
+  };
+
+  // Sugestões rápidas flutuantes ao digitar no input de busca
   useEffect(() => {
     if (!busca.trim()) {
       setProdutosSugestoes([]);
       return;
     }
-    const termo = busca.toLowerCase();
-    const filtrados = todosProdutos.filter(
-      p => p.nome.toLowerCase().includes(termo) || (p.codigo_barras && p.codigo_barras.includes(termo))
-    ).slice(0, 8);
+    const filtrados = todosProdutos.filter(matchProduto).slice(0, 10);
     setProdutosSugestoes(filtrados);
-  }, [busca, todosProdutos]);
+  }, [busca, categoriaSelecionada, todosProdutos]);
+
+  // Produtos exibidos na grade dinâmica do catálogo
+  const produtosExibidos = useMemo(() => {
+    return todosProdutos.filter(matchProduto);
+  }, [todosProdutos, busca, categoriaSelecionada]);
 
   const handleAbrirModalImportarOS = async () => {
     setCarregandoOS(true);
@@ -707,8 +738,8 @@ export const PDV: React.FC = () => {
         <div className={`flex-1 flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-xs relative ${
           abaMobilePDV === 'CATALOGO' ? 'flex' : 'hidden lg:flex'
         }`}>
-          {/* Barra de Busca de Produtos */}
-          <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+          {/* Barra de Busca de Produtos e Filtro por Categoria */}
+          <div className="p-4 border-b border-slate-200 bg-slate-50/50 space-y-2.5">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <Search size={19} />
@@ -723,12 +754,13 @@ export const PDV: React.FC = () => {
                     adicionarAoCarrinho(produtosSugestoes[0]);
                   }
                 }}
-                placeholder="Digite o nome do produto ou bip o código de barras (Enter para adicionar)..."
-                className="w-full pl-10 pr-10 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent shadow-xs"
+                placeholder="Buscar por nome, categoria (ex: Bebidas, Peças) ou código..."
+                className="w-full pl-10 pr-10 py-3 bg-white border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent shadow-xs transition-all"
                 autoFocus
               />
               {busca && (
                 <button 
+                  type="button"
                   onClick={() => setBusca('')} 
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
                 >
@@ -736,7 +768,7 @@ export const PDV: React.FC = () => {
                 </button>
               )}
 
-              {/* Lista Flutuante de Sugestões de Busca - ancorada estritamente abaixo do input para nunca sobrepor a sidebar */}
+              {/* Lista Flutuante de Sugestões de Busca */}
               {produtosSugestoes.length > 0 && (
                 <div className="absolute z-30 top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 ring-1 ring-slate-900/5">
                   {produtosSugestoes.map((p) => (
@@ -748,9 +780,16 @@ export const PDV: React.FC = () => {
                       }}
                       className="p-3 hover:bg-sky-50 cursor-pointer flex items-center justify-between transition-colors"
                     >
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{p.nome}</p>
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="min-w-0 flex-1 pr-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-slate-800 break-words">{p.nome}</p>
+                          {p.categoria && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                              {p.categoria}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                           <span>{p.codigo_barras || 'Sem código'}</span>
                           <span>•</span>
                           <span className={p.estoque_atual <= 0 ? 'text-rose-600 font-semibold' : ''}>
@@ -758,41 +797,115 @@ export const PDV: React.FC = () => {
                           </span>
                         </div>
                       </div>
-                      <span className="text-sm font-bold text-sky-600">{formatMoney(p.preco_venda)}</span>
+                      <span className="text-sm font-bold text-sky-600 shrink-0">{formatMoney(p.preco_venda)}</span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Chips de Categorias para Acesso Rápido */}
+            {categorias.length > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
+                <button
+                  type="button"
+                  onClick={() => setCategoriaSelecionada('TODAS')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                    categoriaSelecionada === 'TODAS'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-white hover:bg-slate-200/80 text-slate-600 border border-slate-200'
+                  }`}
+                >
+                  Todas ({todosProdutos.length})
+                </button>
+                {categorias.map(cat => {
+                  const qtd = todosProdutos.filter(p => (p.categoria || '').trim().toLowerCase() === cat.toLowerCase()).length;
+                  const isAtiva = categoriaSelecionada.toLowerCase() === cat.toLowerCase();
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategoriaSelecionada(isAtiva ? 'TODAS' : cat)}
+                      className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                        isAtiva
+                          ? 'bg-sky-600 text-white font-bold shadow-xs'
+                          : 'bg-white hover:bg-slate-200/80 text-slate-700 border border-slate-200'
+                      }`}
+                    >
+                      <span>{cat}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isAtiva ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        {qtd}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Grade de Produtos Frequentes / Rápidos */}
+          {/* Grade de Produtos Frequentes / Filtrados */}
           <div className="flex-1 p-4 overflow-y-auto">
-            <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-              Produtos em Destaque
-            </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {todosProdutos.map((prod) => (
-                <button
-                  key={prod.id}
-                  onClick={() => adicionarAoCarrinho(prod)}
-                  className="p-3 bg-white border border-slate-200 hover:border-sky-500 hover:bg-sky-50/30 rounded-xl text-left transition-all group flex flex-col justify-between shadow-xs hover:shadow-sm"
-                >
-                  <div>
-                    <span className="text-[10px] font-semibold text-sky-600 uppercase tracking-wide">
-                      {prod.categoria || 'Geral'}
-                    </span>
-                    <h5 className="text-xs font-medium text-slate-800 group-hover:text-sky-700 line-clamp-2 mt-0.5">
-                      {prod.nome}
-                    </h5>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
-                    <span className="text-xs font-bold text-slate-900">{formatMoney(prod.preco_venda)}</span>
-                    <span className="text-[10px] text-slate-400">Est: {formatEstoque(prod.estoque_atual)}</span>
-                  </div>
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                {categoriaSelecionada !== 'TODAS' 
+                  ? `Categoria: ${categoriaSelecionada}` 
+                  : busca.trim() 
+                    ? 'Resultados da Pesquisa' 
+                    : 'Produtos em Destaque'}
+              </h4>
+              <span className="text-xs font-bold text-slate-500">
+                {produtosExibidos.length} {produtosExibidos.length === 1 ? 'item' : 'itens'}
+              </span>
             </div>
+
+            {produtosExibidos.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200 p-6 space-y-3">
+                <div className="w-12 h-12 bg-white text-slate-400 rounded-full flex items-center justify-center mx-auto shadow-xs border border-slate-200">
+                  <Package size={22} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-700">Nenhum produto localizado</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Não encontramos itens para o filtro ou busca informada.
+                  </p>
+                </div>
+                {(busca || categoriaSelecionada !== 'TODAS') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBusca('');
+                      setCategoriaSelecionada('TODAS');
+                    }}
+                    className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Limpar pesquisa e filtros
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {produtosExibidos.map((prod) => (
+                  <button
+                    key={prod.id}
+                    onClick={() => adicionarAoCarrinho(prod)}
+                    className="p-3 bg-white border border-slate-200 hover:border-sky-500 hover:bg-sky-50/30 rounded-xl text-left transition-all group flex flex-col justify-between shadow-xs hover:shadow-sm"
+                  >
+                    <div>
+                      <span className="text-[10px] font-semibold text-sky-600 uppercase tracking-wide">
+                        {prod.categoria || 'Geral'}
+                      </span>
+                      <h5 className="text-xs font-medium text-slate-800 group-hover:text-sky-700 line-clamp-2 mt-0.5">
+                        {prod.nome}
+                      </h5>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-100">
+                      <span className="text-xs font-bold text-slate-900">{formatMoney(prod.preco_venda)}</span>
+                      <span className="text-[10px] text-slate-400">Est: {formatEstoque(prod.estoque_atual)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Barra Flutuante de Ação Rápida no Mobile ao Adicionar Itens ao Carrinho */}
