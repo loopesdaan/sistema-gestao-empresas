@@ -138,6 +138,7 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
   // Contadores para métricas no topo
   const contadores = useMemo(() => {
     const pendentes = notificacoes.filter(n => n.status === 'PENDENTE');
+    const resolvidas = notificacoes.filter(n => n.status === 'RESOLVIDA');
     const caixa = notificacoes.filter(n => n.tipo === 'CAIXA_TICKET' || n.referencia_tipo === 'CAIXA');
     const financeiro = notificacoes.filter(n => n.tipo === 'PENDENCIA_FINANCEIRA' || (n.valor_pendente && n.valor_pendente > 0));
     const clt = notificacoes.filter(n => n.tipo === 'PONTO_CLT' || n.referencia_tipo === 'PONTO');
@@ -146,6 +147,7 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
     return {
       total: notificacoes.length,
       pendentes: pendentes.length,
+      resolvidas: resolvidas.length,
       caixa: caixa.length,
       financeiro: financeiro.length,
       totalPendenteRs,
@@ -359,18 +361,20 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
             { id: 'FINANCEIRO', label: `Crédito & Fiado (${contadores.financeiro})` },
             { id: 'CLT', label: `Ponto & CLT (${contadores.clt})` },
             { id: 'ESTOQUE', label: `Estoque & Alertas` },
-            { id: 'RESOLVIDAS', label: `Resolvidas (${contadores.total - contadores.pendentes})` },
+            { id: 'RESOLVIDAS', label: `Histórico Resolvidas (${contadores.resolvidas})`, highlight: contadores.resolvidas > 0 },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setFiltroTipo(tab.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 filtroTipo === tab.id
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                  ? tab.id === 'RESOLVIDAS' ? 'bg-emerald-700 text-white shadow-xs' : 'bg-slate-900 text-white shadow-xs'
+                  : tab.id === 'RESOLVIDAS' && (tab as any).highlight
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
               }`}
             >
-              {tab.label}
+              {tab.id === 'RESOLVIDAS' && '✓ '}{tab.label}
             </button>
           ))}
         </div>
