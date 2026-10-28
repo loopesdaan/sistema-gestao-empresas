@@ -274,17 +274,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <button
                     type="button"
                     onClick={() => toggleGrupo(grupo.id)}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-left group hover:bg-slate-800/40 transition-colors ${
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-left group hover:bg-slate-800/40 active:scale-[0.99] transition-all duration-150 ${
                       gIdx > 0 ? 'mt-2.5' : 'mt-0.5'
                     }`}
                     title={isRecolhido ? `Expandir ${grupo.titulo}` : `Minimizar ${grupo.titulo}`}
                   >
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 group-hover:text-slate-300 select-none">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 group-hover:text-slate-200 select-none transition-colors">
                       {grupo.titulo}
                     </span>
                     <ChevronDown
                       size={13}
-                      className={`text-slate-500 group-hover:text-slate-300 transition-transform duration-200 ${
+                      className={`text-slate-500 group-hover:text-slate-300 transition-transform duration-300 ease-in-out ${
                         isRecolhido ? '-rotate-90' : 'rotate-0'
                       }`}
                     />
@@ -293,44 +293,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   gIdx > 0 && <div className="my-2 border-t border-slate-800/80 mx-2" />
                 )}
 
-                {/* Itens do Grupo */}
-                {(!isRecolhido || isCollapsed) && (
-                  <div className="space-y-1 animate-in fade-in duration-150">
-                    {grupo.items.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = activeTab === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => {
-                            setActiveTab(item.id);
-                            setIsOpen(false);
-                          }}
-                          title={item.label}
-                          className={`
-                            w-full flex items-center ${isCollapsed ? 'lg:justify-center lg:px-0' : 'px-3.5'} py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 text-left gap-3
-                            ${isActive 
-                              ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white shadow-md shadow-black/20 font-bold` 
-                              : item.highlight
-                                ? `${temaAtual.textoHighlight} hover:bg-slate-800/80 bg-slate-800/40 border ${temaAtual.borderHighlight}/30`
-                                : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                            }
-                          `}
-                        >
-                          <Icon size={18} className={`shrink-0 ${isActive ? 'text-white' : item.highlight ? 'opacity-90' : 'text-slate-400'}`} />
-                          <span className={`truncate whitespace-nowrap ${isCollapsed ? 'lg:hidden' : ''}`}>
-                            {isOperador && item.id === 'relatorios' ? 'Minhas Vendas' : item.label}
-                          </span>
-                          {item.highlight && !isActive && (
-                            <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${temaAtual.accentBadge} ${isCollapsed ? 'lg:hidden' : ''}`}>
-                              PDV
+                {/* Itens do Grupo com animação de Drop suave (CSS Grid 0fr -> 1fr + Opacity) */}
+                <div 
+                  className={`grid transition-all duration-300 ease-in-out ${
+                    isRecolhido 
+                      ? 'grid-rows-[0fr] opacity-0 pointer-events-none' 
+                      : 'grid-rows-[1fr] opacity-100'
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="space-y-1 pt-0.5">
+                      {grupo.items.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeTab === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setActiveTab(item.id);
+                              setIsOpen(false);
+                            }}
+                            title={item.label}
+                            className={`
+                              w-full flex items-center ${isCollapsed ? 'lg:justify-center lg:px-0' : 'px-3.5'} py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-150 text-left gap-3
+                              ${isActive 
+                                ? `bg-gradient-to-r ${temaAtual.bgGradiente} text-white shadow-md shadow-black/20 font-bold` 
+                                : item.highlight
+                                  ? `${temaAtual.textoHighlight} hover:bg-slate-800/80 bg-slate-800/40 border ${temaAtual.borderHighlight}/30`
+                                  : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                              }
+                            `}
+                          >
+                            <Icon size={18} className={`shrink-0 ${isActive ? 'text-white' : item.highlight ? 'opacity-90' : 'text-slate-400'}`} />
+                            <span className={`truncate whitespace-nowrap ${isCollapsed ? 'lg:hidden' : ''}`}>
+                              {isOperador && item.id === 'relatorios' ? 'Minhas Vendas' : item.label}
                             </span>
-                          )}
-                        </button>
-                      );
-                    })}
+                            {item.highlight && !isActive && (
+                              <span className={`ml-auto text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${temaAtual.accentBadge} ${isCollapsed ? 'lg:hidden' : ''}`}>
+                                PDV
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
