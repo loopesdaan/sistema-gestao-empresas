@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -7,7 +7,7 @@ class Cliente(Base):
     __tablename__ = "clientes"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
-    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False, index=True)
     nome = Column(String(150), nullable=False)
     cpf_cnpj = Column(String(20), index=True, nullable=True)
     telefone = Column(String(30), nullable=True)
@@ -22,6 +22,11 @@ class Cliente(Base):
     observacoes = Column(Text, nullable=True)
     ativo = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("idx_clientes_empresa_ativo", "empresa_id", "ativo"),
+        Index("idx_clientes_empresa_nome", "empresa_id", "nome"),
+    )
 
     empresa = relationship("Empresa", back_populates="clientes")
     vendas = relationship("Venda", back_populates="cliente")

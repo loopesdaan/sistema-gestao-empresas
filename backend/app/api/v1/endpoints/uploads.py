@@ -48,10 +48,16 @@ def obter_arquivo_upload(filename: str) -> Any:
     """
     Retorna o arquivo de upload diretamente (Cloudflare R2 ou armazenamento local).
     Garante que links para imagens e comprovantes funcionem em qualquer aba ou contexto.
+    Protegido contra ataques de Path Traversal (Directory Traversal).
     """
     from fastapi.responses import Response, FileResponse
     from app.core.config import settings
     from app.services.storage import UPLOAD_DIR, get_mime_type
+
+    # Sanitiza o nome do arquivo para mitigar Directory Traversal
+    clean_filename = os.path.basename(filename)
+    if not clean_filename or clean_filename != filename:
+        raise HTTPException(status_code=400, detail="Identificador de arquivo inválido.")
 
     # 1. Se credenciais R2 configuradas, busca do Cloudflare R2
     if settings.CLOUDFLARE_R2_ACCESS_KEY_ID and settings.CLOUDFLARE_R2_SECRET_ACCESS_KEY:
@@ -67,18 +73,22 @@ def obter_arquivo_upload(filename: str) -> Any:
                 region_name="auto",
                 config=Config(signature_version="s3v4")
             )
-            obj = s3.get_object(Bucket=settings.CLOUDFLARE_R2_BUCKET_NAME, Key=filename)
+            obj = s3.get_object(Bucket=settings.CLOUDFLARE_R2_BUCKET_NAME, Key=clean_filename)
             conteudo = obj["Body"].read()
-            mime = obj.get("ContentType") or get_mime_type(os.path.splitext(filename)[1])
+            mime = obj.get("ContentType") or get_mime_type(os.path.splitext(clean_filename)[1])
             return Response(content=conteudo, media_type=mime)
         except Exception:
             pass
 
-    # 2. Busca do disco local
-    filepath = os.path.join(UPLOAD_DIR, filename)
-    if os.path.exists(filepath):
-        mime = get_mime_type(os.path.splitext(filename)[1])
-        return FileResponse(filepath, media_type=mime)
+    # 2. Busca do disco local com verificação rigorosa de confinamento ao UPLOAD_DIR
+    upload_dir_abs = os.path.abspath(UPLOAD_DIR)
+    target_path = os.path.abspath(os.path.join(upload_dir_abs, clean_filename))
+    if not target_path.startswith(upload_dir_abs):
+        raise HTTPException(status_code=400, detail="Acesso não autorizado ao caminho especificado.")
+
+    if os.path.exists(target_path):
+        mime = get_mime_type(os.path.splitext(clean_filename)[1])
+        return FileResponse(target_path, media_type=mime)
 
     raise HTTPException(status_code=404, detail="Arquivo não encontrado")
 
