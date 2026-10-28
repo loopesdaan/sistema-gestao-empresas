@@ -4,7 +4,7 @@ import { Venda, FormaPagamento, RelatorioOLAPResponse, Usuario } from '../types'
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
-import { formatarNumeroVenda, formatarNumeroOS, formatarNumeroCaixa } from '../utils/formatters';
+import { formatarNumeroVenda, formatarNumeroOS, formatarNumeroCaixa, formatDateSafe } from '../utils/formatters';
 import { 
   BarChart3, Search, Ban, CheckCircle, Calendar, 
   ArrowRight, User, DollarSign, ShoppingCart, TrendingUp, 
@@ -79,7 +79,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
     let csv = '\ufeff'; // UTF-8 BOM
     csv += 'Número OS;Data Cancelamento;Cliente;Telefone;Veículo/Equipamento;Responsável Cancelamento;Motivo do Cancelamento;Mão de Obra (R$);Peças (R$);Total (R$)\n';
     relatorioCancelamentosOS.ordens.forEach((o: any) => {
-      const dataCanc = o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR') : '';
+      const dataCanc = formatDateSafe(o.data_cancelamento, { includeTime: true, fallback: '' });
       const motivo = (o.motivo_cancelamento || '').replace(/;/g, ',');
       csv += `${o.id};"${dataCanc}";"${o.cliente_nome}";"${o.cliente_telefone || ''}";"${o.equipamento || ''}";"${o.usuario_cancelamento_nome || ''}";"${motivo}";${Number(o.valor_servicos).toFixed(2)};${Number(o.valor_pecas).toFixed(2)};${Number(o.valor_total).toFixed(2)}\n`;
     });
@@ -248,7 +248,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
     const linhasTabela = vendasFiltradas.slice(0, 100).map(v => `
       <tr>
         <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; font-family: monospace; font-weight: bold; color: #334155;">${formatarNumeroVenda(v)}</td>
-        <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; color: #475569;">${new Date(v.created_at).toLocaleString('pt-BR')}</td>
+        <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; color: #475569;">${formatDateSafe(v.created_at, { includeTime: true })}</td>
         <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #0f172a;">${v.usuario_nome || `Operador #${v.usuario_id}`}</td>
         <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">${v.cliente_nome || 'Consumidor Final'}</td>
         <td style="padding: 9px 12px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #475569;">${formatMoney(v.valor_bruto)}</td>
@@ -419,7 +419,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
     csv += `--- DETALHAMENTO DE VENDAS ---\r\n`;
     csv += `ID da Venda;Data / Hora;Vendedor / Operador;Cliente;Valor Bruto (R$);Desconto (R$);Valor Líquido (R$);Formas de Pagamento;Status\r\n`;
     vendasFiltradas.forEach(v => {
-      const dataHora = new Date(v.created_at).toLocaleString('pt-BR');
+      const dataHora = formatDateSafe(v.created_at, { includeTime: true });
       const vendedor = (v.usuario_nome || `Operador #${v.usuario_id}`).replace(/;/g, ',');
       const cliente = (v.cliente_nome || 'Consumidor Final').replace(/;/g, ',');
       const pgtos = v.pagamentos.map(p => getFormaLabel(p.forma_pagamento)).join(' + ');
@@ -581,7 +581,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 {dadosOLAP 
-                  ? `Janela de análise: ${new Date(dadosOLAP.data_inicio).toLocaleDateString('pt-BR')} até ${new Date(dadosOLAP.data_fim).toLocaleDateString('pt-BR')}`
+                  ? `Janela de análise: ${formatDateSafe(dadosOLAP.data_inicio, { dateOnly: true })} até ${formatDateSafe(dadosOLAP.data_fim, { dateOnly: true })}`
                   : 'Carregando inteligência analítica...'}
               </p>
             </div>
@@ -1374,7 +1374,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                       <div>
                         <span className="font-mono font-bold text-slate-900 text-sm">{formatarNumeroVenda(v)}</span>
                         <span className="text-[10px] text-slate-400 block mt-0.5">
-                          {new Date(v.created_at).toLocaleString('pt-BR')}
+                          {formatDateSafe(v.created_at, { includeTime: true })}
                         </span>
                       </div>
 
@@ -1470,7 +1470,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                           {formatarNumeroVenda(v)}
                         </td>
                         <td className="py-3 px-4 text-slate-500">
-                          {new Date(v.created_at).toLocaleString('pt-BR')}
+                          {formatDateSafe(v.created_at, { includeTime: true })}
                         </td>
                         <td className="py-3 px-4">
                           <span className="inline-flex items-center gap-1.5 font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/60">
@@ -1615,7 +1615,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
 
                     <div className="space-y-1 text-xs text-slate-500">
                       <p><span className="text-slate-400">Veículo / Ref:</span> {o.equipamento || o.titulo}</p>
-                      <p><span className="text-slate-400">Cancelado em:</span> {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR') : '-'}</p>
+                      <p><span className="text-slate-400">Cancelado em:</span> {formatDateSafe(o.data_cancelamento, { includeTime: true })}</p>
                       <p><span className="text-slate-400">Responsável:</span> {o.usuario_cancelamento_nome || 'Sistema'}</p>
                     </div>
 
@@ -1662,7 +1662,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                       <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3 px-4 font-mono font-bold text-rose-700">#{o.id}</td>
                         <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
-                          {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR') : '-'}
+                          {formatDateSafe(o.data_cancelamento, { includeTime: true })}
                         </td>
                         <td className="py-3 px-4 font-bold text-slate-800">{o.cliente_nome}</td>
                         <td className="py-3 px-4 text-slate-600">{o.equipamento || o.titulo}</td>
@@ -1705,7 +1705,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                     Comprovante de Venda {formatarNumeroVenda(vendaDetalhe)}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    {new Date(vendaDetalhe.created_at).toLocaleString('pt-BR')}
+                    {formatDateSafe(vendaDetalhe.created_at, { includeTime: true })}
                   </p>
                 </div>
               </div>

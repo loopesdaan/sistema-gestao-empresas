@@ -7,7 +7,7 @@ import {
 import { Venda } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { resolveImageUrl } from '../services/api';
-import { formatarNumeroVenda, formatarNumeroCaixa } from '../utils/formatters';
+import { formatarNumeroVenda, formatarNumeroCaixa, formatDateSafe } from '../utils/formatters';
 
 interface ComprovanteDigitalModalProps {
   isOpen: boolean;
@@ -92,7 +92,7 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
         <div class="text-center">${empresa.cnpj ? 'CNPJ: ' + empresa.cnpj : ''}</div>
         <div class="text-center">${empresa.telefone ? 'TEL: ' + empresa.telefone : ''}</div>
         <div class="divider"></div>
-        <div class="row"><span>DATA: ${new Date(vendaAtiva.created_at).toLocaleString('pt-BR')}</span></div>
+        <div class="row"><span>DATA: ${formatDateSafe(vendaAtiva.created_at, { includeTime: true })}</span></div>
         <div class="row"><span>VENDA: ${formatarNumeroVenda(vendaAtiva)}</span><span>CAIXA: #${formatarNumeroCaixa(vendaAtiva.caixa_id)}</span></div>
         <div class="row"><span>OPERADOR: ${vendaAtiva.usuario_nome || 'Caixa'}</span></div>
         <div class="row"><span>CLIENTE: ${vendaAtiva.cliente_nome || 'Consumidor Final'}</span></div>
@@ -147,7 +147,7 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
       `${empresa.nome_fantasia || empresa.razao_social || 'ESTABELECIMENTO'}`,
       `CNPJ: ${empresa.cnpj || '00.000.000/0001-00'}`,
       `Tel: ${empresa.telefone || '-'}`,
-      `Data: ${new Date(vendaAtiva.created_at).toLocaleString('pt-BR')}`,
+      `Data: ${formatDateSafe(vendaAtiva.created_at, { includeTime: true })}`,
       `Venda Nº: ${formatarNumeroVenda(vendaAtiva)} | Caixa: #${formatarNumeroCaixa(vendaAtiva.caixa_id)}`,
       `Operador: ${vendaAtiva.usuario_nome || 'Caixa'}`,
       `Cliente: ${vendaAtiva.cliente_nome || 'Consumidor Final'}`,
@@ -264,7 +264,7 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">DATA / HORA:</span>
-                <span>{new Date(vendaAtiva.created_at).toLocaleString('pt-BR')}</span>
+                <span>{formatDateSafe(vendaAtiva.created_at, { includeTime: true })}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">CAIXA / OPERADOR:</span>

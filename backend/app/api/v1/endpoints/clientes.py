@@ -25,24 +25,16 @@ class QuitacaoDebitoInput(BaseModel):
 
 def buscar_cliente_seguro(cliente_id: int, db: Session, current_user: Usuario) -> Cliente:
     """
-    Busca cliente por ID garantindo vínculo à empresa do usuário.
-    Possui fallback de resiliência caso ocorra tenant drift ou perda de precisão float64
-    no navegador (IDs de 64-bit do CockroachDB com até 19 dígitos).
+    Busca cliente por ID garantindo vínculo estrito à empresa do usuário.
+    Possui tolerância para perda de precisão float64 no navegador (CockroachDB IDs).
+    Garante isolamento absoluto entre tenants, sem vazamento ou sequestro de registros.
     """
     cliente = db.query(Cliente).filter(
         Cliente.id == cliente_id,
         Cliente.empresa_id == current_user.empresa_id
     ).first()
 
-    if not cliente:
-        # Fallback 1: se o cliente existir no banco com outro empresa_id
-        cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
-        if cliente:
-            cliente.empresa_id = current_user.empresa_id
-            db.commit()
-            db.refresh(cliente)
-
-    # Fallback 2: Tolerância para precisão IEEE 754 de 64-bit int no JavaScript (CockroachDB IDs)
+    # Tolerância para precisão IEEE 754 de 64-bit int no JavaScript (CockroachDB IDs) na mesma empresa
     if not cliente and cliente_id and cliente_id > 10_000_000:
         candidatos = db.query(Cliente).filter(
             Cliente.empresa_id == current_user.empresa_id,
@@ -51,16 +43,18 @@ def buscar_cliente_seguro(cliente_id: int, db: Session, current_user: Usuario) -
         ).all()
         if len(candidatos) == 1:
             cliente = candidatos[0]
-        elif not candidatos:
-            candidatos_gerais = db.query(Cliente).filter(
-                Cliente.id >= cliente_id - 1000,
-                Cliente.id <= cliente_id + 1000
-            ).all()
-            if len(candidatos_gerais) == 1:
-                cliente = candidatos_gerais[0]
-                cliente.empresa_id = current_user.empresa_id
-                db.commit()
-                db.refresh(cliente)
+
+    # Resgate estritamente de dados legados órfãos (onde empresa_id é nulo)
+    if not cliente:
+        cliente_orfao = db.query(Cliente).filter(
+            Cliente.id == cliente_id,
+            Cliente.empresa_id.is_(None)
+        ).first()
+        if cliente_orfao:
+            cliente_orfao.empresa_id = current_user.empresa_id
+            db.commit()
+            db.refresh(cliente_orfao)
+            cliente = cliente_orfao
 
     if not cliente:
         raise HTTPException(status_code=404, detail=f"Cliente ID {cliente_id} não encontrado")

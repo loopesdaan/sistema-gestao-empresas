@@ -3,6 +3,7 @@ import { apiService } from '../services/api';
 import { Produto } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
+import { formatDateSafe } from '../utils/formatters';
 import { 
   Package, Search, Plus, FileSpreadsheet, AlertTriangle, 
   ArrowUpDown, Edit, Check, X, Upload, BarChart3, History,
@@ -816,7 +817,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                     <div>
                       <h4 className="font-bold text-slate-800 text-xs leading-tight">{h.produto_nome}</h4>
                       <span className="text-[10px] text-slate-400 block mt-0.5">
-                        {h.created_at ? new Date(h.created_at).toLocaleString('pt-BR') : '-'}
+                        {formatDateSafe(h.created_at, { includeTime: true })}
                       </span>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
@@ -877,7 +878,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                   historicoGeral.map((h) => (
                     <tr key={h.id} className="hover:bg-slate-50">
                       <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
-                        {h.created_at ? new Date(h.created_at).toLocaleString('pt-BR') : '-'}
+                        {formatDateSafe(h.created_at, { includeTime: true })}
                       </td>
                       <td className="py-2.5 px-3 font-bold text-slate-800">
                         {h.produto_nome}

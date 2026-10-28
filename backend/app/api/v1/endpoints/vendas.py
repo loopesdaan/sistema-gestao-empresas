@@ -101,7 +101,11 @@ def obter_venda(
         Venda.empresa_id == current_user.empresa_id
     ).first()
     if not venda:
-        venda = db.query(Venda).filter(Venda.id == venda_id).first()
+        # Fallback estritamente para registros legados órfãos (empresa_id nulo)
+        venda = db.query(Venda).filter(
+            Venda.id == venda_id,
+            Venda.empresa_id.is_(None)
+        ).first()
         if venda:
             venda.empresa_id = current_user.empresa_id
             db.commit()
@@ -143,11 +147,15 @@ def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_use
                     caixa = abertos[0]
 
         if not caixa:
-            caixa = db.query(Caixa).filter(Caixa.id == caixa_id).first()
-            if caixa:
-                caixa.empresa_id = current_user.empresa_id
+            caixa_orfao = db.query(Caixa).filter(
+                Caixa.id == caixa_id,
+                Caixa.empresa_id.is_(None)
+            ).first()
+            if caixa_orfao:
+                caixa_orfao.empresa_id = current_user.empresa_id
                 db.commit()
-                db.refresh(caixa)
+                db.refresh(caixa_orfao)
+                caixa = caixa_orfao
 
     # Se o caixa_id enviado não estiver aberto ou não existir, busca o caixa aberto atual do usuário
     if not _is_aberto(caixa):
@@ -164,16 +172,6 @@ def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_use
             Caixa.status == StatusCaixa.ABERTO
         ).order_by(Caixa.data_abertura.desc()).first()
 
-    # Fallback amplo caso haja tenant drift no registro do caixa
-    if not _is_aberto(caixa):
-        caixa = db.query(Caixa).filter(
-            Caixa.status == StatusCaixa.ABERTO
-        ).order_by(Caixa.data_abertura.desc()).first()
-        if caixa:
-            caixa.empresa_id = current_user.empresa_id
-            db.commit()
-            db.refresh(caixa)
-
     if not _is_aberto(caixa):
         raise HTTPException(
             status_code=400,
@@ -185,22 +183,14 @@ def buscar_caixa_aberto_seguro(caixa_id: Optional[int], db: Session, current_use
 def buscar_produto_seguro(produto_id: int, db: Session, current_user: Usuario) -> Produto:
     """
     Busca produto por ID garantindo vínculo à empresa do usuário.
-    Possui fallback de resiliência caso ocorra tenant drift ou perda de precisão float64 no navegador.
+    Possui tolerância a IDs float64 de 64-bit e resgate seguro de itens legados órfãos.
     """
     produto = db.query(Produto).filter(
         Produto.id == produto_id,
         Produto.empresa_id == current_user.empresa_id
     ).first()
 
-    if not produto:
-        # Fallback de resiliência: se o produto existir no banco com outro empresa_id
-        produto = db.query(Produto).filter(Produto.id == produto_id).first()
-        if produto:
-            produto.empresa_id = current_user.empresa_id
-            db.commit()
-            db.refresh(produto)
-
-    # Fallback 2: Tolerância para precisão IEEE 754 de 64-bit int no JavaScript (CockroachDB IDs)
+    # Tolerância para precisão IEEE 754 de 64-bit int no JavaScript (CockroachDB IDs) na MESMA empresa
     if not produto and produto_id and produto_id > 10_000_000:
         candidatos = db.query(Produto).filter(
             Produto.empresa_id == current_user.empresa_id,
@@ -209,16 +199,18 @@ def buscar_produto_seguro(produto_id: int, db: Session, current_user: Usuario) -
         ).all()
         if len(candidatos) == 1:
             produto = candidatos[0]
-        elif not candidatos:
-            candidatos_gerais = db.query(Produto).filter(
-                Produto.id >= produto_id - 1000,
-                Produto.id <= produto_id + 1000
-            ).all()
-            if len(candidatos_gerais) == 1:
-                produto = candidatos_gerais[0]
-                produto.empresa_id = current_user.empresa_id
-                db.commit()
-                db.refresh(produto)
+
+    # Resgate estritamente de dados legados órfãos (empresa_id nulo)
+    if not produto:
+        prod_orfao = db.query(Produto).filter(
+            Produto.id == produto_id,
+            Produto.empresa_id.is_(None)
+        ).first()
+        if prod_orfao:
+            prod_orfao.empresa_id = current_user.empresa_id
+            db.commit()
+            db.refresh(prod_orfao)
+            produto = prod_orfao
 
     if not produto:
         raise HTTPException(status_code=404, detail=f"Produto ID {produto_id} não encontrado.")
@@ -404,9 +396,13 @@ def registrar_venda(
                 OrdemServico.empresa_id == current_user.empresa_id
             ).first()
             if not os_registro:
-                os_registro = db.query(OrdemServico).filter(OrdemServico.id == os_id).first()
-                if os_registro:
-                    os_registro.empresa_id = current_user.empresa_id
+                os_orfao = db.query(OrdemServico).filter(
+                    OrdemServico.id == os_id,
+                    OrdemServico.empresa_id.is_(None)
+                ).first()
+                if os_orfao:
+                    os_orfao.empresa_id = current_user.empresa_id
+                    os_registro = os_orfao
             if os_registro and os_registro.status != StatusOS.ENTREGUE:
                 os_registro.status = StatusOS.ENTREGUE
                 os_registro.data_finalizacao = datetime.now(timezone.utc)
@@ -440,11 +436,15 @@ def cancelar_venda(
         Venda.empresa_id == current_user.empresa_id
     ).first()
     if not venda:
-        venda = db.query(Venda).filter(Venda.id == venda_id).first()
-        if venda:
-            venda.empresa_id = current_user.empresa_id
+        venda_orfa = db.query(Venda).filter(
+            Venda.id == venda_id,
+            Venda.empresa_id.is_(None)
+        ).first()
+        if venda_orfa:
+            venda_orfa.empresa_id = current_user.empresa_id
             db.commit()
-            db.refresh(venda)
+            db.refresh(venda_orfa)
+            venda = venda_orfa
     if not venda:
         raise HTTPException(status_code=404, detail="Venda não encontrada")
     if venda.status == StatusVenda.CANCELADA:
@@ -452,7 +452,10 @@ def cancelar_venda(
 
     # Devolve itens ao estoque
     for it in venda.itens:
-        produto = db.query(Produto).filter(Produto.id == it.produto_id).first()
+        produto = db.query(Produto).filter(
+            Produto.id == it.produto_id,
+            Produto.empresa_id == current_user.empresa_id
+        ).first()
         if produto:
             produto.estoque_atual += it.quantidade
             mov = MovimentacaoEstoque(

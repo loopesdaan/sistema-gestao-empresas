@@ -309,7 +309,10 @@ def atualizar_os(
     if dados.itens is not None:
         # Remove peças antigas e estorna
         for it in os.itens:
-            prod = db.query(Produto).filter(Produto.id == it.produto_id).first()
+            prod = db.query(Produto).filter(
+                Produto.id == it.produto_id,
+                Produto.empresa_id == current_user.empresa_id
+            ).first()
             if prod:
                 prod.estoque_atual += it.quantidade
             db.delete(it)

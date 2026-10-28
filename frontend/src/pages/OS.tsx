@@ -6,7 +6,7 @@ import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { useToast } from '../contexts/ToastContext';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { getOSConfig } from '../utils/segmentoOS';
-import { formatarNumeroOS, formatarNumeroVenda } from '../utils/formatters';
+import { formatarNumeroOS, formatarNumeroVenda, formatDateSafe } from '../utils/formatters';
 import { 
   Wrench, Plus, Search, Clock, CheckCircle2, 
   AlertCircle, ChevronRight, User, Calendar, Edit, Package,
@@ -268,7 +268,7 @@ export const OS: React.FC = () => {
     let csv = '\ufeff'; // UTF-8 BOM
     csv += 'Número OS;Data Cancelamento;Cliente;Telefone;Veículo/Equipamento;Responsável Cancelamento;Motivo do Cancelamento;Mão de Obra (R$);Peças (R$);Total (R$)\n';
     relatorioCancelamentos.ordens.forEach(o => {
-      const dataCanc = o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR') : '';
+      const dataCanc = formatDateSafe(o.data_cancelamento, { includeTime: true, fallback: '' });
       const motivo = (o.motivo_cancelamento || '').replace(/;/g, ',');
       csv += `${o.id};"${dataCanc}";"${o.cliente_nome}";"${o.cliente_telefone || ''}";"${o.equipamento || ''}";"${o.usuario_cancelamento_nome || ''}";"${motivo}";${Number(o.valor_servicos).toFixed(2)};${Number(o.valor_pecas).toFixed(2)};${Number(o.valor_total).toFixed(2)}\n`;
     });
@@ -944,7 +944,7 @@ export const OS: React.FC = () => {
                     <p><strong>Motivo:</strong> {modalDetalheOS.motivo_cancelamento || 'Não informado'}</p>
                     {modalDetalheOS.data_cancelamento && (
                       <p className="text-[11px] text-rose-600">
-                        Cancelada em {new Date(modalDetalheOS.data_cancelamento).toLocaleString('pt-BR')}
+                        Cancelada em {formatDateSafe(modalDetalheOS.data_cancelamento, { includeTime: true })}
                         {modalDetalheOS.usuario_cancelamento_nome ? ` por ${modalDetalheOS.usuario_cancelamento_nome}` : ''}
                       </p>
                     )}
@@ -1358,7 +1358,7 @@ export const OS: React.FC = () => {
 
                         <div className="space-y-1 text-xs text-slate-500">
                           <p><span className="text-slate-400">{cfg.labelEquipamento.includes('Veículo') ? 'Veículo:' : 'Referência:'}</span> {o.equipamento || o.titulo}</p>
-                          <p><span className="text-slate-400">Cancelado em:</span> {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}</p>
+                          <p><span className="text-slate-400">Cancelado em:</span> {formatDateSafe(o.data_cancelamento, { includeTime: true })}</p>
                           <p><span className="text-slate-400">Operador:</span> {o.usuario_cancelamento_nome || 'Sistema'}</p>
                         </div>
 
@@ -1389,7 +1389,7 @@ export const OS: React.FC = () => {
                           <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-2.5 px-3 font-mono font-bold text-rose-700">{formatarNumeroOS(o)}</td>
                             <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
-                              {o.data_cancelamento ? new Date(o.data_cancelamento).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                              {formatDateSafe(o.data_cancelamento, { includeTime: true })}
                             </td>
                             <td className="py-2.5 px-3">
                               <span className="font-bold text-slate-800 block truncate max-w-[150px]">{o.cliente_nome}</span>

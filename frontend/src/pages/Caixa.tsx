@@ -4,7 +4,7 @@ import { Caixa as CaixaType, ResumoCaixa, Venda } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
 import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
-import { formatarNumeroCaixa, formatarNumeroVenda } from '../utils/formatters';
+import { formatarNumeroCaixa, formatarNumeroVenda, formatDateSafe } from '../utils/formatters';
 import { 
   Wallet, ArrowDownCircle, ArrowUpCircle, Lock, 
   CheckCircle2, AlertCircle, Clock, Calendar, DollarSign, Users, Eye, X,
@@ -854,7 +854,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-slate-900 font-mono text-sm">#{formatarNumeroCaixa(t.id)}</span>
                           <span className="text-[10px] text-slate-400">
-                            {new Date(t.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            {formatDateSafe(t.created_at, { timeOnly: true })}
                           </span>
                         </div>
                         <p className="text-xs font-semibold text-slate-800 mt-0.5">
@@ -949,7 +949,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                         <td className="p-3 font-mono">
                           <span className="font-bold text-slate-900">#{formatarNumeroCaixa(t.id)}</span>
                           <span className="text-[10px] text-slate-400 block">
-                            {new Date(t.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            {formatDateSafe(t.created_at, { timeOnly: true })}
                           </span>
                         </td>
                         <td className="p-3 font-semibold text-slate-900">
@@ -1035,7 +1035,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {caixaAtual 
-                    ? `Aberto em ${new Date(caixaAtual.data_abertura).toLocaleString('pt-BR')}`
+                    ? `Aberto em ${formatDateSafe(caixaAtual.data_abertura, { includeTime: true })}`
                     : 'Nenhum caixa aberto para você neste momento.'}
                 </p>
               </div>
