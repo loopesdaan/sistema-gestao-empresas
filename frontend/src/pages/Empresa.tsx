@@ -8,6 +8,7 @@ import {
   MessageCircle, ExternalLink, Edit, CheckCircle2, Save, X, Sparkles, RefreshCw, Palette, Camera, Upload,
   Layers, ShoppingCart, Wallet, Wrench, Package, Users, BarChart3, Power, LayoutDashboard, Landmark, Clock, Bell, Shield
 } from 'lucide-react';
+import { formatarCNPJ, formatarTelefone } from '../utils/formatters';
 
 const MODULOS_SISTEMA = [
   {
@@ -524,15 +525,27 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
               </button>
             </div>
 
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Razão Social *</label>
-              <input
-                type="text"
-                required
-                value={empresa.razao_social || ''}
-                onChange={(e) => setEmpresa({ ...empresa, razao_social: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Razão Social *</label>
+                <input
+                  type="text"
+                  required
+                  value={empresa.razao_social || ''}
+                  onChange={(e) => setEmpresa({ ...empresa, razao_social: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">CNPJ</label>
+                <input
+                  type="text"
+                  value={empresa.cnpj || ''}
+                  onChange={(e) => setEmpresa({ ...empresa, cnpj: formatarCNPJ(e.target.value) })}
+                  placeholder="00.000.000/0000-00"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -594,8 +607,9 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
                 <input
                   type="text"
                   value={empresa.telefone || ''}
-                  onChange={(e) => setEmpresa({ ...empresa, telefone: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
+                  onChange={(e) => setEmpresa({ ...empresa, telefone: formatarTelefone(e.target.value) })}
+                  placeholder="(00) 00000-0000"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-1 focus:ring-sky-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -700,7 +714,7 @@ Endereço: ${empresa.endereco || 'Não informado'}${empresa.cep ? ' - CEP: ' + e
         </div>
 
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {MODULOS_SISTEMA.map((mod) => {
+          {(isAdmin ? MODULOS_SISTEMA : MODULOS_SISTEMA.filter(m => modulosAtivos.includes(m.id))).map((mod) => {
             const ativo = modulosAtivos.includes(mod.id);
             const Icon = mod.icon;
 

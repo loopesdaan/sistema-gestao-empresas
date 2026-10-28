@@ -19,7 +19,7 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
   const { temaAtual } = useEmpresa();
   const { addNotificacao } = useNotificacoes();
 
-  const [abaAtiva, setAbaAtiva] = useState<'bater' | 'historico' | 'auditoria' | 'escalas'>('bater');
+  const [abaAtiva, setAbaAtiva] = useState<'bater' | 'historico' | 'auditoria' | 'escalas'>(isAdmin ? 'auditoria' : 'bater');
   const [statusJornada, setStatusJornada] = useState<StatusJornada | null>(null);
   const [historico, setHistorico] = useState<RegistroPonto[]>([]);
   const [equipePonto, setEquipePonto] = useState<RegistroPonto[]>([]);
@@ -28,6 +28,15 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
   const [tipoEscala, setTipoEscala] = useState<'CARGO' | 'COLABORADOR'>('CARGO');
   const [colaboradorSelecionadoId, setColaboradorSelecionadoId] = useState<number | null>(null);
   const [perfilAtivoEscala, setPerfilAtivoEscala] = useState<'OPERADOR_CAIXA' | 'ESTOQUISTA' | 'ADMIN'>('OPERADOR_CAIXA');
+  const [mostrarDevToolsPonto, setMostrarDevToolsPonto] = useState(false);
+  const [modalAjusteManual, setModalAjusteManual] = useState({
+    aberto: false,
+    data: new Date().toISOString().split('T')[0],
+    tipo_batida: 'ENTRADA' as 'ENTRADA' | 'SAIDA_ALMOCO' | 'RETORNO_ALMOCO' | 'SAIDA_FINAL',
+    horario: '08:00',
+    motivo: ''
+  });
+  const [enviandoAjuste, setEnviandoAjuste] = useState(false);
   const [formEscala, setFormEscala] = useState<ConfiguracaoPonto>({
     perfil: 'OPERADOR_CAIXA',
     horario_entrada: '08:00',
@@ -292,6 +301,47 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
     }
   };
 
+  const handleEnviarAjusteManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalAjusteManual.motivo.trim()) {
+      addNotificacao({
+        titulo: 'Justificativa Obrigatória',
+        mensagem: 'Por favor, informe o motivo do apontamento manual para avaliação do gestor.',
+        tipo: 'aviso'
+      });
+      return;
+    }
+    try {
+      setEnviandoAjuste(true);
+      const res = await apiService.solicitarAjustePonto({
+        data: modalAjusteManual.data,
+        tipo_batida: modalAjusteManual.tipo_batida,
+        horario: modalAjusteManual.horario,
+        motivo: modalAjusteManual.motivo
+      });
+      addNotificacao({
+        titulo: 'Solicitação Enviada',
+        mensagem: res.mensagem || 'Apontamento manual enviado para aprovação do Administrador.',
+        tipo: 'sucesso'
+      });
+      setModalAjusteManual({
+        aberto: false,
+        data: new Date().toISOString().split('T')[0],
+        tipo_batida: 'ENTRADA',
+        horario: '08:00',
+        motivo: ''
+      });
+    } catch (err: any) {
+      addNotificacao({
+        titulo: 'Falha ao Solicitar Ajuste',
+        mensagem: err.response?.data?.detail || 'Não foi possível registrar a solicitação de ajuste.',
+        tipo: 'aviso'
+      });
+    } finally {
+      setEnviandoAjuste(false);
+    }
+  };
+
   // Normalização de batidas para leitura instantânea e dinâmica
   const regEntrada1 = statusJornada?.entrada_1 || statusJornada?.ponto_hoje?.entrada_1;
   const regSaidaAlmoco = statusJornada?.saida_almoco || statusJornada?.ponto_hoje?.saida_almoco || statusJornada?.saida_1 || statusJornada?.ponto_hoje?.saida_1;
@@ -470,97 +520,96 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
       {/* ABA 1: REGISTRAR PONTO HOJE */}
       {abaAtiva === 'bater' && (
         <div className="space-y-6">
-          {/* Banner de Isenção do Administrador (Art. 62 CLT) e Modo Teste Total */}
+          {/* Banner de Isenção do Administrador (Art. 62 CLT) e Painel Recolhível de Teste */}
           {isAdmin && (
-            <div className="p-5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200/90 rounded-2xl space-y-3.5 shadow-xs">
+            <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl shadow-xs transition-all">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0">
-                    👑
-                  </div>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">👑</span>
                   <div>
-                    <h4 className="font-bold text-xs text-amber-950 flex items-center gap-1.5 flex-wrap">
+                    <h4 className="font-bold text-xs text-amber-950 flex items-center gap-1.5">
                       <span>Gerente Geral / Administrador</span>
                       <span className="text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full font-bold">
                         Isento Art. 62 CLT
                       </span>
-                      <span className="text-[10px] bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full font-bold">
-                        Pode bater ponto a qualquer hora
-                      </span>
                     </h4>
-                    <p className="text-[11px] text-amber-800 leading-tight mt-0.5">
-                      Você pode bater ponto em qualquer horário, simular um dia inteiro de 8h com 1 clique ou testar horários manuais.
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      Cargos de gestão não são obrigados a registrar ponto. Para gerir a equipe e aprovar ajustes, consulte a aba <strong>Monitor da Equipe</strong>.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSimularDiaCompleto}
-                    disabled={carregando}
-                    className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
-                  >
-                    <Sparkles size={14} />
-                    <span>⚡ Simular Dia Completo (8h)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleResetarTeste}
-                    disabled={carregando}
-                    className="px-3 py-2 bg-white hover:bg-amber-100/60 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all"
-                  >
-                    <RotateCcw size={14} className={carregando ? 'animate-spin' : ''} />
-                    <span>Resetar Teste</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleToggleBypass}
-                    disabled={carregando}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all ${
-                      statusJornada?.bypass_ativo
-                        ? 'bg-purple-600 text-white hover:bg-purple-700 ring-2 ring-purple-300'
-                        : 'bg-white hover:bg-purple-50 text-purple-900 border border-purple-200'
-                    }`}
-                    title="Permite que Operadores e Controladores trabalhem sem bater ponto (Modo Demonstração)"
-                  >
-                    <span>🧪 Bypass Equipe:</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${
-                      statusJornada?.bypass_ativo ? 'bg-purple-800 text-white' : 'bg-purple-100 text-purple-800'
-                    }`}>
-                      {statusJornada?.bypass_ativo ? 'ATIVO' : 'DESLIGADO'}
-                    </span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setMostrarDevToolsPonto(!mostrarDevToolsPonto)}
+                  className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200/80 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0"
+                >
+                  <Sliders size={13} />
+                  <span>{mostrarDevToolsPonto ? 'Ocultar Ferramentas de Teste' : 'Ferramentas de Teste / Bypass ▾'}</span>
+                </button>
               </div>
 
-              {/* Barra de Teste com Horário Customizado */}
-              <div className="pt-2 border-t border-amber-200/60 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="text-amber-900 font-semibold text-[11px] flex items-center gap-1">
-                  <Clock size={13} className="text-amber-600" />
-                  <span>Deseja testar com um horário específico?</span>
-                </span>
+              {mostrarDevToolsPonto && (
+                <div className="mt-3 pt-3 border-t border-amber-200/70 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSimularDiaCompleto}
+                      disabled={carregando}
+                      className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
+                    >
+                      <Sparkles size={13} />
+                      <span>⚡ Simular 8h Completas</span>
+                    </button>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="time"
-                    value={horaSimulada}
-                    onChange={(e) => setHoraSimulada(e.target.value)}
-                    placeholder="HH:MM"
-                    className="px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-mono font-bold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                  />
-                  <button
-                    type="button"
-                    disabled={carregando || !horaSimulada}
-                    onClick={() => handleBaterPonto()}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-all shadow-2xs"
-                  >
-                    Bater neste Horário
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleResetarTeste}
+                      disabled={carregando}
+                      className="px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all"
+                    >
+                      <RotateCcw size={13} className={carregando ? 'animate-spin' : ''} />
+                      <span>Resetar Ponto</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleToggleBypass}
+                      disabled={carregando}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all ${
+                        statusJornada?.bypass_ativo
+                          ? 'bg-purple-600 text-white hover:bg-purple-700'
+                          : 'bg-white hover:bg-purple-50 text-purple-900 border border-purple-200'
+                      }`}
+                    >
+                      <span>Bypass Equipe:</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${
+                        statusJornada?.bypass_ativo ? 'bg-purple-800 text-white' : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        {statusJornada?.bypass_ativo ? 'ATIVO' : 'DESLIGADO'}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-amber-900 font-semibold text-[11px]">Bater em horário específico:</span>
+                    <input
+                      type="time"
+                      value={horaSimulada}
+                      onChange={(e) => setHoraSimulada(e.target.value)}
+                      className="px-2.5 py-1 bg-white border border-amber-300 rounded-md text-xs font-mono font-bold text-slate-800"
+                    />
+                    <button
+                      type="button"
+                      disabled={carregando || !horaSimulada}
+                      onClick={() => handleBaterPonto()}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white rounded-md text-xs font-bold"
+                    >
+                      Bater
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -876,6 +925,28 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
                   </p>
                 </div>
               </div>
+            </div>
+
+            {/* Solicitação de Apontamento Manual (Correção de Batida Esquecida) */}
+            <div className="p-4 bg-slate-50 hover:bg-slate-100/80 transition-all rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Calendar size={20} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800">Esqueceu ou errou alguma batida de ponto?</h4>
+                  <p className="text-[11px] text-slate-500">
+                    Solicite o apontamento manual retroativo. O gestor/administrador receberá o alerta para homologação.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalAjusteManual(prev => ({ ...prev, aberto: true }))}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all shrink-0 cursor-pointer"
+              >
+                <span>📝 Solicitar Apontamento Manual</span>
+              </button>
             </div>
 
             {/* Aviso Legal de Intervalo Interjornada */}
@@ -1556,6 +1627,109 @@ export const Ponto: React.FC<PontoProps> = ({ isAdmin = false }) => {
                 Confirmar & Destravar PDV
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SOLICITAR APONTAMENTO MANUAL (COLABORADOR) */}
+      {modalAjusteManual.aberto && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5 text-indigo-700">
+                <Calendar size={20} />
+                <h3 className="font-bold text-slate-900 text-base">Solicitar Apontamento Manual</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalAjusteManual(prev => ({ ...prev, aberto: false }))}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Informe a data, batida que deseja apontar e o motivo para homologação da chefia imediata (conforme Portaria MTP 671).
+            </p>
+
+            <form onSubmit={handleEnviarAjusteManual} className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Data do Ponto:
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={modalAjusteManual.data}
+                    onChange={(e) => setModalAjusteManual(prev => ({ ...prev, data: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Horário Efetivo:
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={modalAjusteManual.horario}
+                    onChange={(e) => setModalAjusteManual(prev => ({ ...prev, horario: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Batida a Apontar:
+                </label>
+                <select
+                  value={modalAjusteManual.tipo_batida}
+                  onChange={(e) => setModalAjusteManual(prev => ({ ...prev, tipo_batida: e.target.value as any }))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                >
+                  <option value="ENTRADA">1ª Batida: Entrada da Manhã</option>
+                  <option value="SAIDA_ALMOCO">2ª Batida: Saída para Almoço</option>
+                  <option value="RETORNO_ALMOCO">3ª Batida: Retorno do Almoço</option>
+                  <option value="SAIDA_FINAL">4ª Batida: Saída Final do Expediente</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Justificativa / Motivo detalhado:
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={modalAjusteManual.motivo}
+                  onChange={(e) => setModalAjusteManual(prev => ({ ...prev, motivo: e.target.value }))}
+                  placeholder="Ex: Esqueci de registrar a entrada na chegada devido a atendimento de urgência no balcão."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setModalAjusteManual(prev => ({ ...prev, aberto: false }))}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={enviandoAjuste}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md transition-colors flex items-center justify-center gap-1.5"
+                >
+                  {enviandoAjuste ? <RefreshCw size={14} className="animate-spin" /> : null}
+                  <span>Enviar para Gestor</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

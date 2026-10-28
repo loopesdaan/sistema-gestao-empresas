@@ -113,6 +113,27 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
     }
   };
 
+  const handleResponderAjustePonto = async (notificacaoId: number, aprovado: boolean) => {
+    try {
+      setExecutandoAcao(notificacaoId);
+      const res = await apiService.responderAjustePonto(notificacaoId, aprovado);
+      addNotificacao({
+        tipo: aprovado ? 'sucesso' : 'aviso',
+        titulo: aprovado ? 'Ajuste Homologado' : 'Ajuste Rejeitado',
+        mensagem: res.mensagem || 'Resposta do ajuste de ponto registrada com sucesso.'
+      });
+      await carregarNotificacoes();
+    } catch (err: any) {
+      addNotificacao({
+        tipo: 'aviso',
+        titulo: 'Erro no Ajuste de Ponto',
+        mensagem: err.response?.data?.detail || 'Não foi possível responder ao ajuste de ponto.'
+      });
+    } finally {
+      setExecutandoAcao(null);
+    }
+  };
+
   const handleAprovarHoraExtraRapida = async (notificacaoId: number, registroId: number) => {
     try {
       setExecutandoAcao(notificacaoId);
@@ -197,7 +218,7 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
-              Central de Interações
+              Operações & Alertas
             </span>
             <span className="text-xs font-bold text-slate-400">
               {contadores.pendentes} pendências ativas
@@ -205,10 +226,10 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
           </div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2 mt-1">
             <Bell className={temaAtual.textoHighlight} size={28} />
-            <span>Central de Notificações & Ações Rápidas</span>
+            <span>Centro de Ações Rápidas e Alertas</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Resolva solicitações de caixas, sangrias, autorizações de horas extras CLT e quitações de crédito com 1 clique.
+            Aprovações em 1 clique para sangrias, suprimentos de caixa, ajustes manuais de ponto CLT e alertas de cancelamento.
           </p>
         </div>
 
@@ -504,8 +525,32 @@ export const Notificacoes: React.FC<NotificacoesProps> = ({ isAdmin = false, onN
                       </>
                     )}
 
-                    {/* Ações para Ponto CLT */}
-                    {isPonto && isPendente && isAdmin && item.referencia_id && (
+                    {/* Ações para Ajuste Manual de Ponto CLT */}
+                    {isPonto && item.referencia_tipo === 'AJUSTE_PONTO' && isPendente && isAdmin && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={executandoAcao === item.id}
+                          onClick={() => handleResponderAjustePonto(item.id, true)}
+                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1 shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer"
+                        >
+                          <CheckCircle2 size={14} />
+                          <span>Aprovar Ajuste</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={executandoAcao === item.id}
+                          onClick={() => handleResponderAjustePonto(item.id, false)}
+                          className="px-3.5 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-xl text-xs font-black transition-all flex items-center gap-1 active:scale-95 disabled:opacity-50 cursor-pointer"
+                        >
+                          <XCircle size={14} />
+                          <span>Rejeitar</span>
+                        </button>
+                      </>
+                    )}
+
+                    {/* Ações para Ponto CLT (Horas Extras) */}
+                    {isPonto && item.referencia_tipo !== 'AJUSTE_PONTO' && isPendente && isAdmin && item.referencia_id && (
                       <button
                         type="button"
                         disabled={executandoAcao === item.id}

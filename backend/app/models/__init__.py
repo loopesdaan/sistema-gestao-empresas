@@ -9,6 +9,7 @@ from app.models.os import OrdemServico, ItemOS, StatusOS
 from app.models.ponto import RegistroPonto, ConfiguracaoPonto, StatusJornada
 from app.models.notificacao import Notificacao, StatusNotificacao
 from app.models.financeiro import CofreCentral, MovimentacaoTesouraria, TipoMovimentacaoTesouraria
+from app.models.mensagem import MensagemInterna
 
 __all__ = [
     "Empresa",
@@ -41,5 +42,6 @@ __all__ = [
     "CofreCentral",
     "MovimentacaoTesouraria",
     "TipoMovimentacaoTesouraria",
+    "MensagemInterna",
 ]
 

@@ -111,6 +111,18 @@ export const PALETAS_CORES: Record<string, PaletaCor> = {
     textoHighlight: 'text-indigo-400',
     bgSuave: 'bg-indigo-50',
     previewHex: '#6366f1'
+  },
+  black: {
+    id: 'black',
+    label: 'Preto Ônix / Dark',
+    corPrimaria: 'slate-900',
+    bgGradiente: 'from-slate-900 via-zinc-850 to-black',
+    sidebarGradiente: 'from-black via-zinc-950 to-slate-950',
+    accentBadge: 'bg-zinc-800 text-zinc-100 border-zinc-700',
+    borderHighlight: 'border-zinc-700',
+    textoHighlight: 'text-zinc-300',
+    bgSuave: 'bg-zinc-100',
+    previewHex: '#18181b'
   }
 };
 
@@ -278,11 +290,42 @@ interface EmpresaContextType {
   setOnboardingConcluido: (v: boolean) => void;
   temaAtual: TemaSegmento;
   carregarDadosEmpresa: () => Promise<void>;
+  modoTema: 'light' | 'dark';
+  toggleModoTema: () => void;
 }
 
 const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined);
 
 export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Controle de Tema Black/Dark e Light
+  const [modoTema, setModoTema] = useState<'light' | 'dark'>(() => {
+    try {
+      const salvo = localStorage.getItem('gestao_theme_mode');
+      if (salvo === 'dark' || salvo === 'light') return salvo;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  const toggleModoTema = () => {
+    setModoTema(prev => {
+      const proximo = prev === 'light' ? 'dark' : 'light';
+      try {
+        localStorage.setItem('gestao_theme_mode', proximo);
+      } catch {}
+      return proximo;
+    });
+  };
+
+  useEffect(() => {
+    if (modoTema === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [modoTema]);
+
   // Inicialização inteligente com cache local para evitar "flashes" de dados divergentes
   const [empresa, setEmpresa] = useState<Partial<Empresa>>(() => {
     try {
@@ -451,6 +494,8 @@ export const EmpresaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setOnboardingConcluido,
         temaAtual,
         carregarDadosEmpresa,
+        modoTema,
+        toggleModoTema,
       }}
     >
       {children}

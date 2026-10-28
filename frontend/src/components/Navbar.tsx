@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Menu, Bell, ShoppingCart, User, CheckCheck, X, Clock, ArrowRight, CheckCircle2, AlertCircle, History } from 'lucide-react';
+import { Menu, Bell, ShoppingCart, User, CheckCheck, X, Clock, ArrowRight, CheckCircle2, AlertCircle, History, MessageSquare, Sun, Moon } from 'lucide-react';
 import { useNotificacoes, Notificacao } from '../contexts/NotificationContext';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { Caixa, NotificacaoItem } from '../types';
 import { apiService, resolveImageUrl } from '../services/api';
+import { ChatInterno } from './ChatInterno';
 
 interface NavbarProps {
   onMenuToggle: () => void;
@@ -60,8 +61,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenPerfil
 }) => {
   const { notificacoes, naoLidas, marcarLida, marcarTodasLidas } = useNotificacoes();
-  const { temaAtual } = useEmpresa();
+  const { temaAtual, modoTema, toggleModoTema } = useEmpresa();
   const [dropdownAberto, setDropdownAberto] = useState(false);
+  const [chatAberto, setChatAberto] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Notificações do banco (persistidas): pendentes + histórico resolvidas
@@ -309,6 +311,29 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="hidden sm:inline">Frente de Caixa</span>
         </button>
 
+        {/* Comunicador Interno de Mensagens (Chat da Equipe) */}
+        <button
+          type="button"
+          onClick={() => setChatAberto(true)}
+          className="relative p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+          title="Canal da Equipe (Chat de Mensagens)"
+          aria-label="Abrir Mensagens da Equipe"
+        >
+          <MessageSquare size={19} />
+          <span className="w-2 h-2 rounded-full bg-emerald-500 absolute top-1.5 right-1.5" />
+        </button>
+
+        {/* Alternador de Tema Dark / Light */}
+        <button
+          type="button"
+          onClick={toggleModoTema}
+          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+          title={modoTema === 'dark' ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro (Dark Mode)'}
+          aria-label="Alternar Tema"
+        >
+          {modoTema === 'dark' ? <Sun size={19} className="text-amber-400" /> : <Moon size={19} />}
+        </button>
+
         {/* Sino de Notificações */}
         <div className="relative" ref={dropdownRef}>
           <button
@@ -525,6 +550,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </button>
       </div>
+
+      {/* Drawer / Popover Lateral de Chat Interno */}
+      <ChatInterno
+        aberto={chatAberto}
+        onFechar={() => setChatAberto(false)}
+        usuarioAtualNome={userName}
+      />
     </header>
   );
 };

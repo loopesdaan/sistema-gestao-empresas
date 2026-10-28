@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { apiService, resolveImageUrl } from '../services/api';
 import { OrdemServico, Cliente, Produto, StatusOS, FormaPagamento, Caixa, Venda, RelatorioCancelamentosOS } from '../types';
@@ -47,13 +47,16 @@ export const OS: React.FC = () => {
   const [modalCobrarOS, setModalCobrarOS] = useState<OrdemServico | null>(null);
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('DINHEIRO');
   const [valorRecebido, setValorRecebido] = useState<string>('');
-  const [desconto, setDesconto] = useState<number>(0);
+  const [descontoInput, setDescontoInput] = useState<string>('');
+  const [tipoDesconto, setTipoDesconto] = useState<'reais' | 'porcentagem'>('reais');
   const [observacoes, setObservacoes] = useState<string>('');
   const [faturando, setFaturando] = useState(false);
   const [erroFaturamento, setErroFaturamento] = useState<string | null>(null);
   const [sucessoFaturamento, setSucessoFaturamento] = useState<{
     os: OrdemServico;
     venda_id: number;
+    valor_bruto: number;
+    desconto: number;
     valor_pago: number;
     forma_pagamento: string;
   } | null>(null);
@@ -282,6 +285,18 @@ export const OS: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  const valorBrutoOS = modalCobrarOS ? Number(modalCobrarOS.valor_total) : 0;
+  const valorDescontoCalculado = useMemo(() => {
+    const val = parseFloat(descontoInput) || 0;
+    if (val <= 0) return 0;
+    if (tipoDesconto === 'porcentagem') {
+      return Math.min(valorBrutoOS, (valorBrutoOS * val) / 100);
+    }
+    return Math.min(valorBrutoOS, val);
+  }, [descontoInput, tipoDesconto, valorBrutoOS]);
+
+  const totalCobrarOS = Math.max(0, valorBrutoOS - valorDescontoCalculado);
+
   const handleAbrirCobrar = async (os: OrdemServico) => {
     if (os.status !== 'CONCLUIDA') {
       toast.aviso(`Apenas ordens com status 'Concluída' podem ser faturadas. O status atual é '${statusColors[os.status]?.label || os.status}'. Conclua a ordem antes de cobrar.`);
@@ -289,7 +304,8 @@ export const OS: React.FC = () => {
     }
     setModalCobrarOS(os);
     setFormaPagamento('DINHEIRO');
-    setDesconto(0);
+    setDescontoInput('');
+    setTipoDesconto('reais');
     setObservacoes('');
     setValorRecebido(Number(os.valor_total).toFixed(2));
     setErroFaturamento(null);
@@ -304,12 +320,11 @@ export const OS: React.FC = () => {
 
   const handleGerarPixMercadoPago = async () => {
     if (!modalCobrarOS) return;
-    const totalCobrar = Math.max(0, Number(modalCobrarOS.valor_total) - desconto);
     setGerandoPix(true);
     setErroFaturamento(null);
     try {
       const res = await apiService.gerarPixQRCode({
-        valor: totalCobrar,
+        valor: totalCobrarOS,
         descricao: `${formatarNumeroOS(modalCobrarOS)} - ${modalCobrarOS.titulo}`,
         cliente_nome: modalCobrarOS.cliente_nome
       });
@@ -328,19 +343,18 @@ export const OS: React.FC = () => {
       return;
     }
 
-    const totalCobrar = Math.max(0, Number(modalCobrarOS.valor_total) - desconto);
-    let valorPagoNum = parseFloat(valorRecebido) || totalCobrar;
+    let valorPagoNum = parseFloat(valorRecebido) || totalCobrarOS;
 
     if (formaPagamento !== 'DINHEIRO') {
-      valorPagoNum = totalCobrar;
+      valorPagoNum = totalCobrarOS;
     }
 
-    if (valorPagoNum < totalCobrar) {
-      setErroFaturamento(`O valor informado (R$ ${valorPagoNum.toFixed(2)}) é menor que o valor a cobrar (R$ ${totalCobrar.toFixed(2)}).`);
+    if (valorPagoNum < totalCobrarOS) {
+      setErroFaturamento(`O valor informado (R$ ${valorPagoNum.toFixed(2)}) é menor que o valor a cobrar (R$ ${totalCobrarOS.toFixed(2)}).`);
       return;
     }
 
-    const troco = formaPagamento === 'DINHEIRO' ? Math.max(0, valorPagoNum - totalCobrar) : 0;
+    const troco = formaPagamento === 'DINHEIRO' ? Math.max(0, valorPagoNum - totalCobrarOS) : 0;
 
     setFaturando(true);
     setErroFaturamento(null);
@@ -354,14 +368,16 @@ export const OS: React.FC = () => {
             troco: troco
           }
         ],
-        desconto: desconto,
+        desconto: valorDescontoCalculado,
         observacoes: observacoes || undefined
       });
 
       setSucessoFaturamento({
         os: res.os,
         venda_id: res.venda_id,
-        valor_pago: totalCobrar,
+        valor_bruto: valorBrutoOS,
+        desconto: valorDescontoCalculado,
+        valor_pago: totalCobrarOS,
         forma_pagamento: formaPagamento
       });
       setModalCobrarOS(null);
@@ -1479,16 +1495,16 @@ export const OS: React.FC = () => {
                 <span className="text-slate-500">{cfg.labelMaoDeObra} + {cfg.labelPecasInsumos}:</span>
                 <span className="font-medium text-slate-700">{formatMoney(modalCobrarOS.valor_total)}</span>
               </div>
-              {desconto > 0 && (
+              {valorDescontoCalculado > 0 && (
                 <div className="flex items-center justify-between text-xs text-rose-600 font-semibold">
-                  <span>Desconto Concedido:</span>
-                  <span>- {formatMoney(desconto)}</span>
+                  <span>Desconto Concedido {tipoDesconto === 'porcentagem' ? `(${descontoInput}%)` : ''}:</span>
+                  <span>- {formatMoney(valorDescontoCalculado)}</span>
                 </div>
               )}
               <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700 uppercase">Total a Cobrar:</span>
                 <span className="text-2xl font-black text-emerald-600">
-                  {formatMoney(Math.max(0, Number(modalCobrarOS.valor_total) - desconto))}
+                  {formatMoney(totalCobrarOS)}
                 </span>
               </div>
             </div>
@@ -1538,11 +1554,11 @@ export const OS: React.FC = () => {
                     className="w-32 px-2.5 py-1.5 border border-emerald-300 rounded-lg font-bold text-right text-emerald-900 focus:outline-none"
                   />
                 </div>
-                {parseFloat(valorRecebido) > Math.max(0, Number(modalCobrarOS.valor_total) - desconto) && (
+                {parseFloat(valorRecebido) > Math.max(0, Number(modalCobrarOS.valor_total) - valorDescontoCalculado) && (
                   <div className="flex justify-between items-center pt-1 font-bold text-emerald-800">
                     <span>Troco a Devolver:</span>
                     <span className="text-sm">
-                      {formatMoney(parseFloat(valorRecebido) - Math.max(0, Number(modalCobrarOS.valor_total) - desconto))}
+                      {formatMoney(parseFloat(valorRecebido) - Math.max(0, Number(modalCobrarOS.valor_total) - valorDescontoCalculado))}
                     </span>
                   </div>
                 )}
@@ -1598,18 +1614,42 @@ export const OS: React.FC = () => {
               </div>
             )}
 
-            {/* Desconto */}
-            <div className="grid grid-cols-2 gap-3 text-xs">
+            {/* Desconto com Alternância R$ / % */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Desconto (R$)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700">Desconto Concedido</label>
+                  <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setTipoDesconto('reais')}
+                      className={`px-2 py-0.5 rounded-md transition-all ${tipoDesconto === 'reais' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                      R$
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTipoDesconto('porcentagem')}
+                      className={`px-2 py-0.5 rounded-md transition-all ${tipoDesconto === 'porcentagem' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                      %
+                    </button>
+                  </div>
+                </div>
                 <input
                   type="number"
                   step="0.01"
-                  value={desconto || ''}
-                  onChange={(e) => setDesconto(Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder="0,00"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  min="0"
+                  value={descontoInput}
+                  onChange={(e) => setDescontoInput(e.target.value)}
+                  placeholder={tipoDesconto === 'reais' ? '0,00' : '0%'}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
                 />
+                {valorDescontoCalculado > 0 && tipoDesconto === 'porcentagem' && (
+                  <span className="text-[11px] text-emerald-600 font-bold block mt-1">
+                    Equivalente a: - {formatMoney(valorDescontoCalculado)}
+                  </span>
+                )}
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Observações no Recibo</label>
@@ -1618,7 +1658,7 @@ export const OS: React.FC = () => {
                   value={observacoes}
                   onChange={(e) => setObservacoes(e.target.value)}
                   placeholder="Ex: Garantia de 90 dias"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-1 focus:ring-sky-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -1723,8 +1763,8 @@ export const OS: React.FC = () => {
                       cliente_id: sucessoFaturamento.os.cliente_id,
                       cliente_nome: sucessoFaturamento.os.cliente_nome,
                       status: 'CONCLUIDA',
-                      valor_bruto: sucessoFaturamento.valor_pago,
-                      desconto: 0,
+                      valor_bruto: sucessoFaturamento.valor_bruto,
+                      desconto: sucessoFaturamento.desconto,
                       acrescimo: 0,
                       valor_liquido: sucessoFaturamento.valor_pago,
                       created_at: new Date().toISOString(),

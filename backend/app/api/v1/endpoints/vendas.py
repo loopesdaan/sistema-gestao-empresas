@@ -13,6 +13,7 @@ from app.models.produto import Produto
 from app.models.estoque import MovimentacaoEstoque, TipoMovimentacaoEstoque
 from app.models.venda import Venda, ItemVenda, PagamentoVenda, StatusVenda, FormaPagamento
 from app.models.os import OrdemServico, StatusOS
+from app.models.notificacao import Notificacao, StatusNotificacao
 from app.schemas.venda import VendaCreate, VendaResponse
 from app.api.deps import get_current_user, verificar_ponto_trabalho
 from app.api.v1.endpoints.clientes import buscar_cliente_seguro
@@ -489,6 +490,22 @@ def cancelar_venda(
         venda.observacoes = (venda.observacoes or "") + f"\nCancelamento: {motivo}"
 
     db.add(venda)
+
+    # Dispara alerta para administradores ficarem cientes do cancelamento
+    num_exibicao = getattr(venda, "numero_sequencial", None) or (venda.id % 10000 if venda.id > 1000000 else venda.id)
+    notif = Notificacao(
+        empresa_id=current_user.empresa_id,
+        titulo=f"Venda #{num_exibicao} Cancelada",
+        mensagem=f"A venda #{num_exibicao} (R$ {venda.valor_liquido:.2f}) foi cancelada pelo colaborador {current_user.nome} ({current_user.perfil.value if hasattr(current_user.perfil, 'value') else current_user.perfil}). Motivo: {motivo or 'Sem justificativa preenchida'}.",
+        tipo="ALERTA",
+        referencia_tipo="VENDA",
+        referencia_id=venda.id,
+        valor_pendente=float(venda.valor_liquido or 0),
+        status=StatusNotificacao.PENDENTE.value,
+        usuario_id=None
+    )
+    db.add(notif)
+
     db.commit()
     db.refresh(venda)
 

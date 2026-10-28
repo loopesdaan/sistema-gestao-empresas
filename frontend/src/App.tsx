@@ -34,6 +34,9 @@ const AppContent: React.FC = () => {
   });
 
   const isAdmin = usuario?.perfil === 'ADMIN';
+  const isFinanceiro = usuario?.perfil === 'FINANCEIRO';
+  const isAdminOuFinanceiro = isAdmin || isFinanceiro;
+  const isEstoquista = usuario?.perfil === 'ESTOQUISTA';
   const { modulosAtivos, carregarDadosEmpresa } = useEmpresa();
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -219,26 +222,28 @@ const AppContent: React.FC = () => {
       case 'pdv':
         return <PDV />;
       case 'caixa':
-        return <Caixa isAdmin={isAdmin} />;
+        return <Caixa isAdmin={isAdminOuFinanceiro} />;
       case 'financeiro':
         return <Financeiro />;
       case 'notificacoes':
-        return <Notificacoes isAdmin={isAdmin} onNavigate={(tab) => setActiveTab(tab)} />;
+        return <Notificacoes isAdmin={isAdminOuFinanceiro} onNavigate={(tab) => setActiveTab(tab)} />;
       case 'ponto':
         return <Ponto isAdmin={isAdmin} />;
       case 'produtos':
-        return <Produtos isAdmin={isAdmin} />;
+        return <Produtos isAdmin={isAdmin || isEstoquista} />;
       case 'clientes':
-        return <Clientes />;
+        return <Clientes isAdmin={isAdmin} />;
       case 'os':
         return <OS />;
       case 'relatorios':
-        return <Relatorios isAdmin={isAdmin} usuarioAtual={usuario} />;
+        return <Relatorios isAdmin={isAdminOuFinanceiro} usuarioAtual={usuario} />;
       case 'usuarios':
         return <Usuarios />;
       case 'empresa':
         return <Empresa isAdmin={isAdmin} onOpenOnboarding={() => setShowOnboarding(true)} />;
       default:
+        if (isFinanceiro) return <Financeiro />;
+        if (isEstoquista) return <Produtos isAdmin={true} />;
         return isAdmin ? <Dashboard onNavigate={(tab) => setActiveTab(tab)} /> : <PDV />;
     }
   };
@@ -249,12 +254,12 @@ const AppContent: React.FC = () => {
       pdv: 'Frente de Caixa (PDV)',
       caixa: 'Controle de Caixa',
       financeiro: 'Gestão Financeira & Cofre Central',
-      notificacoes: 'Central de Notificações & Ações Rápidas',
+      notificacoes: 'Centro de Ações Rápidas e Alertas',
       ponto: 'Ponto Eletrônico CLT',
       produtos: 'Produtos & Estoque',
       clientes: 'Clientes & Crédito',
       os: 'Ordens de Serviço',
-      relatorios: isAdmin ? 'Relatórios de Vendas' : 'Minhas Vendas Realizadas',
+      relatorios: isAdminOuFinanceiro ? 'Relatórios de Vendas' : 'Minhas Vendas Realizadas',
       usuarios: 'Gestão da Equipe',
       empresa: 'Dados da Empresa'
     };

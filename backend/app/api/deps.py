@@ -22,7 +22,7 @@ def get_current_user(
         )
     
     uid = int(user_id)
-    user = db.query(Usuario).filter(Usuario.id == uid).first()
+    user = db.get(Usuario, uid)
     if not user and uid > 10_000_000:
         user = db.query(Usuario).filter(
             Usuario.id.between(uid - 1000, uid + 1000)

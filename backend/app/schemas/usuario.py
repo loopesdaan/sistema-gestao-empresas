@@ -1,6 +1,6 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.models.usuario import PerfilUsuario
 
 class UsuarioBase(BaseModel):
@@ -22,11 +22,25 @@ class UsuarioUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=6, description="Nova senha com no mínimo 6 caracteres")
     foto_url: Optional[str] = None
 
+    @field_validator("password", mode="before")
+    @classmethod
+    def empty_password_to_none(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
 class UsuarioPerfilUpdate(BaseModel):
     nome: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(None, min_length=6, description="Nova senha com no mínimo 6 caracteres")
     foto_url: Optional[str] = None
+
+    @field_validator("password", mode="before")
+    @classmethod
+    def empty_password_to_none(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
 class UsuarioResponse(UsuarioBase):
     id: int
