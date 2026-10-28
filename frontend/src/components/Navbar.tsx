@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Menu, Bell, ShoppingCart, User, CheckCheck, X, Clock, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Menu, Bell, ShoppingCart, User, CheckCheck, X, Clock, ArrowRight, CheckCircle2, AlertCircle, History } from 'lucide-react';
 import { useNotificacoes, Notificacao } from '../contexts/NotificationContext';
 import { useEmpresa } from '../contexts/EmpresaContext';
-import { Caixa } from '../types';
+import { Caixa, NotificacaoItem } from '../types';
 import { apiService, resolveImageUrl } from '../services/api';
 
 interface NavbarProps {
@@ -63,6 +63,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { temaAtual } = useEmpresa();
   const [dropdownAberto, setDropdownAberto] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Notificações do banco (persistidas): pendentes + histórico resolvidas
+  const [notifBanco, setNotifBanco] = useState<NotificacaoItem[]>([]);
+  const [abaDropdown, setAbaDropdown] = useState<'recentes' | 'historico'>('recentes');
+
+  // Carrega do banco ao abrir o dropdown
+  useEffect(() => {
+    if (dropdownAberto) {
+      apiService.getNotificacoes().then(setNotifBanco).catch(() => {});
+    }
+  }, [dropdownAberto]);
+
+  const notifPendentesDB = useMemo(() => notifBanco.filter(n => n.status === 'PENDENTE'), [notifBanco]);
+  const notifResolvidasDB = useMemo(() => notifBanco.filter(n => n.status === 'RESOLVIDA'), [notifBanco]);
+
+  // Badge: pendentes no banco + toasts não lidos
+  const totalNaoLidas = naoLidas + notifPendentesDB.length;
 
   // Mini Popover de Ponto Rápido para colaboradores elegíveis
   const [pontoRapidoAberto, setPontoRapidoAberto] = useState(false);
@@ -300,9 +317,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             aria-label="Notificações"
           >
             <Bell size={20} />
-            {naoLidas > 0 && (
+            {totalNaoLidas > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
-                {naoLidas > 99 ? '99+' : naoLidas}
+                {totalNaoLidas > 99 ? '99+' : totalNaoLidas}
               </span>
             )}
           </button>
@@ -314,9 +331,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
                 <div>
                   <span className="font-bold text-slate-800 text-sm">Notificações</span>
-                  {naoLidas > 0 && (
+                  {notifPendentesDB.length > 0 && (
                     <span className="ml-2 bg-rose-100 text-rose-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                      {naoLidas} nova{naoLidas > 1 ? 's' : ''}
+                      {notifPendentesDB.length} pendente{notifPendentesDB.length > 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
@@ -326,56 +343,146 @@ export const Navbar: React.FC<NavbarProps> = ({
                   title="Marcar todas como lidas"
                 >
                   <CheckCheck size={14} />
-                  Marcar todas como lidas
+                  Marcar lidas
                 </button>
               </div>
 
-              {/* Lista de notificações */}
-              <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
-                {ultimas10.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-                    <Bell size={32} className="mb-2 opacity-30" />
-                    <p className="text-xs font-medium">Nenhuma notificação</p>
-                  </div>
-                ) : (
-                  ultimas10.map(n => {
-                    const cores = corPorTipo(n.tipo);
-                    return (
-                      <div
-                        key={n.id}
-                        onClick={() => marcarLida(n.id)}
-                        className={`flex gap-3 px-4 py-3 border-l-4 ${cores.borda} cursor-pointer transition-colors ${
-                          n.lido ? 'bg-white opacity-60 hover:opacity-80' : `${cores.fundo} hover:brightness-95`
-                        }`}
-                      >
-                        <span className="text-base flex-shrink-0 mt-0.5">{cores.icone}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-bold ${n.lido ? 'text-slate-600' : cores.texto}`}>
-                            {n.titulo}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-0.5 leading-snug line-clamp-2">
-                            {n.mensagem}
-                          </p>
-                          <p className="text-[10px] text-slate-400 mt-1">
-                            {formatarTempo(n.created_at)}
-                          </p>
-                        </div>
-                        {!n.lido && (
-                          <span className="w-2 h-2 rounded-full bg-sky-500 flex-shrink-0 mt-1.5" />
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+              {/* Abas: Recentes (toasts) | Histórico (banco) */}
+              <div className="flex border-b border-slate-100">
+                <button
+                  onClick={() => setAbaDropdown('recentes')}
+                  className={`flex-1 py-2 text-xs font-bold transition-colors flex items-center justify-center gap-1 ${
+                    abaDropdown === 'recentes'
+                      ? 'text-slate-900 border-b-2 border-slate-900 bg-white'
+                      : 'text-slate-400 hover:text-slate-700 bg-slate-50'
+                  }`}
+                >
+                  <Bell size={12} />
+                  Recentes {naoLidas > 0 && <span className="bg-rose-100 text-rose-600 text-[9px] px-1 rounded-full">{naoLidas}</span>}
+                </button>
+                <button
+                  onClick={() => setAbaDropdown('historico')}
+                  className={`flex-1 py-2 text-xs font-bold transition-colors flex items-center justify-center gap-1 ${
+                    abaDropdown === 'historico'
+                      ? 'text-slate-900 border-b-2 border-slate-900 bg-white'
+                      : 'text-slate-400 hover:text-slate-700 bg-slate-50'
+                  }`}
+                >
+                  <History size={12} />
+                  Histórico {notifResolvidasDB.length > 0 && <span className="bg-emerald-100 text-emerald-700 text-[9px] px-1 rounded-full">{notifResolvidasDB.length}</span>}
+                </button>
               </div>
+
+              {/* Lista de notificações — aba Recentes */}
+              {abaDropdown === 'recentes' && (
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                  {/* Notificações Pendentes do Banco */}
+                  {notifPendentesDB.length > 0 && (
+                    <>
+                      <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-700">
+                          ⚡ {notifPendentesDB.length} Pendência{notifPendentesDB.length > 1 ? 's' : ''} Ativa{notifPendentesDB.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      {notifPendentesDB.slice(0, 5).map(n => (
+                        <div key={`db-${n.id}`} className="flex gap-3 px-4 py-3 border-l-4 border-l-amber-400 bg-amber-50/60">
+                          <span className="text-base flex-shrink-0 mt-0.5">⚠️</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-amber-800 line-clamp-1">{n.titulo}</p>
+                            <p className="text-xs text-slate-600 mt-0.5 leading-snug line-clamp-2">{n.mensagem}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {notifPendentesDB.length > 5 && (
+                        <div className="px-4 py-1.5 text-center text-[10px] text-slate-400 border-b border-slate-100">
+                          +{notifPendentesDB.length - 5} pendências — abra a central para ver todas
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Toasts / Alertas recentes em memória */}
+                  {notificacoes.length === 0 && notifPendentesDB.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                      <Bell size={32} className="mb-2 opacity-30" />
+                      <p className="text-xs font-medium">Tudo em ordem!</p>
+                      <p className="text-[10px] text-slate-400 mt-1">Nenhuma notificação recente</p>
+                    </div>
+                  ) : notificacoes.length > 0 ? (
+                    <>
+                      {notifPendentesDB.length > 0 && (
+                        <div className="px-4 py-2 bg-slate-50">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Alertas do Sistema</span>
+                        </div>
+                      )}
+                      {notificacoes.slice(0, 8).map(n => {
+                        const cores = corPorTipo(n.tipo);
+                        return (
+                          <div
+                            key={n.id}
+                            onClick={() => marcarLida(n.id)}
+                            className={`flex gap-3 px-4 py-3 border-l-4 ${cores.borda} cursor-pointer transition-colors ${
+                              n.lido ? 'bg-white opacity-60 hover:opacity-80' : `${cores.fundo} hover:brightness-95`
+                            }`}
+                          >
+                            <span className="text-base flex-shrink-0 mt-0.5">{cores.icone}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-bold ${n.lido ? 'text-slate-600' : cores.texto}`}>
+                                {n.titulo}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5 leading-snug line-clamp-2">
+                                {n.mensagem}
+                              </p>
+                              <p className="text-[10px] text-slate-400 mt-1">
+                                {formatarTempo(n.created_at)}
+                              </p>
+                            </div>
+                            {!n.lido && (
+                              <span className="w-2 h-2 rounded-full bg-sky-500 flex-shrink-0 mt-1.5" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Lista de notificações — aba Histórico (resolvidas do banco) */}
+              {abaDropdown === 'historico' && (
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                  {notifResolvidasDB.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                      <CheckCircle2 size={32} className="mb-2 opacity-30" />
+                      <p className="text-xs font-medium">Sem histórico</p>
+                      <p className="text-[10px] text-slate-400 mt-1">Nenhuma notificação resolvida ainda</p>
+                    </div>
+                  ) : (
+                    notifResolvidasDB.slice(0, 15).map(n => (
+                      <div key={`hist-${n.id}`} className="flex gap-3 px-4 py-3 border-l-4 border-l-emerald-400 bg-emerald-50/30 opacity-80">
+                        <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-700 line-clamp-1">{n.titulo}</p>
+                          <p className="text-xs text-slate-500 mt-0.5 leading-snug line-clamp-2">{n.mensagem}</p>
+                          {n.resolvido_em && (
+                            <p className="text-[10px] text-emerald-600 font-semibold mt-1">
+                              ✓ Resolvida em {new Date(n.resolvido_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {notifResolvidasDB.length > 15 && (
+                    <div className="px-4 py-2 text-center text-[10px] text-slate-400">
+                      Exibindo as 15 mais recentes — abra a central para ver o histórico completo
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Rodapé do dropdown */}
               <div className="p-2.5 border-t border-slate-100 bg-slate-50 flex flex-col gap-1.5 text-center">
-                {notificacoes.length > 10 && (
-                  <span className="text-[11px] text-slate-400">
-                    Exibindo 10 de {notificacoes.length} notificações
-                  </span>
-                )}
                 {onOpenNotificacoes && (
                   <button
                     type="button"
