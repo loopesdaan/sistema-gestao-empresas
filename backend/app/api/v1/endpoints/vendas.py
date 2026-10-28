@@ -100,6 +100,17 @@ def obter_venda(
         Venda.id == venda_id,
         Venda.empresa_id == current_user.empresa_id
     ).first()
+    if not venda and venda_id and venda_id > 10_000_000:
+        venda = db.query(Venda).filter(
+            Venda.empresa_id == current_user.empresa_id,
+            Venda.id >= venda_id - 1000,
+            Venda.id <= venda_id + 1000
+        ).first()
+    if not venda and venda_id and venda_id < 10_000_000:
+        venda = db.query(Venda).filter(
+            Venda.numero_sequencial == venda_id,
+            Venda.empresa_id == current_user.empresa_id
+        ).first()
     if not venda:
         # Fallback estritamente para registros legados órfãos (empresa_id nulo)
         venda = db.query(Venda).filter(
@@ -395,6 +406,17 @@ def registrar_venda(
                 OrdemServico.id == os_id,
                 OrdemServico.empresa_id == current_user.empresa_id
             ).first()
+            if not os_registro and os_id and os_id > 10_000_000:
+                os_registro = db.query(OrdemServico).filter(
+                    OrdemServico.empresa_id == current_user.empresa_id,
+                    OrdemServico.id >= os_id - 1000,
+                    OrdemServico.id <= os_id + 1000
+                ).first()
+            if not os_registro and os_id and os_id < 10_000_000:
+                os_registro = db.query(OrdemServico).filter(
+                    OrdemServico.numero_sequencial == os_id,
+                    OrdemServico.empresa_id == current_user.empresa_id
+                ).first()
             if not os_registro:
                 os_orfao = db.query(OrdemServico).filter(
                     OrdemServico.id == os_id,
@@ -435,6 +457,17 @@ def cancelar_venda(
         Venda.id == venda_id,
         Venda.empresa_id == current_user.empresa_id
     ).first()
+    if not venda and venda_id and venda_id > 10_000_000:
+        venda = db.query(Venda).filter(
+            Venda.empresa_id == current_user.empresa_id,
+            Venda.id >= venda_id - 1000,
+            Venda.id <= venda_id + 1000
+        ).first()
+    if not venda and venda_id and venda_id < 10_000_000:
+        venda = db.query(Venda).filter(
+            Venda.numero_sequencial == venda_id,
+            Venda.empresa_id == current_user.empresa_id
+        ).first()
     if not venda:
         venda_orfa = db.query(Venda).filter(
             Venda.id == venda_id,
