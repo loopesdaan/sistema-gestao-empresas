@@ -52,6 +52,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
   const usuarioSalvo = localStorage.getItem('gestao_user') || sessionStorage.getItem('gestao_user');
   const usuarioLogado = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
   const podeMovimentarEstoque = isAdmin ?? (usuarioLogado?.perfil === 'ADMIN' || usuarioLogado?.perfil === 'ESTOQUISTA');
+  const podeEditarProduto = isAdmin ?? (usuarioLogado?.perfil === 'ADMIN' || usuarioLogado?.perfil === 'ESTOQUISTA');
   const isEstoquista = usuarioLogado?.perfil === 'ESTOQUISTA';
 
   // Abas: Catalogo | Dashboard de Estoque | Histórico de Movimentações
@@ -135,11 +136,18 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
     if (!modalProduto || !modalProduto.nome) return;
 
     try {
+      const payload = {
+        ...modalProduto,
+        preco_custo: Number(modalProduto.preco_custo || 0),
+        preco_venda: Number(modalProduto.preco_venda || 0),
+        estoque_atual: Number(modalProduto.estoque_atual || 0),
+        estoque_minimo: Number(modalProduto.estoque_minimo || 0),
+      };
       if (modalProduto.id) {
-        await apiService.atualizarProduto(modalProduto.id, modalProduto);
+        await apiService.atualizarProduto(modalProduto.id, payload);
         toast.sucesso('Produto atualizado com sucesso!');
       } else {
-        await apiService.criarProduto(modalProduto);
+        await apiService.criarProduto(payload);
         toast.sucesso('Produto cadastrado com sucesso!');
       }
       setModalProduto(null);
@@ -152,13 +160,14 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
 
   const handleMovimentarEstoque = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!modalMov || modalMov.qtd <= 0) return;
+    const qtdNum = Number(modalMov?.qtd || 0);
+    if (!modalMov || qtdNum <= 0) return;
 
     try {
       await apiService.movimentarEstoque({
         produto_id: modalMov.produto.id,
         tipo: modalMov.tipo,
-        quantidade: modalMov.qtd,
+        quantidade: qtdNum,
         motivo: modalMov.motivo
       });
       toast.sucesso(`Movimentação de ${modalMov.tipo} registrada com sucesso!`);
@@ -229,7 +238,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
               <span>Importar Planilha</span>
             </button>
           )}
-          {podeMovimentarEstoque && (
+          {podeEditarProduto && (
             <button
               onClick={() => setModalProduto({
                 nome: '',
@@ -459,14 +468,16 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                             <span>Movimentar</span>
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => setModalProduto(p)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
-                        >
-                          <Edit size={13} />
-                          <span>Editar</span>
-                        </button>
+                        {podeEditarProduto && (
+                          <button
+                            type="button"
+                            onClick={() => setModalProduto(p)}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
+                          >
+                            <Edit size={13} />
+                            <span>Editar</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -547,14 +558,16 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                                 <span>Movimentar</span>
                               </button>
                             )}
-                            <button
-                              onClick={() => setModalProduto(p)}
-                              title="Editar dados cadastrais e preços"
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-                            >
-                              <Edit size={13} />
-                              <span>Editar</span>
-                            </button>
+                            {podeEditarProduto && (
+                              <button
+                                onClick={() => setModalProduto(p)}
+                                title="Editar dados cadastrais e preços"
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Edit size={13} />
+                                <span>Editar</span>
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1008,8 +1021,11 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                     type="number"
                     step="0.01"
                     min="0"
-                    value={modalProduto.preco_custo || 0}
-                    onChange={(e) => setModalProduto({ ...modalProduto, preco_custo: parseFloat(e.target.value) || 0 })}
+                    value={modalProduto.preco_custo === undefined || modalProduto.preco_custo === null ? '' : modalProduto.preco_custo}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setModalProduto({ ...modalProduto, preco_custo: v === '' ? ('' as any) : parseFloat(v) });
+                    }}
                     className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-sm"
                   />
                 </div>
@@ -1020,8 +1036,11 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                     step="0.01"
                     min="0"
                     required
-                    value={modalProduto.preco_venda || 0}
-                    onChange={(e) => setModalProduto({ ...modalProduto, preco_venda: parseFloat(e.target.value) || 0 })}
+                    value={modalProduto.preco_venda === undefined || modalProduto.preco_venda === null ? '' : modalProduto.preco_venda}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setModalProduto({ ...modalProduto, preco_venda: v === '' ? ('' as any) : parseFloat(v) });
+                    }}
                     className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-sm font-bold text-emerald-700"
                   />
                 </div>
@@ -1067,8 +1086,11 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                       type="number"
                       step={['KG', 'L', 'M'].includes(modalProduto.unidade?.toUpperCase() || '') ? "0.01" : "1"}
                       min="0"
-                      value={modalProduto.estoque_atual || 0}
-                      onChange={(e) => setModalProduto({ ...modalProduto, estoque_atual: parseFloat(e.target.value) || 0 })}
+                      value={modalProduto.estoque_atual === undefined || modalProduto.estoque_atual === null ? '' : modalProduto.estoque_atual}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setModalProduto({ ...modalProduto, estoque_atual: v === '' ? ('' as any) : parseFloat(v) });
+                      }}
                       className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-bold"
                     />
                     <span className="text-[10px] text-slate-400 mt-1 block">Saldo no momento do cadastro</span>
@@ -1082,8 +1104,11 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                     type="number"
                     step={['KG', 'L', 'M'].includes(modalProduto.unidade?.toUpperCase() || '') ? "0.01" : "1"}
                     min="0"
-                    value={modalProduto.estoque_minimo || 0}
-                    onChange={(e) => setModalProduto({ ...modalProduto, estoque_minimo: parseFloat(e.target.value) || 0 })}
+                    value={modalProduto.estoque_minimo === undefined || modalProduto.estoque_minimo === null ? '' : modalProduto.estoque_minimo}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setModalProduto({ ...modalProduto, estoque_minimo: v === '' ? ('' as any) : parseFloat(v) });
+                    }}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm"
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">Gera aviso quando atingido</span>
@@ -1218,8 +1243,11 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                   step={['KG', 'L', 'M'].includes(modalMov.produto.unidade?.toUpperCase() || '') ? "0.01" : "1"}
                   min={modalMov.tipo === 'AJUSTE' ? '0' : '1'}
                   required
-                  value={modalMov.qtd}
-                  onChange={(e) => setModalMov({ ...modalMov, qtd: parseFloat(e.target.value) || 0 })}
+                  value={modalMov.qtd === undefined || modalMov.qtd === null ? '' : modalMov.qtd}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setModalMov({ ...modalMov, qtd: v === '' ? ('' as any) : parseFloat(v) });
+                  }}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-black text-slate-900"
                 />
               </div>

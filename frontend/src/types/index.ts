@@ -431,4 +431,16 @@ export interface StatusFinanceiro {
   qtd_caixas_abertos: number;
 }
 
+export interface MensagemChat {
+  id: number;
+  usuario_id: number;
+  usuario_nome: string;
+  usuario_perfil: string;
+  usuario_foto_url?: string | null;
+  conteudo: string;
+  created_at: string;
+  eh_meu?: boolean;
+}
+
+
 

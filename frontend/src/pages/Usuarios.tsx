@@ -78,14 +78,33 @@ export const Usuarios: React.FC = () => {
 
     try {
       if (modalUsuario.id) {
-        await apiService.atualizarUsuario(modalUsuario.id, modalUsuario);
+        const payload: any = { ...modalUsuario };
+        if (!payload.password || !payload.password.trim()) {
+          delete payload.password;
+        } else if (payload.password.trim().length < 6) {
+          toast.aviso('A nova senha de acesso deve possuir no mínimo 6 caracteres.');
+          return;
+        } else {
+          payload.password = payload.password.trim();
+        }
+
+        await apiService.atualizarUsuario(modalUsuario.id, payload);
         toast.sucesso('Dados do colaborador atualizados com sucesso!');
       } else {
-        if (!modalUsuario.password) {
+        const senha = (modalUsuario.password || '').trim();
+        if (!senha) {
           toast.aviso('Informe uma senha inicial para o novo usuário.');
           return;
         }
-        await apiService.criarUsuario(modalUsuario);
+        if (senha.length < 6) {
+          toast.aviso('A senha de acesso deve possuir no mínimo 6 caracteres.');
+          return;
+        }
+
+        await apiService.criarUsuario({
+          ...modalUsuario,
+          password: senha
+        });
         toast.sucesso('Novo colaborador cadastrado com sucesso!');
       }
       setModalUsuario(null);
@@ -96,12 +115,12 @@ export const Usuarios: React.FC = () => {
   };
 
   const perfilLabels: Record<PerfilUsuario, { label: string; badge: string }> = {
-    ADMIN: { label: 'Gerente Geral (Acesso Total)', badge: 'bg-purple-100 text-purple-800 border-purple-200' },
+    ADMIN: { label: 'Gerente Geral / ADM (Acesso Total)', badge: 'bg-purple-100 text-purple-800 border-purple-200' },
     FINANCEIRO: { label: 'Financeiro & Tesouraria (Cofre & Auditoria)', badge: 'bg-teal-100 text-teal-800 border-teal-200' },
     OPERADOR_CAIXA: { label: 'Operador de Caixa (PDV & OS)', badge: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
-    VENDEDOR: { label: 'Vendedor Comercial', badge: 'bg-sky-100 text-sky-800 border-sky-200' },
-    TECNICO: { label: 'Técnico de Serviços', badge: 'bg-amber-100 text-amber-800 border-amber-200' },
-    ESTOQUISTA: { label: 'Controlador de Estoque', badge: 'bg-amber-100 text-amber-800 border-amber-200' }
+    ESTOQUISTA: { label: 'Controlador de Estoque (Inventário)', badge: 'bg-amber-100 text-amber-800 border-amber-200' },
+    VENDEDOR: { label: 'Vendedor Comercial (Legado)', badge: 'bg-sky-100 text-sky-800 border-sky-200' },
+    TECNICO: { label: 'Técnico de Serviços (Legado)', badge: 'bg-slate-100 text-slate-800 border-slate-200' }
   };
 
   if (loading) {
@@ -409,12 +428,10 @@ export const Usuarios: React.FC = () => {
                   onChange={(e) => setModalUsuario({ ...modalUsuario, perfil: e.target.value as PerfilUsuario })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-medium bg-white"
                 >
-                  <option value="ADMIN">Gerente Geral (Acesso Total, Relatórios e Equipe)</option>
+                  <option value="ADMIN">Gerente Geral / ADM (Acesso Total, Relatórios e Equipe)</option>
                   <option value="FINANCEIRO">Financeiro & Tesouraria (Cofre Central, Auditoria de Caixa e Relatórios)</option>
-                  <option value="OPERADOR_CAIXA">Operador de Caixa (Vendas no PDV, Controle de Caixa & OS)</option>
+                  <option value="OPERADOR_CAIXA">Operador de Caixa (Frente de Caixa PDV, Caixa & OS)</option>
                   <option value="ESTOQUISTA">Controlador de Estoque (Inventário, Ajustes e Balanço Físico)</option>
-                  <option value="VENDEDOR">Vendedor Comercial (Balcão e Clientes)</option>
-                  <option value="TECNICO">Técnico de Serviços (Ordens de Serviço e Peças)</option>
                 </select>
               </div>
 

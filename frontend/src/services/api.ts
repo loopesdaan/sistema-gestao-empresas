@@ -2,7 +2,7 @@ import axios from 'axios';
 import { 
   Usuario, Empresa, Produto, Cliente, Caixa, ResumoCaixa, 
   Venda, OrdemServico, DashboardMetrics, FormaPagamento, StatusOS,
-  StatusFinanceiro, MovimentacaoTesouraria 
+  StatusFinanceiro, MovimentacaoTesouraria, MensagemChat
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
@@ -415,6 +415,14 @@ export const apiService = {
     const { data } = await api.post('/ponto/aprovar-hora-extra', { registro_id, minutos_aprovados, motivo });
     return data;
   },
+  solicitarAjustePonto: async (dados: { data: string; tipo_batida: string; horario: string; motivo: string }) => {
+    const { data } = await api.post('/ponto/solicitar-ajuste-manual', dados);
+    return data;
+  },
+  responderAjustePonto: async (notificacao_id: number, aprovado: boolean) => {
+    const { data } = await api.post('/ponto/responder-ajuste-manual', { notificacao_id, aprovado });
+    return data;
+  },
   getConfiguracoesPonto: async (): Promise<any[]> => {
     const { data } = await api.get('/ponto/configuracoes');
     return data;
@@ -508,6 +516,16 @@ export const apiService = {
     if (tipo && tipo !== 'TODOS') params.append('tipo', tipo);
     params.append('limit', String(limit));
     const { data } = await api.get(`/financeiro/extrato?${params.toString()}`);
+    return data;
+  },
+
+  // Comunicador Interno de Mensagens (Chat da Equipe)
+  getMensagens: async (limit: number = 60): Promise<MensagemChat[]> => {
+    const { data } = await api.get(`/mensagens?limit=${limit}`);
+    return data;
+  },
+  enviarMensagem: async (conteudo: string): Promise<MensagemChat> => {
+    const { data } = await api.post('/mensagens', { conteudo });
     return data;
   },
 };

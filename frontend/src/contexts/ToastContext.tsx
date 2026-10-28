@@ -21,12 +21,39 @@ export interface ConfirmacaoOptions {
   onCancelar?: () => void;
 }
 
+export const formatarMensagemSegura = (msg: any): string => {
+  if (typeof msg === 'string') return msg;
+  if (!msg) return 'Ocorreu um evento no sistema.';
+  if (Array.isArray(msg)) {
+    return msg
+      .map(item => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') {
+          return item.msg || item.detail || JSON.stringify(item);
+        }
+        return String(item);
+      })
+      .join(' | ');
+  }
+  if (typeof msg === 'object') {
+    if (msg.detail) return formatarMensagemSegura(msg.detail);
+    if (msg.msg) return String(msg.msg);
+    if (msg.message) return String(msg.message);
+    try {
+      return JSON.stringify(msg);
+    } catch {
+      return 'Erro inesperado';
+    }
+  }
+  return String(msg);
+};
+
 interface ToastContextType {
   toast: {
-    sucesso: (mensagem: string, titulo?: string, duracao?: number) => void;
-    erro: (mensagem: string, titulo?: string, duracao?: number) => void;
-    aviso: (mensagem: string, titulo?: string, duracao?: number) => void;
-    info: (mensagem: string, titulo?: string, duracao?: number) => void;
+    sucesso: (mensagem: any, titulo?: string, duracao?: number) => void;
+    erro: (mensagem: any, titulo?: string, duracao?: number) => void;
+    aviso: (mensagem: any, titulo?: string, duracao?: number) => void;
+    info: (mensagem: any, titulo?: string, duracao?: number) => void;
   };
   confirmar: (opcoes: ConfirmacaoOptions) => void;
   fecharConfirmacao: () => void;
@@ -43,9 +70,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  const adicionarToast = useCallback((tipo: ToastTipo, mensagem: string, titulo?: string, duracao = 4000) => {
+  const adicionarToast = useCallback((tipo: ToastTipo, mensagem: any, titulo?: string, duracao = 4000) => {
     const id = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    setToasts(prev => [...prev, { id, tipo, titulo, mensagem, duracao }]);
+    const msgSegura = formatarMensagemSegura(mensagem);
+    setToasts(prev => [...prev, { id, tipo, titulo, mensagem: msgSegura, duracao }]);
 
     if (duracao > 0) {
       setTimeout(() => {
@@ -55,13 +83,13 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [removerToast]);
 
   const toast = {
-    sucesso: (mensagem: string, titulo?: string, duracao?: number) =>
+    sucesso: (mensagem: any, titulo?: string, duracao?: number) =>
       adicionarToast('sucesso', mensagem, titulo || 'Sucesso', duracao),
-    erro: (mensagem: string, titulo?: string, duracao?: number) =>
+    erro: (mensagem: any, titulo?: string, duracao?: number) =>
       adicionarToast('erro', mensagem, titulo || 'Atenção / Erro', duracao),
-    aviso: (mensagem: string, titulo?: string, duracao?: number) =>
+    aviso: (mensagem: any, titulo?: string, duracao?: number) =>
       adicionarToast('aviso', mensagem, titulo || 'Aviso', duracao),
-    info: (mensagem: string, titulo?: string, duracao?: number) =>
+    info: (mensagem: any, titulo?: string, duracao?: number) =>
       adicionarToast('info', mensagem, titulo || 'Informação', duracao),
   };
 

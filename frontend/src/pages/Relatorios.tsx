@@ -535,58 +535,65 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
           </p>
         </div>
 
-        {/* Menu de Exportação (Excel, PDF, HTML ou Todos Juntos) */}
+        {/* Drop List de Exportação Dinâmica */}
         <div className="relative">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={exportarTodosJuntos}
-              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all"
-              title="Baixa Excel, HTML e abre janela de PDF"
-            >
-              <Layers size={15} />
-              <span>Exportar {isAdmin ? 'Tudo (Excel + PDF + HTML)' : 'Minhas Vendas'}</span>
-            </button>
-
-            <button
-              onClick={() => setMenuExportarAberto(!menuExportarAberto)}
-              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors"
-              title="Opções individuais de exportação"
-            >
-              <ChevronDown size={16} />
-            </button>
-          </div>
+          <button
+            onClick={() => setMenuExportarAberto(!menuExportarAberto)}
+            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+            title="Escolha o tipo de relatório para exportar"
+          >
+            <Download size={15} />
+            <span>Exportar Relatório</span>
+            <ChevronDown size={14} className={`transition-transform duration-200 ${menuExportarAberto ? 'rotate-180' : ''}`} />
+          </button>
 
           {menuExportarAberto && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-30 animate-fade-in text-xs font-medium">
-              <button
-                onClick={() => { exportarExcel(); setMenuExportarAberto(false); }}
-                className="w-full px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-              >
-                <Table size={15} className="text-emerald-600" />
-                <span>Exportar Planilha Excel (.csv)</span>
-              </button>
-              <button
-                onClick={() => { exportarPDF(); setMenuExportarAberto(false); }}
-                className="w-full px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-              >
-                <Printer size={15} className="text-rose-600" />
-                <span>Gerar / Imprimir PDF</span>
-              </button>
-              <button
-                onClick={() => { exportarHTML(); setMenuExportarAberto(false); }}
-                className="w-full px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
-              >
-                <FileText size={15} className="text-sky-600" />
-                <span>Exportar Relatório HTML</span>
-              </button>
-              <div className="border-t border-slate-100 my-1"></div>
-              <button
-                onClick={exportarTodosJuntos}
-                className="w-full px-4 py-2.5 text-left text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 font-bold transition-colors"
-              >
-                <Layers size={15} />
-                <span>Extrair Pacote Completo (Todos)</span>
-              </button>
+            <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-30 animate-fade-in text-xs font-medium divide-y divide-slate-100">
+              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Formatos de Exportação
+              </div>
+              <div className="py-1">
+                <button
+                  onClick={() => { exportarExcel(); setMenuExportarAberto(false); }}
+                  className="w-full px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Table size={15} className="text-emerald-600 shrink-0" />
+                  <div>
+                    <span className="font-bold block text-slate-800">Planilha Excel (.csv)</span>
+                    <span className="text-[11px] text-slate-400 block">Vendas filtradas ({vendasFiltradas.length}) + Forecast {periodoOLAP}</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { exportarPDF(); setMenuExportarAberto(false); }}
+                  className="w-full px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Printer size={15} className="text-rose-600 shrink-0" />
+                  <div>
+                    <span className="font-bold block text-slate-800">Imprimir / PDF Formatado</span>
+                    <span className="text-[11px] text-slate-400 block">Relatório visual em folha A4</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { exportarCSVCancelamentosOS(); setMenuExportarAberto(false); }}
+                  className="w-full px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <FileText size={15} className="text-amber-600 shrink-0" />
+                  <div>
+                    <span className="font-bold block text-slate-800">OS Canceladas (.csv)</span>
+                    <span className="text-[11px] text-slate-400 block">Histórico de motivos de cancelamento</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { exportarHTML(); setMenuExportarAberto(false); }}
+                  className="w-full px-4 py-2.5 text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Layers size={15} className="text-sky-600 shrink-0" />
+                  <div>
+                    <span className="font-bold block text-slate-800">Relatório Web (HTML)</span>
+                    <span className="text-[11px] text-slate-400 block">Arquivo interativo para navegador</span>
+                  </div>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1499,7 +1506,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                         <span className="font-black text-slate-900 text-base">{formatMoney(v.valor_liquido)}</span>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                         <button
                           type="button"
                           onClick={() => {
@@ -1508,7 +1515,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                             setComprovanteModalAberto(true);
                           }}
                           title="Visualizar comprovante digital da venda"
-                          className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1"
+                          className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1 shrink-0"
                         >
                           <Receipt size={13} />
                           <span>Comprovante</span>
@@ -1518,7 +1525,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                             type="button"
                             onClick={() => handleCancelarVenda(v.id)}
                             title="Cancelar venda e estornar estoque"
-                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition-colors"
+                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition-colors shrink-0"
                           >
                             Cancelar
                           </button>
@@ -1585,28 +1592,30 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
                             {v.status === 'CONCLUIDA' ? 'Concluída' : 'Cancelada'}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right space-x-1">
-                          <button
-                            onClick={() => {
-                              setVendaDetalhe(v);
-                              setIndiceVendaComprovante(vendasFiltradas.findIndex(vf => vf.id === v.id));
-                              setComprovanteModalAberto(true);
-                            }}
-                            title="Visualizar comprovante digital da venda"
-                            className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded text-[10px] font-semibold transition-colors inline-flex items-center gap-1"
-                          >
-                            <Receipt size={11} />
-                            <span>Comprovante</span>
-                          </button>
-                          {v.status === 'CONCLUIDA' && (
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <div className="inline-flex items-center justify-end gap-1.5">
                             <button
-                              onClick={() => handleCancelarVenda(v.id)}
-                              title="Cancelar venda e estornar estoque"
-                              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded text-[10px] font-semibold transition-colors"
+                              onClick={() => {
+                                setVendaDetalhe(v);
+                                setIndiceVendaComprovante(vendasFiltradas.findIndex(vf => vf.id === v.id));
+                                setComprovanteModalAberto(true);
+                              }}
+                              title="Visualizar comprovante digital da venda"
+                              className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded text-[11px] font-semibold transition-colors inline-flex items-center gap-1 shrink-0 cursor-pointer"
                             >
-                              Cancelar
+                              <Receipt size={12} />
+                              <span>Comprovante</span>
                             </button>
-                          )}
+                            {v.status === 'CONCLUIDA' && (
+                              <button
+                                onClick={() => handleCancelarVenda(v.id)}
+                                title="Cancelar venda e estornar estoque"
+                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded text-[11px] font-semibold transition-colors shrink-0 cursor-pointer"
+                              >
+                                Cancelar
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))

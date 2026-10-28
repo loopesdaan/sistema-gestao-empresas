@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.core.database import get_db
-from app.models.usuario import Usuario
+from app.models.usuario import Usuario, PerfilUsuario
 from app.models.cliente import Cliente
 from app.models.venda import Venda
 from app.models.os import OrdemServico
@@ -102,9 +102,14 @@ def criar_cliente(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
+    dados = cliente_in.model_dump()
+    # Apenas Gerente / Administrador pode definir limite de crédito inicial
+    if current_user.perfil != PerfilUsuario.ADMIN and dados.get("limite_credito"):
+        dados["limite_credito"] = Decimal("0.00")
+
     cliente = Cliente(
         empresa_id=current_user.empresa_id,
-        **cliente_in.model_dump()
+        **dados
     )
     db.add(cliente)
     db.commit()
@@ -120,7 +125,19 @@ def atualizar_cliente(
 ) -> Any:
     cliente = buscar_cliente_seguro(cliente_id, db, current_user)
 
-    for field, value in cliente_in.model_dump(exclude_unset=True).items():
+    update_dados = cliente_in.model_dump(exclude_unset=True)
+
+    # Restrição de Segurança RBAC: Apenas Gerente / Administrador pode alterar limite de crédito
+    if "limite_credito" in update_dados:
+        novo_limite = Decimal(str(update_dados["limite_credito"])).quantize(Decimal("0.01"))
+        limite_atual = (cliente.limite_credito or Decimal("0.00")).quantize(Decimal("0.01"))
+        if current_user.perfil != PerfilUsuario.ADMIN and novo_limite != limite_atual:
+            raise HTTPException(
+                status_code=403,
+                detail="Apenas Gerentes e Administradores possuem autorização para alterar o limite de crédito do cliente."
+            )
+
+    for field, value in update_dados.items():
         setattr(cliente, field, value)
 
     db.add(cliente)

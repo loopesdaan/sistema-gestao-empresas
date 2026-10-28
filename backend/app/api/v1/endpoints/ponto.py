@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.core.time import agora_brasil, hoje_brasil_str, to_brasil_naive
 from app.models.usuario import Usuario, PerfilUsuario
 from app.models.ponto import RegistroPonto, ConfiguracaoPonto, StatusJornada
-from app.models.notificacao import Notificacao
+from app.models.notificacao import Notificacao, StatusNotificacao
 from app.models.empresa import Empresa
 from app.api.deps import get_current_user, get_current_admin
 
@@ -497,6 +497,144 @@ def aprovar_hora_extra(
         "mensagem": f"{dados.minutos_aprovados} minutos de hora extra autorizados pelo Administrador. Sistema desbloqueado com sucesso.",
         "horas_extras_aprovadas": registro.horas_extras_aprovadas
     }
+
+def recalcular_minutos_ponto(reg: RegistroPonto):
+    total = 0
+    if reg.entrada_1 and reg.saida_almoco:
+        e1 = to_brasil_naive(reg.entrada_1)
+        sa = to_brasil_naive(reg.saida_almoco)
+        if sa > e1:
+            total += int((sa - e1).total_seconds() / 60.0)
+    if reg.retorno_almoco and reg.saida_2:
+        ra = to_brasil_naive(reg.retorno_almoco)
+        s2 = to_brasil_naive(reg.saida_2)
+        if s2 > ra:
+            total += int((s2 - ra).total_seconds() / 60.0)
+    reg.minutos_trabalhados = total
+    reg.saldo_minutos = total - (reg.minutos_previstos or 480)
+    if reg.saida_2:
+        reg.status_jornada = StatusJornada.FINALIZADA
+    elif reg.retorno_almoco:
+        reg.status_jornada = StatusJornada.TRABALHANDO
+    elif reg.saida_almoco:
+        reg.status_jornada = StatusJornada.INTERVALO_ALMOCO
+    elif reg.entrada_1:
+        reg.status_jornada = StatusJornada.TRABALHANDO
+
+class SolicitacaoAjustePontoSchema(BaseModel):
+    data: str
+    tipo_batida: str
+    horario: str
+    motivo: str
+
+class ResponderAjustePontoSchema(BaseModel):
+    notificacao_id: int
+    aprovado: bool
+
+@router.post("/solicitar-ajuste-manual")
+def solicitar_ajuste_manual(
+    dados: SolicitacaoAjustePontoSchema,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Colaborador solicita ajuste manual para uma batida esquecida (requer homologação do Administrador)"""
+    if not dados.motivo or len(dados.motivo.strip()) < 4:
+        raise HTTPException(status_code=400, detail="Por favor, informe uma justificativa válida com no mínimo 4 caracteres.")
+
+    reg = db.query(RegistroPonto).filter(
+        RegistroPonto.empresa_id == current_user.empresa_id,
+        RegistroPonto.usuario_id == current_user.id,
+        RegistroPonto.data == dados.data
+    ).first()
+
+    if not reg:
+        reg = RegistroPonto(
+            empresa_id=current_user.empresa_id,
+            usuario_id=current_user.id,
+            data=dados.data,
+            minutos_trabalhados=0,
+            saldo_minutos=0,
+            status_jornada=StatusJornada.TRABALHANDO
+        )
+        db.add(reg)
+        db.commit()
+        db.refresh(reg)
+
+    label_batida = {
+        "entrada_1": "Entrada Inicial",
+        "saida_almoco": "Saída para Almoço",
+        "retorno_almoco": "Retorno do Almoço",
+        "saida_2": "Saída Final"
+    }.get(dados.tipo_batida, dados.tipo_batida.upper())
+
+    msg = f"Colaborador: {current_user.nome} | Batida: {label_batida} às {dados.horario} (Dia {dados.data}) | Motivo: {dados.motivo.strip()} | Meta: {dados.tipo_batida}@{dados.horario}@{reg.id}"
+    notif = Notificacao(
+        empresa_id=current_user.empresa_id,
+        titulo=f"Solicitação de Ajuste de Ponto: {current_user.nome}",
+        mensagem=msg,
+        tipo="PONTO_CLT",
+        referencia_tipo="AJUSTE_PONTO",
+        referencia_id=reg.id,
+        status=StatusNotificacao.PENDENTE.value,
+        usuario_id=None
+    )
+    db.add(notif)
+    db.commit()
+
+    return {
+        "ok": True,
+        "mensagem": f"Solicitação de ajuste para {label_batida} às {dados.horario} enviada para aprovação do Administrador."
+    }
+
+@router.post("/responder-ajuste-manual")
+def responder_ajuste_manual(
+    dados: ResponderAjustePontoSchema,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+) -> Any:
+    """Administrador homologa ou rejeita o apontamento manual do colaborador"""
+    if current_user.perfil != PerfilUsuario.ADMIN:
+        raise HTTPException(status_code=403, detail="Apenas administradores podem homologar ajustes de ponto.")
+
+    notif = db.query(Notificacao).filter(
+        Notificacao.id == dados.notificacao_id,
+        Notificacao.empresa_id == current_user.empresa_id
+    ).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notificação de solicitação não encontrada.")
+
+    if not dados.aprovado:
+        notif.status = StatusNotificacao.RESOLVIDA.value
+        notif.resolvido_em = datetime.now(timezone.utc)
+        notif.resolvido_por_id = current_user.id
+        db.commit()
+        return {"ok": True, "mensagem": "Solicitação de ajuste de ponto rejeitada."}
+
+    if "Meta: " in notif.mensagem:
+        partes = notif.mensagem.split("Meta: ")[1].strip().split("@")
+        if len(partes) >= 3:
+            tipo_batida = partes[0]
+            horario_str = partes[1]
+            reg_id = int(partes[2])
+            reg = db.query(RegistroPonto).filter(
+                RegistroPonto.id == reg_id,
+                RegistroPonto.empresa_id == current_user.empresa_id
+            ).first()
+            if reg:
+                h_parts = horario_str.split(":")
+                hh = int(h_parts[0])
+                mm = int(h_parts[1])
+                dt_apontada = datetime.strptime(f"{reg.data} {hh:02d}:{mm:02d}:00", "%Y-%m-%d %H:%M:%S")
+                setattr(reg, tipo_batida, dt_apontada)
+                recalcular_minutos_ponto(reg)
+                db.add(reg)
+
+    notif.status = StatusNotificacao.RESOLVIDA.value
+    notif.resolvido_em = datetime.now(timezone.utc)
+    notif.resolvido_por_id = current_user.id
+    db.commit()
+
+    return {"ok": True, "mensagem": "Ajuste manual de ponto homologado e registrado com sucesso!"}
 
 class ConfiguracaoPontoItem(BaseModel):
     id: Optional[int] = None

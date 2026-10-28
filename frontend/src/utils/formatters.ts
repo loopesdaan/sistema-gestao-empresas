@@ -218,3 +218,58 @@ export const abrirImagemOriginal = (url?: string | null): void => {
 
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
 };
+
+/**
+ * Utilitários para formatação e máscaras de CNPJ, CPF e Telefone (DDD + traço).
+ */
+
+/**
+ * Extrai apenas dígitos numéricos de uma string.
+ */
+export const apenasNumeros = (val?: string | null): string => {
+  if (!val) return '';
+  return val.replace(/\D/g, '');
+};
+
+/**
+ * Aplica máscara de CNPJ (XX.XXX.XXX/XXXX-XX) progressivamente conforme digitação.
+ */
+export const formatarCNPJ = (val?: string | null): string => {
+  if (!val) return '';
+  const nums = apenasNumeros(val).slice(0, 14);
+  if (nums.length <= 2) return nums;
+  if (nums.length <= 5) return `${nums.slice(0, 2)}.${nums.slice(2)}`;
+  if (nums.length <= 8) return `${nums.slice(0, 2)}.${nums.slice(2, 5)}.${nums.slice(5)}`;
+  if (nums.length <= 12) return `${nums.slice(0, 2)}.${nums.slice(2, 5)}.${nums.slice(5, 8)}/${nums.slice(8)}`;
+  return `${nums.slice(0, 2)}.${nums.slice(2, 5)}.${nums.slice(5, 8)}/${nums.slice(8, 12)}-${nums.slice(12, 14)}`;
+};
+
+/**
+ * Aplica máscara dinâmica de CPF (11 dígitos) ou CNPJ (14 dígitos).
+ */
+export const formatarCpfCnpj = (val?: string | null): string => {
+  if (!val) return '';
+  const nums = apenasNumeros(val);
+  if (nums.length <= 11) {
+    if (nums.length <= 3) return nums;
+    if (nums.length <= 6) return `${nums.slice(0, 3)}.${nums.slice(3)}`;
+    if (nums.length <= 9) return `${nums.slice(0, 3)}.${nums.slice(3, 6)}.${nums.slice(6)}`;
+    return `${nums.slice(0, 3)}.${nums.slice(3, 6)}.${nums.slice(6, 9)}-${nums.slice(9, 11)}`;
+  }
+  return formatarCNPJ(nums);
+};
+
+/**
+ * Aplica máscara dinâmica de Telefone com DDD:
+ * Fixo (10 dígitos): (XX) XXXX-XXXX
+ * Celular (11 dígitos): (XX) XXXXX-XXXX
+ */
+export const formatarTelefone = (val?: string | null): string => {
+  if (!val) return '';
+  const nums = apenasNumeros(val).slice(0, 11);
+  if (nums.length === 0) return '';
+  if (nums.length <= 2) return `(${nums}`;
+  if (nums.length <= 6) return `(${nums.slice(0, 2)}) ${nums.slice(2)}`;
+  if (nums.length <= 10) return `(${nums.slice(0, 2)}) ${nums.slice(2, 6)}-${nums.slice(6)}`;
+  return `(${nums.slice(0, 2)}) ${nums.slice(2, 7)}-${nums.slice(7, 11)}`;
+};

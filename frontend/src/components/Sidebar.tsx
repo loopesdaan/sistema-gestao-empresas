@@ -105,7 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard, adminOnly: true, modulo: 'dashboard', sempreAdmin: true },
         { id: 'pdv', label: 'Frente de Caixa', icon: ShoppingCart, highlight: true, modulo: 'pdv' },
         { id: 'os', label: labelServicos, icon: Wrench, modulo: 'os' },
-        { id: 'notificacoes', label: 'Notificações & Ações', icon: Bell, sempreVisivel: true, modulo: 'notificacoes' },
+        { id: 'notificacoes', label: 'Ações Rápidas & Alertas', icon: Bell, sempreVisivel: true, modulo: 'notificacoes' },
       ]
     },
     {
@@ -145,7 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Filtra por permissão de perfil e respeita rigorosamente os módulos ativos da empresa
   const filtrarItem = (item: MenuItemDef) => {
     // 1. Dados da empresa sempre visíveis para configurações
-    if (item.id === 'empresa') return true;
+    if (item.id === 'empresa') return isAdmin || isFinanceiro;
     if (item.id === 'usuarios') return isAdmin;
 
     // 2. Módulos operacionais do negócio: respeitam os módulos ativos na empresa
@@ -157,18 +157,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (item.id === 'dashboard') return isAdmin;
     if (item.id === 'financeiro') return isAdminOuFinanceiro;
 
-    // 4. Regras específicas de colaboradores:
-    // Controlador de Estoque: só opera o módulo de Produtos & Estoque
+    // 4. Regras rigorosas por perfil de colaborador:
+    // Controlador de Estoque: opera exclusivamente Estoque & Inventário e Ponto CLT (não vende nada)
     if (isEstoquista) {
-      return item.id === 'produtos';
+      return item.id === 'produtos' || item.id === 'ponto';
     }
 
-    // Financeiro: não opera frente de caixa PDV de balcão
+    // Financeiro & Tesouraria: cofre, caixas, relatórios e clientes (sem vendas de balcão ou catálogo)
     if (isFinanceiro) {
-      return item.id !== 'pdv';
+      return ['caixa', 'financeiro', 'relatorios', 'clientes', 'ponto', 'notificacoes', 'empresa'].includes(item.id);
     }
 
-    // Operador de Caixa e Administrador: visualizam todos os módulos operacionais ativos
+    // Operador de Caixa: opera Frente de Caixa, seu Caixa, OS, Minhas Vendas, Clientes e Ponto
+    if (isOperador) {
+      return ['pdv', 'caixa', 'os', 'relatorios', 'clientes', 'ponto', 'notificacoes'].includes(item.id);
+    }
+
     return true;
   };
 

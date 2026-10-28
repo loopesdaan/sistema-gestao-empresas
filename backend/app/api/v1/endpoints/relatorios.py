@@ -248,6 +248,23 @@ def obter_relatorio_olap(
     produtos_motores = []
     sugestoes_estrategicas = []
 
+    # 1. Alertas de Ruptura e Estoque Crítico (Garantidos independente do período filtrado)
+    produtos_criticos = db.query(Produto).filter(
+        Produto.empresa_id == current_user.empresa_id,
+        Produto.ativo == True,
+        (Produto.estoque_atual <= Produto.estoque_minimo) | (Produto.estoque_atual <= 0)
+    ).order_by(Produto.estoque_atual.asc()).limit(5).all()
+
+    for pc in produtos_criticos:
+        if pc.estoque_atual <= 0:
+            sugestoes_estrategicas.append(
+                f"🚨 Ruptura Crítica: '{pc.nome}' está com ESTOQUE ZERADO. Reposição emergencial necessária."
+            )
+        else:
+            sugestoes_estrategicas.append(
+                f"⚠️ Estoque no Limite: '{pc.nome}' tem apenas {pc.estoque_atual} un (mínimo de segurança: {pc.estoque_minimo} un)."
+            )
+
     for item in itens_produtos:
         qtd_tot = item.qtd_total or Decimal("0.00")
         fat_prod = item.faturamento_produto or Decimal("0.00")
@@ -256,13 +273,22 @@ def obter_relatorio_olap(
         receita_diaria_produtos += rec_diaria_item
 
         estoque = float(item.estoque_atual or 0.0)
-        dias_estoque = int(Decimal(str(estoque)) / giro_diario) if giro_diario > Decimal("0.00") else 999
+        est_minimo = float(item.estoque_minimo or 0.0)
 
-        risco_ruptura = "ALTO" if dias_estoque <= 7 else "MEDIO" if dias_estoque <= 15 else "BAIXO"
-        if risco_ruptura == "ALTO" and len(sugestoes_estrategicas) < 3:
-            sugestoes_estrategicas.append(
-                f"🚨 Risco Iminente de Ruptura: '{item.nome}' tem estoque para apenas {dias_estoque} dias. Repor com urgência para manter o faturamento projetado."
-            )
+        if estoque <= 0:
+            dias_estoque = 0
+            risco_ruptura = "ALTO"
+        elif estoque <= est_minimo:
+            dias_estoque = int(Decimal(str(estoque)) / giro_diario) if giro_diario > Decimal("0.00") else 7
+            risco_ruptura = "ALTO"
+        else:
+            dias_estoque = int(Decimal(str(estoque)) / giro_diario) if giro_diario > Decimal("0.00") else 999
+            risco_ruptura = "ALTO" if dias_estoque <= 7 else "MEDIO" if dias_estoque <= 15 else "BAIXO"
+
+        if risco_ruptura == "ALTO" and len(sugestoes_estrategicas) < 4:
+            msg_alerta = f"🚨 Risco de Ruptura: '{item.nome}' tem estoque estimado para apenas {dias_estoque} dias de venda."
+            if msg_alerta not in sugestoes_estrategicas:
+                sugestoes_estrategicas.append(msg_alerta)
 
         if len(produtos_motores) < 6:
             contribuicao_pct = (float(fat_prod) / float(faturamento_total) * 100) if faturamento_total > 0 else 0.0
@@ -284,7 +310,7 @@ def obter_relatorio_olap(
 
     # Fator de tendência e sazonalidade para a previsão
     fator_tendencia = Decimal("1.00") + (Decimal(str(min(max(crescimento_pct, -20.0), 30.0))) / Decimal("100.00")) * Decimal("0.5")
-    receita_base = receita_diaria_produtos if receita_diaria_produtos > 0 else media_diaria
+    receita_base = media_diaria if media_diaria > 0 else (receita_diaria_produtos if receita_diaria_produtos > 0 else Decimal("0.00"))
 
     prev_7 = receita_base * Decimal("7") * fator_tendencia
     prev_30 = receita_base * Decimal("30") * fator_tendencia
