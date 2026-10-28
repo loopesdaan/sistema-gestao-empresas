@@ -8,6 +8,7 @@ from app.models.usuario import Usuario, PerfilUsuario
 from app.models.produto import Produto
 from app.schemas.produto import ProdutoCreate, ProdutoUpdate, ProdutoResponse
 from app.api.deps import get_current_user, verificar_ponto_trabalho
+from app.services.produtos import buscar_produto_seguro
 
 router = APIRouter()
 
@@ -74,15 +75,7 @@ def obter_produto(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    produto = db.query(Produto).filter(
-        Produto.id == produto_id,
-        Produto.empresa_id == current_user.empresa_id
-    ).first()
-    if not produto and produto_id and produto_id > 10_000_000:
-        produto = db.query(Produto).filter(
-            Produto.empresa_id == current_user.empresa_id,
-            Produto.id.between(produto_id - 1000, produto_id + 1000)
-        ).first()
+    produto = buscar_produto_seguro(produto_id, db, current_user)
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
     return serialize_produto(produto)
@@ -119,15 +112,7 @@ def atualizar_produto(
     if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.ESTOQUISTA]:
         raise HTTPException(status_code=403, detail="Apenas Administradores e Estoquistas podem alterar produtos e estoque.")
 
-    produto = db.query(Produto).filter(
-        Produto.id == produto_id,
-        Produto.empresa_id == current_user.empresa_id
-    ).first()
-    if not produto and produto_id and produto_id > 10_000_000:
-        produto = db.query(Produto).filter(
-            Produto.empresa_id == current_user.empresa_id,
-            Produto.id.between(produto_id - 1000, produto_id + 1000)
-        ).first()
+    produto = buscar_produto_seguro(produto_id, db, current_user)
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 

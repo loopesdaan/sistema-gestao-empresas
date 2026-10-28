@@ -16,6 +16,7 @@ from app.models.os import OrdemServico, StatusOS
 from app.schemas.venda import VendaCreate, VendaResponse
 from app.api.deps import get_current_user, verificar_ponto_trabalho
 from app.api.v1.endpoints.clientes import buscar_cliente_seguro
+from app.services.produtos import buscar_produto_seguro as buscar_prod_service
 
 router = APIRouter()
 
@@ -196,33 +197,7 @@ def buscar_produto_seguro(produto_id: int, db: Session, current_user: Usuario) -
     Busca produto por ID garantindo vínculo à empresa do usuário.
     Possui tolerância a IDs float64 de 64-bit e resgate seguro de itens legados órfãos.
     """
-    produto = db.query(Produto).filter(
-        Produto.id == produto_id,
-        Produto.empresa_id == current_user.empresa_id
-    ).first()
-
-    # Tolerância para precisão IEEE 754 de 64-bit int no JavaScript (CockroachDB IDs) na MESMA empresa
-    if not produto and produto_id and produto_id > 10_000_000:
-        candidatos = db.query(Produto).filter(
-            Produto.empresa_id == current_user.empresa_id,
-            Produto.id >= produto_id - 1000,
-            Produto.id <= produto_id + 1000
-        ).all()
-        if len(candidatos) == 1:
-            produto = candidatos[0]
-
-    # Resgate estritamente de dados legados órfãos (empresa_id nulo)
-    if not produto:
-        prod_orfao = db.query(Produto).filter(
-            Produto.id == produto_id,
-            Produto.empresa_id.is_(None)
-        ).first()
-        if prod_orfao:
-            prod_orfao.empresa_id = current_user.empresa_id
-            db.commit()
-            db.refresh(prod_orfao)
-            produto = prod_orfao
-
+    produto = buscar_prod_service(produto_id, db, current_user)
     if not produto:
         raise HTTPException(status_code=404, detail=f"Produto ID {produto_id} não encontrado.")
     return produto
@@ -485,10 +460,7 @@ def cancelar_venda(
 
     # Devolve itens ao estoque
     for it in venda.itens:
-        produto = db.query(Produto).filter(
-            Produto.id == it.produto_id,
-            Produto.empresa_id == current_user.empresa_id
-        ).first()
+        produto = buscar_prod_service(it.produto_id, db, current_user)
         if produto:
             produto.estoque_atual += it.quantidade
             mov = MovimentacaoEstoque(

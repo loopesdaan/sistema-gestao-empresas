@@ -685,7 +685,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                           <button
                             type="button"
                             onClick={() => {
-                              const prod = produtos.find(p => p.id === pc.id) || {
+                              const prod = produtos.find(p => p.id === pc.id || Math.abs(Number(p.id) - Number(pc.id)) < 50) || {
                                 id: pc.id,
                                 nome: pc.nome,
                                 preco_venda: pc.preco_venda,
@@ -754,7 +754,7 @@ export const Produtos: React.FC<{ isAdmin?: boolean }> = ({ isAdmin }) => {
                             <td className="py-2.5 px-3 text-right">
                               <button
                                 onClick={() => {
-                                  const prod = produtos.find(p => p.id === pc.id) || {
+                                  const prod = produtos.find(p => p.id === pc.id || Math.abs(Number(p.id) - Number(pc.id)) < 50) || {
                                     id: pc.id,
                                     nome: pc.nome,
                                     preco_venda: pc.preco_venda,

@@ -12,6 +12,7 @@ from app.models.notificacao import Notificacao
 from app.models.estoque import MovimentacaoEstoque, TipoMovimentacaoEstoque
 from app.schemas.estoque import MovimentacaoEstoqueCreate, MovimentacaoEstoqueResponse, ImportacaoExcelResponse
 from app.api.deps import get_current_user
+from app.services.produtos import buscar_produto_seguro
 
 router = APIRouter()
 
@@ -24,10 +25,7 @@ def movimentar_estoque(
     if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.ESTOQUISTA]:
         raise HTTPException(status_code=403, detail="Apenas Administradores e Estoquistas podem movimentar estoque.")
 
-    produto = db.query(Produto).filter(
-        Produto.id == mov_in.produto_id,
-        Produto.empresa_id == current_user.empresa_id
-    ).first()
+    produto = buscar_produto_seguro(mov_in.produto_id, db, current_user)
     if not produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
@@ -174,8 +172,10 @@ def historico_produto(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
+    produto = buscar_produto_seguro(produto_id, db, current_user)
+    pid = produto.id if produto else produto_id
     return db.query(MovimentacaoEstoque).filter(
-        MovimentacaoEstoque.produto_id == produto_id,
+        MovimentacaoEstoque.produto_id == pid,
         MovimentacaoEstoque.empresa_id == current_user.empresa_id
     ).order_by(MovimentacaoEstoque.created_at.desc()).all()
 
