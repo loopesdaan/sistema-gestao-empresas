@@ -10,7 +10,7 @@ import { apiService, resolveImageUrl } from '../services/api';
 import { StatusFinanceiro, MovimentacaoTesouraria, TipoMovimentacaoTesouraria } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
-import { formatDateSafe } from '../utils/formatters';
+import { formatDateSafe, abrirImagemOriginal } from '../utils/formatters';
 
 export const Financeiro: React.FC = () => {
   const { temaAtual, empresa } = useEmpresa();
@@ -166,9 +166,10 @@ export const Financeiro: React.FC = () => {
     extrato.forEach((m) => {
       const dataStr = formatDateSafe(m.created_at, { includeTime: true });
       const info = badgeTipo(m.tipo);
-      const valStr = (info.isEntrada ? m.valor : -m.valor).toFixed(2).replace('.', ',');
-      const antStr = m.saldo_anterior.toFixed(2).replace('.', ',');
-      const postStr = m.saldo_posterior.toFixed(2).replace('.', ',');
+      const valNum = Number(m.valor) || 0;
+      const valStr = (info.isEntrada ? valNum : -valNum).toFixed(2).replace('.', ',');
+      const antStr = (Number(m.saldo_anterior) || 0).toFixed(2).replace('.', ',');
+      const postStr = (Number(m.saldo_posterior) || 0).toFixed(2).replace('.', ',');
       const motivoStr = (m.motivo || '').replace(/;/g, ' - ');
       csv += `${m.id};${dataStr};${info.label};${motivoStr};${m.usuario_nome || 'Sistema'};${valStr};${antStr};${postStr}\n`;
     });
@@ -747,16 +748,15 @@ export const Financeiro: React.FC = () => {
                 <h3 className="font-bold text-slate-900 text-sm sm:text-base">Comprovante Financeiro (Cloudflare R2)</h3>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={previewComprovanteModal}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => previewComprovanteModal && abrirImagemOriginal(previewComprovanteModal)}
                   className="px-2.5 py-1 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-lg flex items-center gap-1 border border-sky-200"
                   title="Abrir imagem em nova aba"
                 >
                   <ExternalLink size={13} />
                   <span>Abrir Original</span>
-                </a>
+                </button>
                 <button 
                   type="button" 
                   onClick={() => setPreviewComprovanteModal(null)}

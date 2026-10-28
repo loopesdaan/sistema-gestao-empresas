@@ -43,3 +43,42 @@ async def upload_imagem(
         "tipo": tipo
     }
 
+@router.get("/arquivo/{filename}")
+def obter_arquivo_upload(filename: str) -> Any:
+    """
+    Retorna o arquivo de upload diretamente (Cloudflare R2 ou armazenamento local).
+    Garante que links para imagens e comprovantes funcionem em qualquer aba ou contexto.
+    """
+    from fastapi.responses import Response, FileResponse
+    from app.core.config import settings
+    from app.services.storage import UPLOAD_DIR, get_mime_type
+
+    # 1. Se credenciais R2 configuradas, busca do Cloudflare R2
+    if settings.CLOUDFLARE_R2_ACCESS_KEY_ID and settings.CLOUDFLARE_R2_SECRET_ACCESS_KEY:
+        try:
+            import boto3
+            from botocore.config import Config
+
+            s3 = boto3.client(
+                "s3",
+                endpoint_url=settings.CLOUDFLARE_R2_ENDPOINT_URL,
+                aws_access_key_id=settings.CLOUDFLARE_R2_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+                region_name="auto",
+                config=Config(signature_version="s3v4")
+            )
+            obj = s3.get_object(Bucket=settings.CLOUDFLARE_R2_BUCKET_NAME, Key=filename)
+            conteudo = obj["Body"].read()
+            mime = obj.get("ContentType") or get_mime_type(os.path.splitext(filename)[1])
+            return Response(content=conteudo, media_type=mime)
+        except Exception:
+            pass
+
+    # 2. Busca do disco local
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    if os.path.exists(filepath):
+        mime = get_mime_type(os.path.splitext(filename)[1])
+        return FileResponse(filepath, media_type=mime)
+
+    raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+

@@ -1,3 +1,5 @@
+import { resolveImageUrl } from '../services/api';
+
 /**
  * Utilitários para formatação de identificadores legíveis e humanizados (Venda, OS, Caixa)
  * Trata IDs convencionais, sequenciais e inteiros de 64-bit do CockroachDB Serverless.
@@ -160,4 +162,59 @@ export const formatDateSafe = (
   } catch {
     return fallback;
   }
+};
+
+/**
+ * Abre a imagem original em uma nova aba com compatibilidade para:
+ * 1. Data URIs (Base64), que são bloqueados por navegadores em links diretos gerando tela em branco (about:blank).
+ * 2. URLs remotas (Cloudflare R2, CDN) e relativas da API.
+ */
+export const abrirImagemOriginal = (url?: string | null): void => {
+  if (!url) return;
+  const trimmed = url.trim();
+  if (!trimmed) return;
+
+  const targetUrl = resolveImageUrl(trimmed);
+
+  if (targetUrl.startsWith('data:')) {
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Visualização de Imagem Original</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body {
+              margin: 0;
+              background-color: #0b0f19;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              padding: 16px;
+              box-sizing: border-box;
+            }
+            img {
+              max-width: 100%;
+              max-height: 95vh;
+              object-fit: contain;
+              border-radius: 12px;
+              box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${targetUrl}" alt="Imagem Original" />
+        </body>
+        </html>
+      `);
+      win.document.close();
+      return;
+    }
+  }
+
+  window.open(targetUrl, '_blank', 'noopener,noreferrer');
 };

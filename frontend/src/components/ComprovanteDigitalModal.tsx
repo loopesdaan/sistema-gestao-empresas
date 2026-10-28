@@ -9,6 +9,16 @@ import { useEmpresa } from '../contexts/EmpresaContext';
 import { resolveImageUrl } from '../services/api';
 import { formatarNumeroVenda, formatarNumeroCaixa, formatDateSafe } from '../utils/formatters';
 
+const toNum = (val?: number | string | null): number => {
+  if (val === null || val === undefined) return 0;
+  const n = typeof val === 'number' ? val : Number(val);
+  return isNaN(n) ? 0 : n;
+};
+
+const toMoneyStr = (val?: number | string | null): string => {
+  return toNum(val).toFixed(2);
+};
+
 interface ComprovanteDigitalModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -41,6 +51,9 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
   const totalVendas = vendas.length;
   const temAnterior = indiceAtual > 0;
   const temProximo = indiceAtual < totalVendas - 1;
+
+  const totalPago = (vendaAtiva.pagamentos || []).reduce((acc, p) => acc + toNum(p.valor), 0);
+  const totalTroco = (vendaAtiva.pagamentos || []).reduce((acc, p) => acc + toNum(p.troco), 0);
 
   const handleImprimir = () => {
     if (!vendaAtiva) return;
@@ -82,9 +95,9 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
           .text-right { text-align: right; }
           .bold { font-weight: bold; }
           .divider { border-top: 1px dashed #000; margin: 5px 0; }
-          .row { display: flex; justify-content: space-between; }
+          .row { display: flex; justify-content: space-between; gap: 4px; }
           .title { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 2px; }
-          .item-row { margin-bottom: 3px; }
+          .item-row { margin-bottom: 4px; }
         </style>
       </head>
       <body>
@@ -101,27 +114,27 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
         ${(vendaAtiva.itens || []).map(i => `
           <div class="item-row">
             <div class="row">
-              <span>${i.quantidade}x ${i.produto_nome || 'Item'}</span>
-              <span class="bold">R$ ${Number(i.subtotal || 0).toFixed(2)}</span>
+              <span style="max-width: 50mm; word-break: break-word;">${i.quantidade}x ${i.produto_nome || 'Item'}</span>
+              <span class="bold" style="white-space: nowrap;">R$ ${toMoneyStr(i.subtotal)}</span>
             </div>
-            <div style="font-size: 9px; color: #555;">(R$ ${Number(i.valor_unitario || 0).toFixed(2)} un)</div>
+            <div style="font-size: 9px; color: #555;">(R$ ${toMoneyStr(i.valor_unitario)} un)</div>
           </div>
         `).join('')}
         <div class="divider"></div>
-        <div class="row"><span>SUBTOTAL:</span><span>R$ ${Number(vendaAtiva.valor_bruto || 0).toFixed(2)}</span></div>
-        ${Number(vendaAtiva.desconto || 0) > 0 ? `<div class="row"><span>DESCONTO:</span><span>- R$ ${Number(vendaAtiva.desconto).toFixed(2)}</span></div>` : ''}
-        ${Number(vendaAtiva.acrescimo || 0) > 0 ? `<div class="row"><span>ACRÉSCIMO:</span><span>+ R$ ${Number(vendaAtiva.acrescimo).toFixed(2)}</span></div>` : ''}
+        <div class="row"><span>SUBTOTAL:</span><span>R$ ${toMoneyStr(vendaAtiva.valor_bruto)}</span></div>
+        ${toNum(vendaAtiva.desconto) > 0 ? `<div class="row"><span>DESCONTO:</span><span>- R$ ${toMoneyStr(vendaAtiva.desconto)}</span></div>` : ''}
+        ${toNum(vendaAtiva.acrescimo) > 0 ? `<div class="row"><span>ACRÉSCIMO:</span><span>+ R$ ${toMoneyStr(vendaAtiva.acrescimo)}</span></div>` : ''}
         <div class="divider"></div>
-        <div class="row bold" style="font-size: 12px;"><span>TOTAL:</span><span>R$ ${Number(vendaAtiva.valor_liquido || 0).toFixed(2)}</span></div>
+        <div class="row bold" style="font-size: 12px;"><span>TOTAL:</span><span>R$ ${toMoneyStr(vendaAtiva.valor_liquido)}</span></div>
         <div class="divider"></div>
         <div class="bold">PAGAMENTO:</div>
         ${(vendaAtiva.pagamentos || []).map(p => `
           <div class="row">
-            <span>${p.forma_pagamento.replace('_', ' ')}:</span>
-            <span>R$ ${Number(p.valor).toFixed(2)}</span>
+            <span>${p.forma_pagamento ? p.forma_pagamento.replace('_', ' ') : 'PAGAMENTO'}:</span>
+            <span>R$ ${toMoneyStr(p.valor)}</span>
           </div>
         `).join('')}
-        ${totalTroco > 0 ? `<div class="row bold"><span>TROCO:</span><span>R$ ${totalTroco.toFixed(2)}</span></div>` : ''}
+        ${totalTroco > 0 ? `<div class="row bold"><span>TROCO:</span><span>R$ ${toMoneyStr(totalTroco)}</span></div>` : ''}
         <div class="divider"></div>
         <div class="text-center" style="margin-top: 6px;">OBRIGADO PELA PREFERÊNCIA!</div>
         <div class="text-center" style="font-size: 9px;">Documento auxiliar sem valor fiscal</div>
@@ -153,13 +166,14 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
       `Cliente: ${vendaAtiva.cliente_nome || 'Consumidor Final'}`,
       `==============================`,
       `ITENS DA VENDA:`,
-      ...(vendaAtiva.itens || []).map(i => `${i.quantidade}x ${i.produto_nome || 'Item'} - R$ ${(i.subtotal || 0).toFixed(2)}`),
+      ...(vendaAtiva.itens || []).map(i => `${i.quantidade}x ${i.produto_nome || 'Item'} - R$ ${toMoneyStr(i.subtotal)}`),
       `------------------------------`,
-      `SUBTOTAL: R$ ${(vendaAtiva.valor_bruto || 0).toFixed(2)}`,
-      `DESCONTO: R$ ${(vendaAtiva.desconto || 0).toFixed(2)}`,
-      `TOTAL A PAGAR: R$ ${(vendaAtiva.valor_liquido || 0).toFixed(2)}`,
+      `SUBTOTAL: R$ ${toMoneyStr(vendaAtiva.valor_bruto)}`,
+      ...(toNum(vendaAtiva.desconto) > 0 ? [`DESCONTO: R$ ${toMoneyStr(vendaAtiva.desconto)}`] : []),
+      ...(toNum(vendaAtiva.acrescimo) > 0 ? [`ACRÉSCIMO: R$ ${toMoneyStr(vendaAtiva.acrescimo)}`] : []),
+      `TOTAL A PAGAR: R$ ${toMoneyStr(vendaAtiva.valor_liquido)}`,
       `PAGAMENTO:`,
-      ...(vendaAtiva.pagamentos || []).map(p => `- ${p.forma_pagamento}: R$ ${p.valor.toFixed(2)} (Troco: R$ ${(p.troco || 0).toFixed(2)})`),
+      ...(vendaAtiva.pagamentos || []).map(p => `- ${p.forma_pagamento ? p.forma_pagamento.replace('_', ' ') : 'PAGAMENTO'}: R$ ${toMoneyStr(p.valor)}${toNum(p.troco) > 0 ? ` (Troco: R$ ${toMoneyStr(p.troco)})` : ''}`),
       `==============================`,
       `Obrigado pela preferência!`
     ];
@@ -167,9 +181,6 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
   };
-
-  const totalPago = (vendaAtiva.pagamentos || []).reduce((acc, p) => acc + (p.valor || 0), 0);
-  const totalTroco = (vendaAtiva.pagamentos || []).reduce((acc, p) => acc + (p.troco || 0), 0);
 
   return (
     <div 
@@ -233,10 +244,10 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
         )}
 
         {/* Área do Cupom Digital (Estilo Impressão Térmica) */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-50 flex justify-center">
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 bg-slate-100/70 flex justify-center items-start">
           <div 
             id="area-comprovante-imprimir"
-            className="w-full max-w-sm bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm font-mono text-xs text-slate-800 space-y-4"
+            className="w-full max-w-sm bg-white p-4 sm:p-6 rounded-2xl border border-slate-200/90 shadow-md font-mono text-xs text-slate-800 space-y-4 my-2"
           >
             {/* Cabeçalho Empresa */}
             <div className="text-center space-y-1 border-b border-dashed border-slate-300 pb-3">
@@ -270,9 +281,9 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
                 <span className="text-slate-500">CAIXA / OPERADOR:</span>
                 <span>Caixa #{formatarNumeroCaixa(vendaAtiva.caixa_id)} - {vendaAtiva.usuario_nome || 'Operador'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">CLIENTE:</span>
-                <span className="font-bold truncate max-w-[180px]">{vendaAtiva.cliente_nome || 'Consumidor Final'}</span>
+              <div className="flex justify-between items-start gap-2">
+                <span className="text-slate-500 shrink-0">CLIENTE:</span>
+                <span className="font-bold text-right break-words max-w-[210px]">{vendaAtiva.cliente_nome || 'Consumidor Final'}</span>
               </div>
             </div>
 
@@ -280,19 +291,21 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
             <div className="space-y-2 border-b border-dashed border-slate-300 pb-3">
               <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
                 <span>Item / Qtd</span>
-                <span>Subtotal</span>
+                <span className="shrink-0 text-right">Subtotal</span>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {(vendaAtiva.itens || []).map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-baseline text-[11px]">
-                    <div className="truncate max-w-[190px]">
-                      <span className="font-bold">{item.quantidade}x</span> {item.produto_nome || `Produto #${item.produto_id}`}
-                      <div className="text-[9px] text-slate-400">
-                        R$ {Number(item.valor_unitario).toFixed(2)} cada
+                  <div key={idx} className="flex justify-between items-start gap-2 text-[11px]">
+                    <div className="min-w-0 flex-1">
+                      <div className="break-words font-medium text-slate-900 leading-tight">
+                        <span className="font-bold">{item.quantidade}x</span> {item.produto_nome || `Produto #${item.produto_id}`}
+                      </div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">
+                        R$ {toMoneyStr(item.valor_unitario)} cada
                       </div>
                     </div>
-                    <span className="font-bold font-mono">
-                      R$ {Number(item.subtotal).toFixed(2)}
+                    <span className="font-bold font-mono shrink-0 whitespace-nowrap text-right">
+                      R$ {toMoneyStr(item.subtotal)}
                     </span>
                   </div>
                 ))}
@@ -303,24 +316,24 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
             <div className="space-y-1.5 border-b border-dashed border-slate-300 pb-3 text-[11px]">
               <div className="flex justify-between">
                 <span className="text-slate-500">Subtotal Bruto:</span>
-                <span className="font-mono">R$ {Number(vendaAtiva.valor_bruto || 0).toFixed(2)}</span>
+                <span className="font-mono">R$ {toMoneyStr(vendaAtiva.valor_bruto)}</span>
               </div>
-              {Number(vendaAtiva.desconto || 0) > 0 && (
+              {toNum(vendaAtiva.desconto) > 0 && (
                 <div className="flex justify-between text-rose-600">
                   <span>Desconto:</span>
-                  <span className="font-mono">- R$ {Number(vendaAtiva.desconto).toFixed(2)}</span>
+                  <span className="font-mono">- R$ {toMoneyStr(vendaAtiva.desconto)}</span>
                 </div>
               )}
-              {Number(vendaAtiva.acrescimo || 0) > 0 && (
+              {toNum(vendaAtiva.acrescimo) > 0 && (
                 <div className="flex justify-between text-emerald-600">
                   <span>Acréscimo:</span>
-                  <span className="font-mono">+ R$ {Number(vendaAtiva.acrescimo).toFixed(2)}</span>
+                  <span className="font-mono">+ R$ {toMoneyStr(vendaAtiva.acrescimo)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm font-black pt-1 border-t border-slate-200">
-                <span>TOTAL LIQUIDO:</span>
+                <span>TOTAL LÍQUIDO:</span>
                 <span className="text-emerald-700 font-mono">
-                  R$ {Number(vendaAtiva.valor_liquido || 0).toFixed(2)}
+                  R$ {toMoneyStr(vendaAtiva.valor_liquido)}
                 </span>
               </div>
             </div>
@@ -332,14 +345,14 @@ export const ComprovanteDigitalModal: React.FC<ComprovanteDigitalModalProps> = (
               </span>
               {(vendaAtiva.pagamentos || []).map((pag, idx) => (
                 <div key={idx} className="flex justify-between">
-                  <span>{pag.forma_pagamento.replace('_', ' ')}:</span>
-                  <span className="font-mono font-bold">R$ {Number(pag.valor).toFixed(2)}</span>
+                  <span>{pag.forma_pagamento ? pag.forma_pagamento.replace('_', ' ') : 'PAGAMENTO'}:</span>
+                  <span className="font-mono font-bold">R$ {toMoneyStr(pag.valor)}</span>
                 </div>
               ))}
               {totalTroco > 0 && (
                 <div className="flex justify-between text-sky-700 font-bold pt-1">
                   <span>Troco Devolvido:</span>
-                  <span className="font-mono">R$ {totalTroco.toFixed(2)}</span>
+                  <span className="font-mono">R$ {toMoneyStr(totalTroco)}</span>
                 </div>
               )}
             </div>
