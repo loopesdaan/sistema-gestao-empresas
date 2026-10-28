@@ -88,3 +88,4 @@ def enviar_mensagem(
         "created_at": nova_mensagem.created_at.isoformat(),
         "eh_meu": True
     }
+

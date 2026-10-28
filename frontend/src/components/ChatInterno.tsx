@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Send, X, MessageSquare, Users, Sparkles, RefreshCw } from 'lucide-react';
 import { apiService, resolveImageUrl } from '../services/api';
 import { MensagemChat } from '../types';
@@ -17,6 +18,7 @@ export const ChatInterno: React.FC<ChatInternoProps> = ({ aberto, onFechar, usua
   const [enviando, setEnviando] = useState(false);
   const [carregandoInicial, setCarregandoInicial] = useState(false);
   const fimChatRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const carregarMensagens = async (silencioso = false) => {
     try {
@@ -36,7 +38,24 @@ export const ChatInterno: React.FC<ChatInternoProps> = ({ aberto, onFechar, usua
       const interval = setInterval(() => {
         carregarMensagens(true);
       }, 4000);
-      return () => clearInterval(interval);
+
+      // Foca no input após abrir
+      setTimeout(() => inputRef.current?.focus(), 150);
+
+      // Trava scroll do body enquanto o chat estiver aberto no mobile
+      document.body.style.overflow = 'hidden';
+
+      // Fechar no Escape
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') onFechar();
+      };
+      window.addEventListener('keydown', handleKeyDown);
+
+      return () => {
+        clearInterval(interval);
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
     }
   }, [aberto]);
 
@@ -56,7 +75,10 @@ export const ChatInterno: React.FC<ChatInternoProps> = ({ aberto, onFechar, usua
       const msgCriada = await apiService.enviarMensagem(textoLimpo);
       setNovoTexto('');
       setMensagens((prev) => [...prev, msgCriada]);
-      setTimeout(() => fimChatRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      setTimeout(() => {
+        fimChatRef.current?.scrollIntoView({ behavior: 'smooth' });
+        inputRef.current?.focus();
+      }, 50);
     } catch (err) {
       console.error('Erro ao enviar mensagem:', err);
     } finally {
@@ -67,13 +89,13 @@ export const ChatInterno: React.FC<ChatInternoProps> = ({ aberto, onFechar, usua
   const badgePerfil = (perfil: string) => {
     switch (perfil) {
       case 'ADMIN':
-        return <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-amber-100 text-amber-800">ADM</span>;
+        return <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">ADM</span>;
       case 'FINANCEIRO':
-        return <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-purple-100 text-purple-800">Financeiro</span>;
+        return <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300">Financeiro</span>;
       case 'ESTOQUISTA':
-        return <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-cyan-100 text-cyan-800">Estoque</span>;
+        return <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-300">Estoque</span>;
       default:
-        return <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-100 text-emerald-800">Operador</span>;
+        return <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">Operador</span>;
     }
   };
 
@@ -89,51 +111,55 @@ export const ChatInterno: React.FC<ChatInternoProps> = ({ aberto, onFechar, usua
 
   if (!aberto) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-2xs flex justify-end animate-in fade-in duration-150">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999] overflow-hidden bg-slate-950/70 backdrop-blur-xs flex justify-end animate-in fade-in duration-150"
+      onClick={onFechar}
+    >
       <div 
-        className="w-full sm:w-96 max-w-full bg-white h-full flex flex-col shadow-2xl border-l border-slate-200 animate-in slide-in-from-right duration-200"
+        className="w-full sm:w-[420px] max-w-full bg-white dark:bg-slate-900 h-[100dvh] max-h-[100dvh] flex flex-col shadow-2xl border-l border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 animate-in slide-in-from-right duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Topo do Chat */}
-        <div className="px-4 py-3.5 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between">
+        <div className="px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs">
-              <MessageSquare size={16} />
+            <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-sky-600 text-white flex items-center justify-center shadow-xs">
+              <MessageSquare size={18} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+              <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-1.5">
                 <span>Canal da Equipe</span>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               </h3>
-              <p className="text-[11px] text-slate-400">Mensagens em tempo real para todos</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Mensagens em tempo real</p>
             </div>
           </div>
 
           <button
             type="button"
             onClick={onFechar}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
-            title="Fechar chat"
+            className="p-2 text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+            title="Fechar conversa (Esc)"
+            aria-label="Fechar chat"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
         {/* Corpo de Mensagens */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/60 dark:bg-slate-950/50">
           {carregandoInicial && mensagens.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 gap-2">
               <RefreshCw size={24} className="animate-spin text-slate-400" />
-              <span className="text-xs">Carregando conversa...</span>
+              <span className="text-xs">Carregando mensagens...</span>
             </div>
           ) : mensagens.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-6 text-slate-400 space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-2xs">
+            <div className="flex flex-col items-center justify-center h-full text-center p-6 text-slate-400 dark:text-slate-500 space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-2xs">
                 💬
               </div>
-              <h4 className="text-xs font-bold text-slate-700">Nenhuma mensagem recente</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed max-w-xs">
+              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">Nenhuma mensagem recente</h4>
+              <p className="text-[11px] text-slate-400 dark:text-slate-400 leading-relaxed max-w-xs">
                 Inicie uma conversa! Todos os colaboradores da sua empresa receberão o recado aqui.
               </p>
             </div>
@@ -146,7 +172,7 @@ export const ChatInterno: React.FC<ChatInternoProps> = ({ aberto, onFechar, usua
                   className={`flex items-start gap-2 ${ehEu ? 'flex-row-reverse' : 'flex-row'}`}
                 >
                   {/* Avatar do Autor */}
-                  <div className="w-7 h-7 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-700 text-[10px] font-black shrink-0 overflow-hidden shadow-2xs">
+                  <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 text-[10px] font-black shrink-0 overflow-hidden shadow-2xs">
                     {msg.usuario_foto_url ? (
                       <img
                         src={resolveImageUrl(msg.usuario_foto_url)}
@@ -160,18 +186,18 @@ export const ChatInterno: React.FC<ChatInternoProps> = ({ aberto, onFechar, usua
                   </div>
 
                   {/* Balão */}
-                  <div className={`max-w-[75%] space-y-1 ${ehEu ? 'items-end' : 'items-start'}`}>
-                    <div className={`flex items-center gap-1.5 text-[10px] text-slate-500 ${ehEu ? 'justify-end' : 'justify-start'}`}>
-                      <span className="font-bold text-slate-700">{ehEu ? 'Você' : msg.usuario_nome}</span>
+                  <div className={`max-w-[78%] space-y-1 ${ehEu ? 'items-end' : 'items-start'}`}>
+                    <div className={`flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 ${ehEu ? 'justify-end' : 'justify-start'}`}>
+                      <span className="font-bold text-slate-700 dark:text-slate-200">{ehEu ? 'Você' : msg.usuario_nome}</span>
                       {badgePerfil(msg.usuario_perfil)}
-                      <span className="text-slate-400 text-[9px]">{formatHoraChat(msg.created_at)}</span>
+                      <span className="text-slate-400 dark:text-slate-500 text-[9px]">{formatHoraChat(msg.created_at)}</span>
                     </div>
 
                     <div
                       className={`p-3 rounded-2xl text-xs leading-relaxed break-words shadow-2xs ${
                         ehEu
-                          ? 'bg-slate-900 text-white rounded-tr-xs'
-                          : 'bg-white border border-slate-200/90 text-slate-800 rounded-tl-xs'
+                          ? 'bg-slate-900 dark:bg-sky-600 text-white rounded-tr-xs'
+                          : 'bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-tl-xs'
                       }`}
                     >
                       {msg.conteudo}
@@ -184,27 +210,32 @@ export const ChatInterno: React.FC<ChatInternoProps> = ({ aberto, onFechar, usua
           <div ref={fimChatRef} />
         </div>
 
-        {/* Rodapé / Input de Envio */}
-        <form onSubmit={handleEnviar} className="p-3 border-t border-slate-200 bg-white flex items-center gap-2">
+        {/* Rodapé / Input de Envio com Safe Area para Mobile */}
+        <form 
+          onSubmit={handleEnviar} 
+          className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2 shrink-0"
+        >
           <input
+            ref={inputRef}
             type="text"
             required
             maxLength={1000}
             value={novoTexto}
             onChange={(e) => setNovoTexto(e.target.value)}
             placeholder="Mensagem para a equipe..."
-            className="flex-1 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-100/80 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-slate-400 transition-all"
+            className="flex-1 px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-100/80 focus:bg-white dark:focus:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-slate-400 dark:focus:ring-sky-500 transition-all"
           />
           <button
             type="submit"
             disabled={enviando || !novoTexto.trim()}
-            className="p-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center shrink-0"
+            className="p-2.5 bg-slate-900 dark:bg-sky-600 hover:bg-slate-800 dark:hover:bg-sky-500 disabled:opacity-40 text-white rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center shrink-0"
             title="Enviar mensagem"
           >
             {enviando ? <RefreshCw size={15} className="animate-spin" /> : <Send size={15} />}
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

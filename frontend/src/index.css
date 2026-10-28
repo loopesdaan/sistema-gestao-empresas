@@ -6,9 +6,142 @@
   body {
     @apply bg-slate-50 text-slate-900 transition-colors duration-150;
   }
-  html.dark body {
-    @apply bg-slate-950 text-slate-100;
-  }
+}
+
+/* ==========================================================================
+   TEMA DARK MODE GLOBAL
+   Permite que todos os módulos, cards, modais e tabelas adquiram contraste,
+   profundidade e legibilidade completa sem quebras de fundo claro.
+   ========================================================================== */
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body,
+html.dark #root,
+html.dark .min-h-screen {
+  background-color: #090d16 !important;
+  color: #f1f5f9 !important;
+}
+
+/* 1. Superfícies principais (Cards, Modais, Painéis que tinham bg-white) */
+html.dark .bg-white {
+  background-color: #0f172a !important; /* slate-900 */
+}
+
+/* 2. Fundos de página e blocos secundários (bg-slate-50, bg-slate-100) */
+html.dark .bg-slate-50,
+html.dark .bg-gray-50,
+html.dark .bg-slate-100,
+html.dark .bg-gray-100 {
+  background-color: #1e293b !important; /* slate-800 */
+}
+
+/* 3. Headers com transparência / blur */
+html.dark .bg-white\/95,
+html.dark .bg-white\/90,
+html.dark .bg-white\/80 {
+  background-color: rgba(15, 23, 42, 0.95) !important;
+}
+
+/* 4. Textos escuros para textos claros e legíveis */
+html.dark .text-slate-950,
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-gray-900,
+html.dark .text-gray-800 {
+  color: #f8fafc !important; /* slate-50 */
+}
+
+html.dark .text-slate-700,
+html.dark .text-gray-700 {
+  color: #e2e8f0 !important; /* slate-200 */
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500,
+html.dark .text-gray-600,
+html.dark .text-gray-500 {
+  color: #94a3b8 !important; /* slate-400 */
+}
+
+html.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* 5. Bordas */
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-300,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300 {
+  border-color: #1e293b !important; /* slate-800 */
+}
+
+html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b !important;
+}
+
+/* 6. Inputs, selects e textareas */
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* 7. Hover em linhas de tabelas e botões neutros */
+html.dark .hover\:bg-slate-50:hover,
+html.dark .hover\:bg-slate-100:hover,
+html.dark .hover\:bg-gray-50:hover,
+html.dark .hover\:bg-gray-100:hover {
+  background-color: #1e293b !important;
+}
+
+/* 8. Botões e banners em tons pastéis (como bg-sky-50, bg-amber-50, etc.) */
+html.dark .bg-sky-50,
+html.dark .bg-sky-50\/60,
+html.dark .bg-sky-50\/70,
+html.dark .bg-sky-50\/80 {
+  background-color: rgba(12, 74, 110, 0.35) !important;
+  border-color: rgba(3, 105, 161, 0.4) !important;
+}
+html.dark .bg-emerald-50,
+html.dark .bg-emerald-50\/60,
+html.dark .bg-emerald-50\/70,
+html.dark .bg-emerald-50\/80 {
+  background-color: rgba(6, 78, 59, 0.35) !important;
+  border-color: rgba(4, 120, 87, 0.4) !important;
+}
+html.dark .bg-amber-50,
+html.dark .bg-amber-50\/60,
+html.dark .bg-amber-50\/70,
+html.dark .bg-amber-50\/80 {
+  background-color: rgba(120, 53, 15, 0.35) !important;
+  border-color: rgba(180, 83, 9, 0.4) !important;
+}
+html.dark .bg-purple-50,
+html.dark .bg-purple-50\/60,
+html.dark .bg-purple-50\/70,
+html.dark .bg-purple-50\/80 {
+  background-color: rgba(88, 28, 135, 0.35) !important;
+  border-color: rgba(126, 34, 206, 0.4) !important;
+}
+html.dark .bg-rose-50,
+html.dark .bg-rose-50\/60,
+html.dark .bg-rose-50\/70,
+html.dark .bg-rose-50\/80 {
+  background-color: rgba(136, 19, 55, 0.35) !important;
+  border-color: rgba(190, 18, 60, 0.4) !important;
 }
 
 /* Custom scrollbars */
