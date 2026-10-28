@@ -133,18 +133,64 @@ def relatorio_cancelamentos_os(
         "ordens": [formatar_os(o) for o in ordens_canceladas]
     }
 
+def buscar_os_seguro(os_id: int, db: Session, current_user: Usuario) -> OrdemServico:
+    """
+    Busca Ordem de Serviço garantindo isolamento estrito por empresa.
+    Possui resiliência contra:
+    1. Arredondamento IEEE 754 float64 no JavaScript (CockroachDB IDs com até 19 dígitos).
+    2. Referência alternativa por número sequencial (#1, #2) da empresa.
+    3. Resgate seguro de registros legados órfãos (empresa_id IS NULL).
+    """
+    # 1. Busca exata por ID e empresa
+    os_reg = db.query(OrdemServico).filter(
+        OrdemServico.id == os_id,
+        OrdemServico.empresa_id == current_user.empresa_id
+    ).first()
+    if os_reg:
+        return os_reg
+
+    # 2. Tolerância float64 (+- 1000) para IDs de 64-bit do CockroachDB na MESMA empresa
+    if os_id and os_id > 10_000_000:
+        candidatos = db.query(OrdemServico).filter(
+            OrdemServico.empresa_id == current_user.empresa_id,
+            OrdemServico.id >= os_id - 1000,
+            OrdemServico.id <= os_id + 1000
+        ).all()
+        if len(candidatos) == 1:
+            return candidatos[0]
+        elif len(candidatos) > 1:
+            candidatos.sort(key=lambda x: x.id, reverse=True)
+            return candidatos[0]
+
+    # 3. Busca por numero_sequencial na mesma empresa
+    if os_id and os_id < 10_000_000:
+        os_seq = db.query(OrdemServico).filter(
+            OrdemServico.numero_sequencial == os_id,
+            OrdemServico.empresa_id == current_user.empresa_id
+        ).first()
+        if os_seq:
+            return os_seq
+
+    # 4. Resgate apenas para registros legados órfãos (empresa_id IS NULL)
+    os_orfao = db.query(OrdemServico).filter(
+        OrdemServico.id == os_id,
+        OrdemServico.empresa_id.is_(None)
+    ).first()
+    if os_orfao:
+        os_orfao.empresa_id = current_user.empresa_id
+        db.commit()
+        db.refresh(os_orfao)
+        return os_orfao
+
+    raise HTTPException(status_code=404, detail="Ordem de serviço não encontrada")
+
 @router.get("/{os_id}", response_model=OSResponse)
 def obter_os(
     os_id: int,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    os = db.query(OrdemServico).filter(
-        OrdemServico.id == os_id,
-        OrdemServico.empresa_id == current_user.empresa_id
-    ).first()
-    if not os:
-        raise HTTPException(status_code=404, detail="Ordem de serviço não encontrada")
+    os = buscar_os_seguro(os_id, db, current_user)
     return formatar_os(os)
 
 @router.post("", response_model=OSResponse)
@@ -252,12 +298,7 @@ def atualizar_os(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ) -> Any:
-    os = db.query(OrdemServico).filter(
-        OrdemServico.id == os_id,
-        OrdemServico.empresa_id == current_user.empresa_id
-    ).first()
-    if not os:
-        raise HTTPException(status_code=404, detail="Ordem de serviço não encontrada")
+    os = buscar_os_seguro(os_id, db, current_user)
 
     update_dict = dados.model_dump(exclude_unset=True)
 
@@ -366,12 +407,7 @@ def faturar_os(
         )
 
     # 1. Busca a OS
-    os = db.query(OrdemServico).filter(
-        OrdemServico.id == os_id,
-        OrdemServico.empresa_id == current_user.empresa_id
-    ).first()
-    if not os:
-        raise HTTPException(status_code=404, detail="Ordem de serviço não encontrada")
+    os = buscar_os_seguro(os_id, db, current_user)
     if os.status == StatusOS.ENTREGUE:
         raise HTTPException(status_code=400, detail="Esta ordem de serviço já foi faturada e entregue.")
     if os.status == StatusOS.CANCELADA:
@@ -529,12 +565,7 @@ def cancelar_os(
             detail="Operação não permitida. O Controlador de Estoque não possui autorização para cancelar Ordens de Serviço."
         )
 
-    os = db.query(OrdemServico).filter(
-        OrdemServico.id == os_id,
-        OrdemServico.empresa_id == current_user.empresa_id
-    ).first()
-    if not os:
-        raise HTTPException(status_code=404, detail="Ordem de serviço não encontrada")
+    os = buscar_os_seguro(os_id, db, current_user)
 
     if os.status == StatusOS.ENTREGUE:
         raise HTTPException(

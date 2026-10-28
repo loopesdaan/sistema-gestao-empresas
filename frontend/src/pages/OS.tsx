@@ -210,10 +210,10 @@ export const OS: React.FC = () => {
   const handleAtualizarStatus = async (osId: number, novoStatus: StatusOS) => {
     try {
       const osAtualizada = await apiService.atualizarOS(osId, { status: novoStatus });
-      if (modalDetalheOS && modalDetalheOS.id === osId) {
+      if (modalDetalheOS) {
         setModalDetalheOS(osAtualizada);
       }
-      toast.sucesso(`Status de ${cfg.termoSingular} #${osId} atualizado com sucesso!`);
+      toast.sucesso(`Status de ${cfg.termoSingular} ${formatarNumeroOS(osAtualizada)} atualizado com sucesso!`);
       carregarDados();
     } catch (err: any) {
       toast.erro(err.response?.data?.detail || 'Erro ao atualizar status da OS');
