@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { apiService } from '../services/api';
+import { apiService, resolveImageUrl } from '../services/api';
 import { Caixa as CaixaType, ResumoCaixa, Venda } from '../types';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { useToast } from '../contexts/ToastContext';
@@ -28,6 +28,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
   const [caixasFechados, setCaixasFechados] = useState<CaixaType[]>([]);
   const [buscaFechados, setBuscaFechados] = useState('');
   const [resumoInspecionado, setResumoInspecionado] = useState<ResumoCaixa | null>(null);
+  const [loadingInspecaoId, setLoadingInspecaoId] = useState<number | null>(null);
   const [monitorDados, setMonitorDados] = useState<any>(null);
   const [ticketsPendentes, setTicketsPendentes] = useState<any[]>([]);
 
@@ -176,11 +177,39 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
   };
 
   const handleInspecionarCaixa = async (caixaId: number) => {
+    if (!caixaId) return;
+    setLoadingInspecaoId(caixaId);
     try {
       const r = await apiService.getResumoCaixa(caixaId);
-      setResumoInspecionado(r);
+      if (!r) {
+        toast.erro('Não foi possível obter o resumo financeiro deste caixa.');
+        return;
+      }
+      // Normalização ultra-resiliente (trata tanto ResumoCaixa aninhado quanto Caixa plano)
+      const caixaObj: CaixaType = (r.caixa ? r.caixa : r) as CaixaType;
+      const resumoNormalizado: ResumoCaixa = {
+        caixa: caixaObj,
+        saldo_inicial: Number(r.saldo_inicial ?? caixaObj?.saldo_inicial ?? 0),
+        saldo_esperado_dinheiro: Number(
+          r.saldo_esperado_dinheiro ?? caixaObj?.saldo_final_calculado ?? caixaObj?.saldo_inicial ?? 0
+        ),
+        total_vendas_dinheiro: Number(r.total_vendas_dinheiro ?? 0),
+        total_vendas_pix: Number(r.total_vendas_pix ?? 0),
+        total_vendas_cartao_credito: Number(r.total_vendas_cartao_credito ?? 0),
+        total_vendas_cartao_debito: Number(r.total_vendas_cartao_debito ?? 0),
+        total_vendas_a_prazo: Number(r.total_vendas_a_prazo ?? 0),
+        total_suprimentos: Number(r.total_suprimentos ?? 0),
+        total_sangrias: Number(r.total_sangrias ?? 0),
+        diferenca: r.diferenca !== undefined 
+          ? Number(r.diferenca) 
+          : (caixaObj?.diferenca !== undefined ? Number(caixaObj.diferenca) : undefined),
+        quantidade_vendas: Number(r.quantidade_vendas ?? 0)
+      };
+      setResumoInspecionado(resumoNormalizado);
     } catch (err: any) {
-      toast.erro(err.response?.data?.detail || 'Erro ao inspecionar caixa do funcionário');
+      toast.erro(err.response?.data?.detail || 'Erro ao inspecionar resumo do caixa');
+    } finally {
+      setLoadingInspecaoId(null);
     }
   };
 
@@ -229,8 +258,23 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
     }
   };
 
-  const formatMoney = (val: number = 0) => {
-    return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatMoney = (val: any = 0) => {
+    const num = Number(val);
+    return (isNaN(num) ? 0 : num).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
+  const safeFormatDate = (dateVal?: string | Date | null, timeOnly: boolean = false) => {
+    if (!dateVal) return '-';
+    try {
+      const str = String(dateVal);
+      const d = new Date(str.includes('T') ? str : str.replace(' ', 'T'));
+      if (isNaN(d.getTime())) return '-';
+      return timeOnly
+        ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        : d.toLocaleString('pt-BR');
+    } catch {
+      return '-';
+    }
   };
 
   if (loading) {
@@ -344,7 +388,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                     <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100 my-2">
                       <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
                         {c.usuario_foto ? (
-                          <img src={c.usuario_foto} alt={c.usuario_nome} className="w-full h-full object-cover" />
+                          <img src={resolveImageUrl(c.usuario_foto)} alt={c.usuario_nome || 'Operador'} className="w-full h-full object-cover" />
                         ) : (
                           (c.usuario_nome || 'O').charAt(0).toUpperCase()
                         )}
@@ -362,7 +406,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
 
                     <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
                       <Clock size={12} />
-                      Aberto em {new Date(c.data_abertura).toLocaleString('pt-BR')}
+                      Aberto em {safeFormatDate(c.data_abertura)}
                     </p>
 
                     <div className="mt-3 pt-3 border-t border-slate-100 text-xs space-y-1">
@@ -375,10 +419,15 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
 
                   <div className="mt-4 pt-3 border-t border-slate-100">
                     <button
+                      disabled={loadingInspecaoId === c.id}
                       onClick={() => handleInspecionarCaixa(c.id)}
-                      className="w-full py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                      className="w-full py-2 bg-purple-50 hover:bg-purple-100 disabled:opacity-50 text-purple-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
                     >
-                      <Eye size={14} />
+                      {loadingInspecaoId === c.id ? (
+                        <RefreshCw size={14} className="animate-spin" />
+                      ) : (
+                        <Eye size={14} />
+                      )}
                       <span>Inspecionar Faturamento & Dinheiro</span>
                     </button>
                   </div>
@@ -507,16 +556,21 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
 
                       <div className="flex items-center justify-between gap-2 pt-1 text-[11px] text-slate-400">
                         <span className="truncate">
-                          {new Date(c.data_abertura).toLocaleDateString('pt-BR')} • {c.data_fechamento ? new Date(c.data_fechamento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Encerrado'}
+                          {safeFormatDate(c.data_abertura)} • {c.data_fechamento ? safeFormatDate(c.data_fechamento, true) : 'Encerrado'}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
+                            disabled={loadingInspecaoId === c.id}
                             onClick={() => handleInspecionarCaixa(c.id)}
-                            className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1"
+                            className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 text-indigo-700 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1"
                             title="Ver resumo financeiro"
                           >
-                            <Eye size={12} />
+                            {loadingInspecaoId === c.id ? (
+                              <RefreshCw size={12} className="animate-spin" />
+                            ) : (
+                              <Eye size={12} />
+                            )}
                             <span>Resumo</span>
                           </button>
                           <button
@@ -571,9 +625,9 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                             {c.usuario_nome || `Operador #${c.usuario_id}`}
                           </td>
                           <td className="py-3.5 px-4 text-slate-500">
-                            <div>{new Date(c.data_abertura).toLocaleString('pt-BR')}</div>
+                            <div>{safeFormatDate(c.data_abertura)}</div>
                             <div className="text-[10px] text-slate-400">
-                              até {c.data_fechamento ? new Date(c.data_fechamento).toLocaleString('pt-BR') : 'Fechamento'}
+                              até {c.data_fechamento ? safeFormatDate(c.data_fechamento) : 'Fechamento'}
                             </div>
                           </td>
                           <td className="py-3.5 px-4 text-right font-medium text-slate-600">
@@ -605,11 +659,16 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                           <td className="py-3.5 px-4 text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
+                                disabled={loadingInspecaoId === c.id}
                                 onClick={() => handleInspecionarCaixa(c.id)}
-                                className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1"
+                                className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 text-indigo-700 rounded-lg font-semibold text-xs transition-colors flex items-center gap-1"
                                 title="Ver resumo financeiro"
                               >
-                                <Eye size={12} />
+                                {loadingInspecaoId === c.id ? (
+                                  <RefreshCw size={12} className="animate-spin" />
+                                ) : (
+                                  <Eye size={12} />
+                                )}
                                 <span>Resumo</span>
                               </button>
                               <button
@@ -718,7 +777,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                       <div className="flex items-center gap-2.5 p-2 bg-slate-50 rounded-xl border border-slate-100 mb-2">
                         <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
                           {op.usuario_foto ? (
-                            <img src={op.usuario_foto} alt={op.usuario_nome} className="w-full h-full object-cover" />
+                            <img src={resolveImageUrl(op.usuario_foto)} alt={op.usuario_nome || 'Operador'} className="w-full h-full object-cover" />
                           ) : (
                             (op.usuario_nome || 'O').charAt(0).toUpperCase()
                           )}
@@ -761,10 +820,14 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
                       )}
 
                       <button
+                        disabled={loadingInspecaoId === op.caixa_id}
                         onClick={() => handleInspecionarCaixa(op.caixa_id)}
-                        className="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
+                        className="w-full py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded-lg transition-colors flex items-center justify-center gap-1"
                       >
-                        Inspecionar Detalhes
+                        {loadingInspecaoId === op.caixa_id ? (
+                          <RefreshCw size={12} className="animate-spin" />
+                        ) : null}
+                        <span>Inspecionar Detalhes</span>
                       </button>
                     </div>
                   );
@@ -1125,7 +1188,7 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
         </>
       )}
 
-      {/* Modal de Inspeção de Caixa (Admin) com Fechamento ao Clicar Fora */}
+      {/* Modal de Inspeção e Auditoria de Caixa com Fechamento ao Clicar Fora */}
       {resumoInspecionado && (
         <div 
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
@@ -1137,16 +1200,26 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-50 px-2 py-0.5 rounded">
-                  Auditoria de Operador
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 bg-purple-50 px-2 py-0.5 rounded">
+                    Auditoria de Caixa #{formatarNumeroCaixa(resumoInspecionado.caixa?.id)}
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    resumoInspecionado.caixa?.status === 'FECHADO' 
+                      ? 'bg-slate-100 text-slate-700 border border-slate-200' 
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {resumoInspecionado.caixa?.status === 'FECHADO' ? 'Fechado' : 'Aberto'}
+                  </span>
+                </div>
                 <h3 className="font-bold text-slate-800 text-lg mt-1">
-                  Caixa de {resumoInspecionado.caixa.usuario_nome || 'Operador'}
+                  Caixa de {resumoInspecionado.caixa?.usuario_nome || 'Operador'}
                 </h3>
               </div>
               <button
                 onClick={() => setResumoInspecionado(null)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                title="Fechar"
               >
                 <X size={20} />
               </button>
@@ -1155,72 +1228,177 @@ export const Caixa: React.FC<CaixaProps> = ({ isAdmin = false }) => {
             {/* Conta Proprietária do Caixa */}
             <div className="flex items-center gap-3 p-3 bg-purple-50/70 border border-purple-100 rounded-2xl">
               <div className="w-10 h-10 rounded-full bg-purple-200 text-purple-800 flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
-                {resumoInspecionado.caixa.usuario_foto ? (
-                  <img src={resumoInspecionado.caixa.usuario_foto} alt={resumoInspecionado.caixa.usuario_nome} className="w-full h-full object-cover" />
+                {resumoInspecionado.caixa?.usuario_foto ? (
+                  <img 
+                    src={resolveImageUrl(resumoInspecionado.caixa.usuario_foto)} 
+                    alt={resumoInspecionado.caixa?.usuario_nome || 'Operador'} 
+                    className="w-full h-full object-cover" 
+                  />
                 ) : (
-                  (resumoInspecionado.caixa.usuario_nome || 'O').charAt(0).toUpperCase()
+                  (resumoInspecionado.caixa?.usuario_nome || 'O').charAt(0).toUpperCase()
                 )}
               </div>
               <div className="min-w-0 flex-1">
                 <span className="text-[10px] uppercase font-bold text-purple-600 block">Conta Proprietária</span>
-                <p className="font-bold text-slate-900 text-sm truncate">{resumoInspecionado.caixa.usuario_nome || 'Operador'}</p>
-                {resumoInspecionado.caixa.usuario_email && (
+                <p className="font-bold text-slate-900 text-sm truncate">{resumoInspecionado.caixa?.usuario_nome || 'Operador'}</p>
+                {resumoInspecionado.caixa?.usuario_email && (
                   <p className="text-xs text-slate-500 truncate">{resumoInspecionado.caixa.usuario_email}</p>
                 )}
-                <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-slate-500">
                   <span className="font-bold text-purple-700">
-                    {resumoInspecionado.caixa.usuario_perfil === 'ADMIN' ? 'Administrador' : 'Operador de Caixa'}
+                    {resumoInspecionado.caixa?.usuario_perfil === 'ADMIN' ? 'Administrador' : 'Operador de Caixa'}
                   </span>
                   <span>•</span>
-                  <span>Aberto em {new Date(resumoInspecionado.caixa.data_abertura).toLocaleString('pt-BR')}</span>
+                  <span>Aberto em {safeFormatDate(resumoInspecionado.caixa?.data_abertura)}</span>
+                  {resumoInspecionado.caixa?.data_fechamento && (
+                    <>
+                      <span>•</span>
+                      <span>Fechado em {safeFormatDate(resumoInspecionado.caixa.data_fechamento)}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-900 text-white rounded-xl flex items-center justify-between">
-              <div>
-                <span className="text-xs text-slate-400 uppercase font-bold">Dinheiro em Gaveta Esperado</span>
-                <p className="text-2xl font-black text-emerald-400 mt-0.5">
-                  {formatMoney(resumoInspecionado.saldo_esperado_dinheiro)}
-                </p>
+            {/* Banner de Saldo e Fundo em Dinheiro */}
+            <div className="p-4 bg-slate-900 text-white rounded-2xl space-y-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">
+                    {resumoInspecionado.caixa?.status === 'FECHADO' 
+                      ? 'Saldo Calculado no Fechamento' 
+                      : 'Dinheiro em Gaveta Esperado'}
+                  </span>
+                  <p className="text-2xl font-black text-emerald-400 mt-0.5">
+                    {formatMoney(resumoInspecionado.saldo_esperado_dinheiro)}
+                  </p>
+                </div>
+                <div className="text-right text-xs text-slate-400">
+                  <span className="block text-[11px]">Fundo inicial:</span>
+                  <span className="font-bold text-white text-sm">{formatMoney(resumoInspecionado.saldo_inicial)}</span>
+                </div>
               </div>
-              <div className="text-right text-xs text-slate-400">
-                <span>Fundo inicial: </span>
-                <span className="font-bold text-white">{formatMoney(resumoInspecionado.saldo_inicial)}</span>
+
+              <div className="pt-2 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Suprimentos (+)</span>
+                  <p className="font-semibold text-emerald-300">+{formatMoney(resumoInspecionado.total_suprimentos)}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Sangrias (-)</span>
+                  <p className="font-semibold text-rose-300">-{formatMoney(resumoInspecionado.total_sangrias)}</p>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-slate-500">Vendas Dinheiro:</span>
-                <p className="font-bold text-slate-800 mt-0.5">{formatMoney(resumoInspecionado.total_vendas_dinheiro)}</p>
+            {/* Painel de Auditoria & Quebra para Caixas Fechados */}
+            {resumoInspecionado.caixa?.status === 'FECHADO' && (
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Saldo Calculado (Sistema):</span>
+                  <span className="font-semibold text-slate-700">{formatMoney(resumoInspecionado.saldo_esperado_dinheiro)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Saldo Declarado (Entregue):</span>
+                  <span className="font-black text-slate-900 text-sm">
+                    {formatMoney(resumoInspecionado.caixa.saldo_final_informado ?? resumoInspecionado.saldo_esperado_dinheiro)}
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between">
+                  <span className="text-slate-700 font-bold">Resultado da Auditoria:</span>
+                  {(() => {
+                    const dif = resumoInspecionado.diferenca !== undefined
+                      ? Number(resumoInspecionado.diferenca)
+                      : Number((
+                          Number(resumoInspecionado.caixa?.saldo_final_informado ?? 0) - 
+                          Number(resumoInspecionado.saldo_esperado_dinheiro ?? 0)
+                        ).toFixed(2));
+                    if (dif < -0.01) {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                          <AlertTriangle size={12} />
+                          Falta {formatMoney(Math.abs(dif))} (Quebra de Caixa)
+                        </span>
+                      );
+                    } else if (dif > 0.01) {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-700 border border-sky-200">
+                          Sobra +{formatMoney(dif)}
+                        </span>
+                      );
+                    } else {
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                          <CheckCircle2 size={12} />
+                          Bateu 100% Sem Quebra
+                        </span>
+                      );
+                    }
+                  })()}
+                </div>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-slate-500">Vendas PIX:</span>
-                <p className="font-bold text-sky-700 mt-0.5">{formatMoney(resumoInspecionado.total_vendas_pix)}</p>
+            )}
+
+            {/* Totalizadores por Forma de Pagamento */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                  Faturamento por Forma de Pagamento
+                </span>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {resumoInspecionado.quantidade_vendas ?? 0} {(resumoInspecionado.quantidade_vendas === 1) ? 'venda' : 'vendas'}
+                </span>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-slate-500">Cartões (Crédito/Débito):</span>
-                <p className="font-bold text-purple-700 mt-0.5">
-                  {formatMoney(resumoInspecionado.total_vendas_cartao_credito + resumoInspecionado.total_vendas_cartao_debito)}
-                </p>
-              </div>
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                <span className="text-slate-500">Vendas a Prazo (Crediário):</span>
-                <p className="font-bold text-amber-700 mt-0.5">{formatMoney(resumoInspecionado.total_vendas_a_prazo)}</p>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-slate-500 font-medium block">Vendas Dinheiro</span>
+                  <p className="font-bold text-slate-800 text-sm mt-0.5">{formatMoney(resumoInspecionado.total_vendas_dinheiro)}</p>
+                </div>
+                <div className="p-3 bg-sky-50/50 rounded-xl border border-sky-100">
+                  <span className="text-sky-700 font-medium block">Vendas PIX</span>
+                  <p className="font-bold text-sky-800 text-sm mt-0.5">{formatMoney(resumoInspecionado.total_vendas_pix)}</p>
+                </div>
+                <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-100">
+                  <span className="text-purple-700 font-medium block">Cartões (Crédito/Débito)</span>
+                  <p className="font-bold text-purple-800 text-sm mt-0.5">
+                    {formatMoney(
+                      Number(resumoInspecionado.total_vendas_cartao_credito || 0) + 
+                      Number(resumoInspecionado.total_vendas_cartao_debito || 0)
+                    )}
+                  </p>
+                </div>
+                <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-100">
+                  <span className="text-amber-700 font-medium block">A Prazo (Crediário)</span>
+                  <p className="font-bold text-amber-800 text-sm mt-0.5">{formatMoney(resumoInspecionado.total_vendas_a_prazo)}</p>
+                </div>
               </div>
             </div>
+
+            {/* Observações do Turno / Fechamento */}
+            {resumoInspecionado.caixa?.observacoes && (
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
+                <span className="font-bold text-slate-700 block text-[11px] uppercase tracking-wider">
+                  Observações do Turno
+                </span>
+                <p className="text-slate-600 whitespace-pre-wrap">{resumoInspecionado.caixa.observacoes}</p>
+              </div>
+            )}
 
             <div className="space-y-2 pt-2">
-              <button
-                onClick={() => handleAbrirComprovantesCaixa(resumoInspecionado.caixa.id)}
-                className={`w-full py-2.5 bg-gradient-to-r ${temaAtual.bgGradiente} hover:opacity-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all`}
-              >
-                <Receipt size={16} />
-                <span>Visualizar Comprovantes das Vendas Deste Caixa</span>
-              </button>
+              {resumoInspecionado.caixa?.id && (
+                <button
+                  type="button"
+                  onClick={() => handleAbrirComprovantesCaixa(resumoInspecionado.caixa.id)}
+                  className={`w-full py-2.5 bg-gradient-to-r ${temaAtual.bgGradiente} hover:opacity-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all`}
+                >
+                  <Receipt size={16} />
+                  <span>Visualizar Comprovantes das Vendas Deste Caixa</span>
+                </button>
+              )}
 
               <button
+                type="button"
                 onClick={() => setResumoInspecionado(null)}
                 className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
               >

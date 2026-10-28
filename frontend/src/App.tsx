@@ -24,6 +24,7 @@ import { Clock } from 'lucide-react';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { EmpresaProvider, useEmpresa } from './contexts/EmpresaContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Componente interno que usa os contextos
 const AppContent: React.FC = () => {
@@ -299,7 +300,9 @@ const AppContent: React.FC = () => {
         <div className="h-16 lg:hidden shrink-0" />
 
         <main className="flex-1 p-3 sm:p-6 max-w-7xl w-full mx-auto min-w-0">
-          {renderContent()}
+          <ErrorBoundary>
+            {renderContent()}
+          </ErrorBoundary>
         </main>
       </div>
 

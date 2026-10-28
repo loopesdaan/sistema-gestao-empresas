@@ -42,7 +42,7 @@ def serialize_caixa(caixa: Caixa, db: Optional[Session] = None) -> CaixaResponse
         id=caixa.id,
         empresa_id=caixa.empresa_id,
         usuario_id=caixa.usuario_id,
-        usuario_nome=usuario.nome if usuario else None,
+        usuario_nome=usuario.nome if usuario else (f"Operador #{caixa.usuario_id}" if caixa.usuario_id else "Operador"),
         usuario_email=usuario.email if usuario else None,
         usuario_perfil=usuario_perfil_str,
         usuario_foto=usuario.foto_url if usuario else None,
@@ -336,9 +336,9 @@ def obter_resumo(
         raise HTTPException(status_code=404, detail="Caixa não encontrado")
 
     # Operadores normais só podem ver seu próprio caixa, ou o caixa aberto compartilhado da loja
-    if current_user.perfil != PerfilUsuario.ADMIN and caixa.usuario_id != current_user.id:
+    if current_user.perfil not in [PerfilUsuario.ADMIN, PerfilUsuario.FINANCEIRO] and caixa.usuario_id != current_user.id:
         if caixa.empresa_id != current_user.empresa_id:
-            raise HTTPException(status_code=403, detail="Acesso restrito ao operador responsável ou administrador.")
+            raise HTTPException(status_code=403, detail="Acesso restrito ao operador responsável ou gestor.")
 
     return calcular_resumo_caixa(caixa, db)
 
