@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, DateTime, ForeignKey, Enum, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -16,9 +16,9 @@ class OrdemServico(Base):
     __tablename__ = "ordens_servico"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
-    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
-    cliente_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("clientes.id"), nullable=False)
-    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False, index=True)
+    cliente_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("clientes.id"), nullable=False, index=True)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False, index=True)
     numero_sequencial = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True, index=True)
     
     titulo = Column(String(200), nullable=False)
@@ -35,11 +35,18 @@ class OrdemServico(Base):
     data_finalizacao = Column(DateTime, nullable=True)
     motivo_cancelamento = Column(Text, nullable=True)
     data_cancelamento = Column(DateTime, nullable=True)
-    usuario_cancelamento_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=True)
+    usuario_cancelamento_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=True, index=True)
     foto_antes_url = Column(Text, nullable=True)
     foto_depois_url = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("idx_os_empresa_created", "empresa_id", "created_at"),
+        Index("idx_os_empresa_status", "empresa_id", "status"),
+        Index("idx_os_empresa_cliente", "empresa_id", "cliente_id"),
+        Index("idx_os_empresa_seq", "empresa_id", "numero_sequencial"),
+    )
 
     empresa = relationship("Empresa", back_populates="ordens_servico")
     cliente = relationship("Cliente", back_populates="ordens_servico")
@@ -51,11 +58,16 @@ class ItemOS(Base):
     __tablename__ = "itens_os"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
-    os_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("ordens_servico.id"), nullable=False)
-    produto_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("produtos.id"), nullable=False)
+    os_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("ordens_servico.id"), nullable=False, index=True)
+    produto_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("produtos.id"), nullable=False, index=True)
     quantidade = Column(Numeric(10, 2), default=1.00, nullable=False)
     valor_unitario = Column(Numeric(10, 2), nullable=False)
     subtotal = Column(Numeric(10, 2), nullable=False)
+
+    __table_args__ = (
+        Index("idx_itens_os_os_id", "os_id"),
+        Index("idx_itens_os_produto_id", "produto_id"),
+    )
 
     ordem_servico = relationship("OrdemServico", back_populates="itens")
     produto = relationship("Produto", back_populates="itens_os")

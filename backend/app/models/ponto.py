@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, BigInteger, String, Text, DateTime, ForeignKey, Enum, Boolean
+from sqlalchemy import Column, Integer, BigInteger, String, Text, DateTime, ForeignKey, Enum, Boolean, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -14,8 +14,8 @@ class RegistroPonto(Base):
     __tablename__ = "registros_ponto"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
-    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
-    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False, index=True)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False, index=True)
     data = Column(String(10), nullable=False, index=True)  # YYYY-MM-DD
     
     # 4 Batidas regulamentadas CLT
@@ -33,8 +33,13 @@ class RegistroPonto(Base):
     bloqueado_clt = Column(Boolean, default=False, nullable=False)
     observacoes = Column(Text, nullable=True)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("idx_ponto_empresa_data", "empresa_id", "data"),
+        Index("idx_ponto_usuario_data", "usuario_id", "data"),
+    )
 
     usuario = relationship("Usuario")
 
@@ -42,8 +47,8 @@ class ConfiguracaoPonto(Base):
     __tablename__ = "configuracoes_ponto"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
-    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
-    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=True)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False, index=True)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=True, index=True)
     perfil = Column(String(50), nullable=True) # PerfilUsuario: ADMIN, OPERADOR_CAIXA, ESTOQUISTA
     
     horario_entrada = Column(String(5), default="09:00", nullable=False)
@@ -61,6 +66,10 @@ class ConfiguracaoPonto(Base):
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("idx_config_ponto_empresa", "empresa_id"),
+    )
 
     usuario = relationship("Usuario")
 

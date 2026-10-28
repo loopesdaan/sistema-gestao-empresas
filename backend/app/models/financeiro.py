@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, DateTime, ForeignKey, Enum, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -27,18 +27,23 @@ class MovimentacaoTesouraria(Base):
     __tablename__ = "movimentacoes_tesouraria"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
-    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False)
-    cofre_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("cofres_centrais.id"), nullable=False)
-    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False)
-    caixa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("caixas.id"), nullable=True)
+    empresa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("empresas.id"), nullable=False, index=True)
+    cofre_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("cofres_centrais.id"), nullable=False, index=True)
+    usuario_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("usuarios.id"), nullable=False, index=True)
+    caixa_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey("caixas.id"), nullable=True, index=True)
     
-    tipo = Column(Enum(TipoMovimentacaoTesouraria), nullable=False)
+    tipo = Column(Enum(TipoMovimentacaoTesouraria), nullable=False, index=True)
     valor = Column(Numeric(12, 2), nullable=False)
     saldo_anterior = Column(Numeric(12, 2), default=0.00, nullable=False)
     saldo_posterior = Column(Numeric(12, 2), default=0.00, nullable=False)
     motivo = Column(String(255), nullable=True)
     comprovante_url = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+
+    __table_args__ = (
+        Index("idx_mov_tesouraria_empresa_created", "empresa_id", "created_at"),
+        Index("idx_mov_tesouraria_cofre", "cofre_id"),
+    )
 
     cofre = relationship("CofreCentral", back_populates="movimentacoes")
     usuario = relationship("Usuario")
