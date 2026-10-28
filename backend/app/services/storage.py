@@ -69,7 +69,8 @@ def upload_file_r2_or_local(
             if settings.CLOUDFLARE_R2_PUBLIC_URL:
                 url_publica = f"{settings.CLOUDFLARE_R2_PUBLIC_URL.rstrip('/')}/{filename}"
             else:
-                url_publica = f"{settings.CLOUDFLARE_R2_ENDPOINT_URL.rstrip('/')}/{settings.CLOUDFLARE_R2_BUCKET_NAME}/{filename}"
+                # Se não houver domínio público direto configurado, serve através do endpoint de proxy da API
+                url_publica = f"/api/v1/uploads/arquivo/{filename}"
 
             logger.info("Upload realizado com sucesso no Cloudflare R2: %s", url_publica)
             return url_publica, None
@@ -85,7 +86,5 @@ def upload_file_r2_or_local(
     base64_str = base64.b64encode(conteudo).decode("utf-8")
     data_uri = f"data:{mime};base64,{base64_str}"
 
-    is_prod = settings.ENVIRONMENT.lower() in ["production", "prod"]
-    url_final = data_uri if is_prod else f"/static/uploads/{filename}"
-
+    url_final = f"/api/v1/uploads/arquivo/{filename}"
     return url_final, data_uri

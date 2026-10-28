@@ -403,7 +403,10 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
     csv += `--- RANKING DE OPERADORES / VENDEDORES ---\r\n`;
     csv += `Posição;Operador;Perfil;Qtd Vendas;Faturamento (R$);Ticket Médio (R$);Participação (%)\r\n`;
     (dadosOLAP?.ranking_operadores || []).forEach(op => {
-      csv += `${op.posicao};${op.nome_operador};${op.perfil};${op.quantidade_vendas};${op.faturamento.toFixed(2).replace('.', ',')};${op.ticket_medio.toFixed(2).replace('.', ',')};${op.participacao_percentual.toFixed(1).replace('.', ',')}%\r\n`;
+      const fat = (Number(op.faturamento) || 0).toFixed(2).replace('.', ',');
+      const tkt = (Number(op.ticket_medio) || 0).toFixed(2).replace('.', ',');
+      const part = (Number(op.participacao_percentual) || 0).toFixed(1).replace('.', ',');
+      csv += `${op.posicao};${op.nome_operador};${op.perfil};${op.quantidade_vendas};${fat};${tkt};${part}%\r\n`;
     });
     csv += `\r\n`;
 
@@ -411,7 +414,9 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ isAdmin = false, usuario
     csv += `--- PRODUTOS MOTORES DA PREVISÃO PREDITIVA ---\r\n`;
     csv += `Produto;Unidades Vendidas;Giro Diário (un/dia);Receita Diária (R$/dia);Estoque Atual;Dias Cobertura;Risco Ruptura\r\n`;
     (dadosOLAP?.previsao_faturamento.produtos_motores || []).forEach(p => {
-      csv += `${p.nome};${p.unidades_vendidas};${p.taxa_giro_diaria.toFixed(2).replace('.', ',')};${p.receita_diaria.toFixed(2).replace('.', ',')};${p.estoque_atual};${p.dias_estoque_estimados};${p.risco_ruptura}\r\n`;
+      const giro = (Number(p.taxa_giro_diaria) || 0).toFixed(2).replace('.', ',');
+      const rec = (Number(p.receita_diaria) || 0).toFixed(2).replace('.', ',');
+      csv += `${p.nome};${p.unidades_vendidas};${giro};${rec};${p.estoque_atual};${p.dias_estoque_estimados};${p.risco_ruptura}\r\n`;
     });
     csv += `\r\n`;
 

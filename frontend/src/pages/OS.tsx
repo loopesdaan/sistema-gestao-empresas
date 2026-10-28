@@ -6,7 +6,7 @@ import { ComprovanteDigitalModal } from '../components/ComprovanteDigitalModal';
 import { useToast } from '../contexts/ToastContext';
 import { useEmpresa } from '../contexts/EmpresaContext';
 import { getOSConfig } from '../utils/segmentoOS';
-import { formatarNumeroOS, formatarNumeroVenda, formatDateSafe } from '../utils/formatters';
+import { formatarNumeroOS, formatarNumeroVenda, formatDateSafe, abrirImagemOriginal } from '../utils/formatters';
 import { 
   Wrench, Plus, Search, Clock, CheckCircle2, 
   AlertCircle, ChevronRight, User, Calendar, Edit, Package,
@@ -1786,15 +1786,15 @@ export const OS: React.FC = () => {
                 <h3 className="font-bold text-slate-900 text-sm sm:text-base">Foto da Ordem de Serviço (Cloudflare R2)</h3>
               </div>
               <div className="flex items-center gap-2">
-                <a
-                  href={previewFotoModal}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-1 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-lg flex items-center gap-1 border border-sky-200"
+                <button
+                  type="button"
+                  onClick={() => abrirImagemOriginal(previewFotoModal)}
+                  className="px-2.5 py-1 text-xs font-semibold text-sky-700 bg-sky-50 hover:bg-sky-100 rounded-lg flex items-center gap-1 border border-sky-200 transition-colors"
+                  title="Abrir foto original em nova aba"
                 >
                   <ExternalLink size={13} />
                   <span>Abrir Original</span>
-                </a>
+                </button>
                 <button 
                   type="button" 
                   onClick={() => setPreviewFotoModal(null)}
